@@ -1,0 +1,121 @@
+<?php
+namespace BeepBeep_Titles;
+
+class Admin {
+
+    public function __construct( private readonly Plugin $plugin ) {}
+
+    public function init(): void {
+        add_action( 'admin_menu',             [ $this, 'register_menus' ] );
+        add_action( 'admin_enqueue_scripts',  [ $this, 'enqueue_assets' ] );
+        add_action( 'admin_head',             [ $this, 'inject_head_styles' ] );
+    }
+
+    // ----------------------------------------------------------------
+    // Menu
+    // ----------------------------------------------------------------
+
+    public function register_menus(): void {
+        add_menu_page(
+            __( 'BeepBeep Titles', 'beepbeep-titles' ),
+            __( 'BB Titles', 'beepbeep-titles' ),
+            'edit_posts',
+            BBT_SLUG,
+            [ $this, 'render_page' ],
+            $this->get_menu_icon(),
+            30
+        );
+    }
+
+    public function render_page(): void {
+        // The React app mounts here. Negative margin compensates for WP's
+        // default .wrap padding so our full-bleed chrome looks correct.
+        echo '<div id="bbt-root" style="margin:-8px -20px 0;min-height:calc(100vh - 32px);"></div>';
+    }
+
+    // ----------------------------------------------------------------
+    // Assets
+    // ----------------------------------------------------------------
+
+    public function enqueue_assets( string $hook ): void {
+        if ( $hook !== 'toplevel_page_' . BBT_SLUG ) {
+            return;
+        }
+
+        // Google Fonts — Geist (sans + mono). Loaded here so it works
+        // inside wp-admin without a separate <head> injection.
+        wp_enqueue_style(
+            'beepbeep-titles-fonts',
+            'https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap',
+            [],
+            null
+        );
+
+        $asset_file = BBT_DIR . 'build/index.asset.php';
+        $asset      = file_exists( $asset_file )
+            ? require $asset_file
+            : [ 'dependencies' => [], 'version' => BBT_VERSION ];
+
+        wp_enqueue_style(
+            'beepbeep-titles',
+            BBT_URL . 'build/index.css',
+            [ 'beepbeep-titles-fonts' ],
+            $asset['version']
+        );
+
+        wp_enqueue_script(
+            'beepbeep-titles',
+            BBT_URL . 'build/index.js',
+            $asset['dependencies'],
+            $asset['version'],
+            true
+        );
+
+        // Localize initial state so the React app can hydrate immediately
+        // without a round-trip network request.
+        $user_id = get_current_user_id();
+        wp_localize_script( 'beepbeep-titles', 'bbtData', [
+            'nonce'    => wp_create_nonce( 'wp_rest' ),
+            'apiBase'  => get_rest_url( null, 'beepbeep-titles/v1' ),
+            'siteUrl'  => get_site_url(),
+            'user'     => [
+                'id'    => $user_id,
+                'name'  => wp_get_current_user()->display_name,
+                'email' => wp_get_current_user()->user_email,
+            ],
+            'quota'    => $this->plugin->get_quota( $user_id ),
+            'settings' => get_option( 'bbt_settings', [] ),
+            'version'  => BBT_VERSION,
+        ] );
+    }
+
+    // ----------------------------------------------------------------
+    // Head styles — override WP admin defaults on our page only.
+    // ----------------------------------------------------------------
+
+    public function inject_head_styles(): void {
+        $screen = get_current_screen();
+        if ( ! $screen || $screen->id !== 'toplevel_page_' . BBT_SLUG ) {
+            return;
+        }
+        ?>
+        <style>
+            /* Let our app control its own background + spacing */
+            #wpwrap, #wpcontent { background: #F6F8FB; }
+            #wpbody-content .wrap { margin: 0; padding: 0; }
+            #bbt-root { font-family: "Geist", "Helvetica Neue", system-ui, sans-serif; }
+            /* Keep WP admin bar + sidebar unchanged */
+        </style>
+        <?php
+    }
+
+    // ----------------------------------------------------------------
+    // Helpers
+    // ----------------------------------------------------------------
+
+    private function get_menu_icon(): string {
+        // Inline SVG data URI — BeepBeep lightning bolt logo.
+        $svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/></svg>';
+        return 'data:image/svg+xml;base64,' . base64_encode( $svg );
+    }
+}

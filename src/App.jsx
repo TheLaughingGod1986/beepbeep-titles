@@ -6,7 +6,8 @@ import { AutopilotScreen } from './screens/Autopilot';
 import { SettingsScreen } from './screens/Settings';
 import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal } from './modals/index';
 import { SignOutConfirm } from './auth';
-import { getInitialData, fetchQuota, fetchPages, generatePages, runScan, fetchSettings } from './api';
+import { getInitialData, fetchQuota, fetchPages, runScan, normalizeQuota } from './api';
+import { paywallTrigger, errorToast } from './errors';
 
 export default function App() {
     const initial = getInitialData();
@@ -18,8 +19,9 @@ export default function App() {
     const [stats, setStats]   = useState( null );
     const [queuePages, setQueuePages] = useState( [] );
     const [autoOptimise, setAutoOptimise] = useState( initial.settings?.auto_generate ?? false );
+    const [connected, setConnected] = useState( initial.connected );
 
-    const [paywall, setPaywall]       = useState( { open: false, trigger: 'default' } );
+    const [paywall, setPaywall]       = useState( { open: false, trigger: 'default', entitlement: null } );
     const [drawer, setDrawer]         = useState( { open: false, pages: null } );
     const [toast, setToast]           = useState( null );
     const [onboardingOpen, setOnboardingOpen] = useState( false );
@@ -29,15 +31,14 @@ export default function App() {
     const plan = quota?.plan || 'free';
     const dailyRemaining = quota?.daily_remaining ?? ( ( quota?.daily_limit || 5 ) - ( quota?.daily_used || 0 ) );
 
-    // Bootstrap: refresh quota + load queue pages on mount
+    // Bootstrap: refresh quota + load queue/stats on mount.
     useEffect( () => {
         refreshQuota();
         loadQueuePages();
         loadStats();
-
-        // Show onboarding on first visit
-        if ( initial.settings?.show_onboarding ) {
-            setOnboardingOpen( true );
+        if ( ! initial.connected ) {
+            // No license yet — nudge the user toward Settings, but don't block.
+            setToast( { message: 'Connect your BeepBeep license', sub: 'Add your license key in Settings to start generating.', icon: 'info', tone: 'warn' } );
         }
     }, [] );
 
@@ -45,18 +46,21 @@ export default function App() {
         try {
             const q = await fetchQuota();
             setQuota( q );
+            setConnected( !! q.connected );
         } catch ( e ) {}
+    };
+
+    // Push fresh entitlement_state (from a /generate response) into quota.
+    const applyEntitlement = ( ent ) => {
+        if ( ent ) {
+            setQuota( normalizeQuota( ent ) );
+        }
     };
 
     const loadQueuePages = async () => {
         try {
             const res = await fetchPages( { filter: 'needs', perPage: 5 } );
-            const pages = res.pages || res || [];
-            setQueuePages( pages.map( ( p, i ) => ( {
-                ...p,
-                hue: [220, 145, 30, 280, 60][i % 5],
-                section: p.section || p.type || 'Page',
-            } ) ) );
+            setQueuePages( res.pages || [] );
         } catch ( e ) {
             setQueuePages( [] );
         }
@@ -64,65 +68,67 @@ export default function App() {
 
     const loadStats = async () => {
         try {
-            const res = await fetchPages( { filter: 'all', perPage: 1 } );
-            const totalRes = await fetchPages( { filter: 'needs', perPage: 1 } );
+            const res = await fetchPages( { filter: 'needs', perPage: 1 } );
+            const s   = res.stats || {};
             setStats( {
-                total: res.total || 0,
-                optimised: res.total_optimised || 0,
-                needs_attention: totalRes.total || 0,
+                total:               s.total     || 0,
+                optimised:           s.optimised || 0,
+                needs_attention:     s.remaining || res.total || 0,
                 new_since_last_visit: 0,
-                streak: 0,
+                streak:              0,
             } );
         } catch ( e ) {
             setStats( { total: 0, optimised: 0, needs_attention: 0, new_since_last_visit: 0, streak: 0 } );
         }
     };
 
+    // ── Error → paywall / toast ──
+    const handleApiError = ( err ) => {
+        if ( err?.name === 'AbortError' ) return;
+        const trigger = paywallTrigger( err );
+        if ( trigger ) {
+            setPaywall( { open: true, trigger, entitlement: err.entitlement_state || null } );
+            return;
+        }
+        if ( err?.code === 'INVALID_LICENSE' ) {
+            setTab( 'settings' );
+        }
+        setToast( errorToast( err ) );
+    };
+
     // ── Open generation drawer ──
     const openGen = () => {
         if ( plan === 'free' && dailyRemaining <= 0 ) {
-            setPaywall( { open: true, trigger: 'daily-limit' } );
+            setPaywall( { open: true, trigger: 'daily-limit', entitlement: quota } );
             return;
         }
-        const count = plan === 'pro' ? Math.min( queuePages.length, 10 ) : Math.min( dailyRemaining, 5 );
+        const cap   = plan === 'pro' ? 10 : Math.min( dailyRemaining, 5 );
+        const count = Math.min( cap, queuePages.length );
+        if ( count <= 0 ) return;
         setDrawer( { open: true, pages: queuePages.slice( 0, count ) } );
     };
 
     const openGenSingle = ( pg ) => {
         if ( plan === 'free' && dailyRemaining <= 0 ) {
-            setPaywall( { open: true, trigger: 'daily-limit' } );
+            setPaywall( { open: true, trigger: 'daily-limit', entitlement: quota } );
             return;
         }
-        setDrawer( { open: true, pages: [{ ...pg, hue: pg.hue ?? 220 }] } );
+        setDrawer( { open: true, pages: [ { ...pg, hue: pg.hue ?? 220 } ] } );
     };
 
-    const openBulk = ( ids ) => {
-        if ( plan === 'free' && ids.length > dailyRemaining ) {
-            setPaywall( { open: true, trigger: 'bulk' } );
+    const openBulk = ( pages ) => {
+        if ( plan === 'free' && pages.length > dailyRemaining ) {
+            setPaywall( { open: true, trigger: 'bulk', entitlement: quota } );
             return;
         }
-        // Resolve page objects from IDs
-        const pages = ids.map( ( id, i ) => ( {
-            id,
-            url: `/page-${id}`,
-            section: ['Blog', 'Shop', 'Pages', 'Reviews'][i % 4],
-            hue: ( i * 70 ) % 360,
-        } ) );
+        if ( ! pages.length ) return;
         setDrawer( { open: true, pages } );
-    };
-
-    const handleGenerate = async ( pageIds ) => {
-        const result = await generatePages( pageIds );
-        await refreshQuota();
-        await loadQueuePages();
-        await loadStats();
-        return result;
     };
 
     const completeGen = () => {
         const n = drawer.pages?.length || 0;
         setDrawer( { open: false, pages: null } );
-        setToast( { message: `${n} page${n === 1 ? '' : 's'} improved`, sub: 'Title & meta descriptions are live in your site.', icon: 'sparkles', tone: 'ok' } );
+        setToast( { message: `${ n } page${ n === 1 ? '' : 's' } improved`, sub: 'Title & meta descriptions are live in your site.', icon: 'sparkles', tone: 'ok' } );
         loadQueuePages();
         loadStats();
         refreshQuota();
@@ -130,7 +136,7 @@ export default function App() {
 
     const handleAutoToggle = ( val ) => {
         if ( plan === 'free' ) {
-            setPaywall( { open: true, trigger: 'auto-feature' } );
+            setPaywall( { open: true, trigger: 'auto-feature', entitlement: quota } );
             return;
         }
         setAutoOptimise( val );
@@ -138,8 +144,7 @@ export default function App() {
     };
 
     const handleUpgrade = () => {
-        setPaywall( { open: false, trigger: 'default' } );
-        // In production this would redirect to a billing page or trigger payment
+        setPaywall( { open: false, trigger: 'default', entitlement: null } );
         setToast( { message: 'Upgrade flow coming soon', sub: 'Contact support to upgrade to Pro.', icon: 'crown', tone: 'ok' } );
     };
 
@@ -166,7 +171,7 @@ export default function App() {
                     autoOptimise={autoOptimise}
                     onAutoToggle={handleAutoToggle}
                     onGenerate={openGen}
-                    onUpgrade={() => setPaywall( { open: true, trigger: 'default' } )}
+                    onUpgrade={() => setPaywall( { open: true, trigger: 'default', entitlement: null } )}
                     onView={setTab}
                 />
             );
@@ -178,7 +183,7 @@ export default function App() {
                     quota={quota}
                     onGenerate={openGenSingle}
                     onBulkGenerate={openBulk}
-                    onUpgrade={() => setPaywall( { open: true, trigger: 'bulk' } )}
+                    onUpgrade={() => setPaywall( { open: true, trigger: 'bulk', entitlement: quota } )}
                 />
             );
             break;
@@ -189,7 +194,7 @@ export default function App() {
                     settings={settings}
                     autoOptimise={autoOptimise}
                     onAutoToggle={handleAutoToggle}
-                    onUpgrade={() => setPaywall( { open: true, trigger: 'auto-feature' } )}
+                    onUpgrade={() => setPaywall( { open: true, trigger: 'auto-feature', entitlement: quota } )}
                     onToast={setToast}
                 />
             );
@@ -201,8 +206,10 @@ export default function App() {
                     quota={quota}
                     user={user}
                     settings={settings}
-                    onUpgrade={() => setPaywall( { open: true, trigger: 'default' } )}
+                    connected={connected}
+                    onUpgrade={() => setPaywall( { open: true, trigger: 'default', entitlement: null } )}
                     onToast={setToast}
+                    onConnect={refreshQuota}
                 />
             );
             break;
@@ -217,7 +224,7 @@ export default function App() {
                 user={user}
                 onSignOut={() => setSignOutOpen( true )}
                 onHelp={() => setHelpOpen( true )}
-                onUpgrade={() => setPaywall( { open: true, trigger: 'default' } )}
+                onUpgrade={() => setPaywall( { open: true, trigger: 'default', entitlement: null } )}
             >
                 {body}
             </WPChrome>
@@ -240,13 +247,17 @@ export default function App() {
                 plan={plan}
                 onClose={() => setDrawer( { open: false, pages: null } )}
                 onComplete={completeGen}
-                onGenerate={handleGenerate}
+                onPaywall={( trigger, entitlement ) => setPaywall( { open: true, trigger, entitlement } )}
+                onApiError={handleApiError}
+                onEntitlement={applyEntitlement}
+                onToast={setToast}
             />
 
             <Paywall
                 open={paywall.open}
                 trigger={paywall.trigger}
-                onClose={() => setPaywall( { open: false, trigger: 'default' } )}
+                entitlement={paywall.entitlement}
+                onClose={() => setPaywall( { open: false, trigger: 'default', entitlement: null } )}
                 onUpgrade={handleUpgrade}
             />
 

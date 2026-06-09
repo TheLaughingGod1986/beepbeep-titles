@@ -1,6 +1,9 @@
 <?php
 namespace BeepBeep_Titles;
 
+use BeepBeep_Titles\Api\Client;
+use BeepBeep_Titles\Seo\MetaWriter;
+
 class Admin {
 
     public function __construct( private readonly Plugin $plugin ) {}
@@ -18,7 +21,7 @@ class Admin {
     public function register_menus(): void {
         add_menu_page(
             __( 'BeepBeep Titles', 'beepbeep-titles' ),
-            __( 'BB Titles', 'beepbeep-titles' ),
+            __( 'BB Title & Meta Description', 'beepbeep-titles' ),
             'edit_posts',
             BBT_SLUG,
             [ $this, 'render_page' ],
@@ -71,21 +74,29 @@ class Admin {
             true
         );
 
-        // Localize initial state so the React app can hydrate immediately
-        // without a round-trip network request.
-        $user_id = get_current_user_id();
+        // Localize initial state so the React app can hydrate immediately.
+        // Quota is backend-owned and fetched on mount via /quota — we only
+        // seed identity, settings, and the license-connected flag here.
+        global $wp_version;
+        $user_id  = get_current_user_id();
+        $settings = get_option( 'bbt_settings', [] );
+        $settings = is_array( $settings ) ? $settings : [];
+
         wp_localize_script( 'beepbeep-titles', 'bbtData', [
-            'nonce'    => wp_create_nonce( 'wp_rest' ),
-            'apiBase'  => get_rest_url( null, 'beepbeep-titles/v1' ),
-            'siteUrl'  => get_site_url(),
-            'user'     => [
+            'nonce'      => wp_create_nonce( 'wp_rest' ),
+            'apiBase'    => get_rest_url( null, 'beepbeep-titles/v1' ),
+            'siteUrl'    => get_site_url(),
+            'user'       => [
                 'id'    => $user_id,
                 'name'  => wp_get_current_user()->display_name,
                 'email' => wp_get_current_user()->user_email,
             ],
-            'quota'    => $this->plugin->get_quota( $user_id ),
-            'settings' => get_option( 'bbt_settings', [] ),
-            'version'  => BBT_VERSION,
+            'connected'  => ( new Client() )->has_license(),
+            'seoPlugin'  => MetaWriter::active(),
+            'settings'   => $settings,
+            'wpVersion'  => (string) $wp_version,
+            'phpVersion' => PHP_VERSION,
+            'version'    => BBT_VERSION,
         ] );
     }
 

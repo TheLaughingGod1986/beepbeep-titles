@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Icon, Card, Pill, Button, Progress, KBD } from '../components';
+import { generateSingle, submitJob, updatePage } from '../api';
+import { pollUntilComplete } from '../jobs';
+import { isPaywall, errorToast } from '../errors';
 
 /* ── Modal shell ───────────────────────────────────────────────────── */
 export const Modal = ({ open, onClose, children, width = 560, dismissable = true }) => {
@@ -30,6 +33,7 @@ export const Onboarding = ({ open, onClose, onComplete, onScan }) => {
     const [scanProgress, setScanProgress] = useState( 0 );
     const [scanned, setScanned] = useState( false );
     const [scanStats, setScanStats] = useState( { total: 0, missingTitle: 0, missingMeta: 0 } );
+    const [showFasterOptions, setShowFasterOptions] = useState( false );
 
     useEffect( () => {
         if ( step === 1 && !scanned ) {
@@ -153,7 +157,7 @@ export const Onboarding = ({ open, onClose, onComplete, onScan }) => {
                     <p style={{ fontSize: 14, color: 'var(--text-2)', margin: '0 0 18px', lineHeight: 1.55 }}>
                         We'll guide you through them gradually — no rush.
                     </p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '14px 16px', background: 'var(--surface-2)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', marginBottom: 20 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '14px 16px', background: 'var(--surface-2)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', marginBottom: 16 }}>
                         {['5 pages per day included free', 'Builds steady SEO coverage', 'You can change settings anytime'].map( ( t, i ) => (
                             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text)' }}>
                                 <Icon name="check" size={13} strokeWidth={2.4} style={{ color: 'var(--ok-ink)', flexShrink: 0 }}/>
@@ -161,7 +165,30 @@ export const Onboarding = ({ open, onClose, onComplete, onScan }) => {
                             </div>
                         ) )}
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <div style={{ marginBottom: 4 }}>
+                        <button
+                            onClick={() => setShowFasterOptions( v => !v )}
+                            aria-expanded={showFasterOptions}
+                            style={{ background: 'transparent', border: 'none', padding: 0, fontSize: 12.5, color: 'var(--text-3)', fontWeight: 500, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            {showFasterOptions ? 'Hide faster options' : 'See faster options'}
+                            <Icon name={showFasterOptions ? 'chevron-down' : 'chevron-right'} size={12}/>
+                        </button>
+                        {showFasterOptions && (
+                            <div className="fade-in" style={{ marginTop: 10, padding: '12px 14px', background: 'var(--surface)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Bulk catch-up</div>
+                                    <div style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.45 }}>Optimise your entire site in one pass with Pro, then let Autopilot handle new pages.</div>
+                                </div>
+                                <div style={{ height: 1, background: 'var(--hairline)' }}/>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Monitor only</div>
+                                    <div style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.45 }}>Just track SEO health and generate manually when you want to.</div>
+                                </div>
+                                <div style={{ fontSize: 11.5, color: 'var(--text-3)', marginTop: 2 }}>You can switch to either of these later from Settings.</div>
+                            </div>
+                        )}
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 20 }}>
                         <Button variant="ghost" size="md" onClick={() => setStep( 1 )}>Back</Button>
                         <Button variant="primary" size="md" iconRight="arrow-right" onClick={onComplete}>Open dashboard</Button>
                     </div>
@@ -203,81 +230,92 @@ const useRotatingPhrase = ( phrases, intervalMs = 1100, active = true ) => {
     return phrases[i];
 };
 
-const TITLE_VARIANTS = [
-    '{Section} — {Brand} | Page SEO',
-    '{Section} at {Brand}: Optimised for Search',
-    '{Brand} {Section} — Updated for {Year}',
-    '{Section} | {Brand}',
-];
-const META_VARIANTS = [
-    'Discover everything about {section} on {brand}. Updated content, curated information.',
-    'Your guide to {section}. Read more on {brand} — the trusted source for this topic.',
-    'Expert {section} content from {brand}. Practical, accurate, and regularly updated.',
-    'Everything you need to know about {section}. Trusted by readers of {brand}.',
-];
+/**
+ * Build a drawer result row from a poll item, enriching display fields from
+ * the originally-submitted page when the backend item omits them.
+ */
+const itemToResult = ( item, pageById ) => {
+    const postId = item.wp_post_id ?? ( /^\d+$/.test( String( item.id ) ) ? Number( item.id ) : null );
+    const page   = postId != null ? pageById.get( postId ) : null;
+    return {
+        key:       postId ?? item.id ?? Math.random().toString( 36 ).slice( 2 ),
+        postId,
+        url:       item.url ?? page?.url ?? '',
+        section:   item.section ?? page?.section ?? 'Page',
+        hue:       page?.hue ?? ( ( ( postId || 0 ) * 47 ) % 360 ),
+        status:    item.status === 'failed' ? 'failed' : 'completed',
+        title:     item.title ?? '',
+        meta:      item.meta ?? '',
+        error:     item.error ?? '',
+        errorCode: item.errorCode ?? '',
+    };
+};
 
-export const GenerationDrawer = ({ open, onClose, pages, onComplete, plan, onGenerate }) => {
-    const [idx, setIdx] = useState( 0 );
-    const [phase, setPhase] = useState( 'idle' );
+export const GenerationDrawer = ({ open, pages, plan, onClose, onComplete, onPaywall, onApiError, onEntitlement, onToast }) => {
+    const [phase, setPhase]     = useState( 'idle' ); // idle | thinking | done
     const [results, setResults] = useState( [] );
 
     useEffect( () => {
-        if ( !open ) { setIdx( 0 ); setPhase( 'idle' ); setResults( [] ); return; }
+        if ( !open ) { setPhase( 'idle' ); setResults( [] ); return; }
         if ( !pages || pages.length === 0 ) return;
 
-        setPhase( 'thinking' );
-        let cancelled = false;
+        const controller = new AbortController();
+        const pageById   = new Map( pages.map( p => [ p.id, p ] ) );
+        const pushResult = ( r ) => setResults( prev => {
+            if ( prev.some( x => x.key === r.key ) ) return prev;
+            return [ ...prev, r ];
+        } );
 
-        const runGeneration = async () => {
-            const pageIds = pages.map( p => p.id );
+        const run = async () => {
+            setPhase( 'thinking' );
+            setResults( [] );
+
             try {
-                const apiResults = onGenerate ? await onGenerate( pageIds ) : null;
-                if ( cancelled ) return;
-
-                // Reveal results one by one for progressive display
-                for ( let i = 0; i < pages.length; i++ ) {
-                    if ( cancelled ) return;
-                    const pg = pages[i];
-                    const apiResult = apiResults?.results?.find( r => r.id === pg.id );
-                    setResults( r => [...r, {
-                        id: pg.id,
-                        url: pg.url,
-                        section: pg.section,
-                        hue: pg.hue ?? 220,
-                        title: apiResult?.seo_title || pg.seoTitle || '',
-                        meta: apiResult?.meta_desc || pg.metaDesc || '',
-                    }] );
-                    setIdx( i + 1 );
-                    if ( i < pages.length - 1 ) {
-                        await new Promise( resolve => setTimeout( resolve, 600 ) );
-                    }
+                if ( pages.length === 1 ) {
+                    // ── Single page → /generate ──
+                    const pg  = pages[0];
+                    const res = await generateSingle( { postId: pg.id } );
+                    if ( controller.signal.aborted ) return;
+                    pushResult( {
+                        key: pg.id, postId: pg.id, url: pg.url, section: pg.section,
+                        hue: pg.hue ?? 220, status: 'completed',
+                        title: res.title ?? '', meta: res.meta ?? '',
+                    } );
+                    onEntitlement?.( res.entitlement_state );
+                } else {
+                    // ── Bulk → /jobs + poll ──
+                    const job = await submitJob( pages.map( p => p.id ) );
+                    if ( controller.signal.aborted ) return;
+                    await pollUntilComplete( job.jobId, {
+                        signal: controller.signal,
+                        onItem: ( item ) => pushResult( itemToResult( item, pageById ) ),
+                    } );
                 }
-                if ( !cancelled ) setPhase( 'done' );
+                if ( !controller.signal.aborted ) setPhase( 'done' );
             } catch ( err ) {
-                if ( cancelled ) return;
-                // Show mock results on error
-                for ( let i = 0; i < pages.length; i++ ) {
-                    if ( cancelled ) return;
-                    const pg = pages[i];
-                    setResults( r => [...r, {
-                        id: pg.id,
-                        url: pg.url,
-                        section: pg.section,
-                        hue: pg.hue ?? 220,
-                        title: pg.seoTitle || '',
-                        meta: pg.metaDesc || '',
-                    }] );
-                    setIdx( i + 1 );
-                    if ( i < pages.length - 1 ) {
-                        await new Promise( resolve => setTimeout( resolve, 500 ) );
-                    }
+                if ( controller.signal.aborted || err?.name === 'AbortError' ) return;
+                if ( isPaywall( err ) ) {
+                    onClose();
+                    onPaywall?.( err.code === 'DAILY_QUOTA_EXCEEDED' ? 'daily-limit' : 'monthly-limit', err.entitlement_state );
+                    return;
                 }
-                if ( !cancelled ) setPhase( 'done' );
+                // Non-paywall failure: surface a toast, and if it was a single
+                // page show a failed row the user can retry.
+                onToast?.( errorToast( err ) );
+                if ( pages.length === 1 ) {
+                    const pg = pages[0];
+                    pushResult( {
+                        key: pg.id, postId: pg.id, url: pg.url, section: pg.section,
+                        hue: pg.hue ?? 220, status: 'failed',
+                        errorCode: err?.code || 'ERROR', error: err?.message || '',
+                    } );
+                }
+                setPhase( 'done' );
             }
         };
 
-        runGeneration();
-        return () => { cancelled = true; };
+        run();
+        return () => controller.abort();
     }, [open, pages] );
 
     useEffect( () => {
@@ -289,21 +327,24 @@ export const GenerationDrawer = ({ open, onClose, pages, onComplete, plan, onGen
 
     if ( !open || !pages ) return null;
 
-    const allDone = phase === 'done';
-    const remaining = pages.length - idx;
-    const upcoming = !allDone && pages[idx] ? pages[idx] : null;
-    const isPro = plan === 'pro';
+    const total      = pages.length;
+    const done       = results.length;
+    const allDone    = phase === 'done';
+    const isPro      = plan === 'pro';
+    const revealedIds = new Set( results.map( r => r.postId ) );
+    const upcoming   = !allDone ? pages.find( p => !revealedIds.has( p.id ) ) : null;
 
     const headlinePrimary = allDone
-        ? `${pages.length} page${pages.length === 1 ? '' : 's'} improved`
+        ? `${total} page${total === 1 ? '' : 's'} processed`
         : isPro
-            ? `${idx} page${idx === 1 ? '' : 's'} improved`
-            : `${idx} of ${pages.length} complete`;
+            ? `${done} page${done === 1 ? '' : 's'} improved`
+            : `${done} of ${total} complete`;
 
+    const remaining = total - done;
     const footerStatus = allDone
         ? ( isPro ? 'Optimisation complete · Autopilot active.' : 'Title & meta descriptions are live in your site.' )
         : remaining === 1 ? 'Wrapping up the last page…'
-        : idx === 0 ? ( isPro ? 'Optimising your latest pages…' : 'Working through today\'s pages…' )
+        : done === 0 ? ( isPro ? 'Optimising your latest pages…' : 'Working through today\'s pages…' )
         : `${remaining} page${remaining === 1 ? '' : 's'} to go`;
 
     return (
@@ -343,15 +384,16 @@ export const GenerationDrawer = ({ open, onClose, pages, onComplete, plan, onGen
                 </div>
 
                 <div style={{ padding: '10px 22px', borderBottom: '1px solid var(--hairline)' }}>
-                    <Progress value={idx} max={pages.length} tone={allDone ? 'ok' : 'primary'} height={6}/>
+                    <Progress value={done} max={total} tone={allDone ? 'ok' : 'primary'} height={6}/>
                 </div>
 
                 <div aria-live="polite" style={{ flex: 1, overflowY: 'auto', padding: '4px 22px 12px' }}>
                     {results.map( ( r, i ) => (
-                        <GenResultRow key={r.id || i} result={r} index={i} last={i === results.length - 1 && phase !== 'thinking'}/>
+                        <GenResultRow key={r.key} result={r} index={i} last={i === results.length - 1 && phase !== 'thinking'}
+                            onEntitlement={onEntitlement} onApiError={onApiError} onToast={onToast}/>
                     ) )}
                     {phase === 'thinking' && upcoming && (
-                        <GenPlaceholderRow page={upcoming} index={idx}/>
+                        <GenPlaceholderRow page={upcoming} index={done}/>
                     )}
                 </div>
 
@@ -360,7 +402,7 @@ export const GenerationDrawer = ({ open, onClose, pages, onComplete, plan, onGen
                         <>
                             <div style={{ fontSize: 12, color: 'var(--ok-ink)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                                 <Icon name="trend" size={13}/>
-                                <span>Coverage improved · streak extended</span>
+                                <span>Coverage <strong>+{results.filter( r => r.status === 'completed' ).length} page{results.filter( r => r.status === 'completed' ).length !== 1 ? 's' : ''}</strong> · streak extended</span>
                             </div>
                             <Button variant="primary" size="sm" iconRight="arrow-right" onClick={onComplete}>Done</Button>
                         </>
@@ -379,34 +421,67 @@ export const GenerationDrawer = ({ open, onClose, pages, onComplete, plan, onGen
     );
 };
 
-const GenResultRow = ({ result, index, last }) => {
-    const [title, setTitle] = useState( result.title );
-    const [meta, setMeta]   = useState( result.meta );
+const GenResultRow = ({ result, index, last, onEntitlement, onApiError, onToast }) => {
+    const [title, setTitle]   = useState( result.title );
+    const [meta, setMeta]     = useState( result.meta );
+    const [status, setStatus] = useState( result.status );
     const [editing, setEditing] = useState( false );
-    const [regen, setRegen] = useState( false );
-    const [variantIdx, setVariantIdx] = useState( 0 );
+    const [busy, setBusy]     = useState( 'idle' ); // idle | regen | save | retry
     const titleRef = useRef( null );
 
-    useEffect( () => { setTitle( result.title ); setMeta( result.meta ); }, [result.title, result.meta] );
+    useEffect( () => { setTitle( result.title ); setMeta( result.meta ); setStatus( result.status ); }, [result.title, result.meta, result.status] );
     useEffect( () => { if ( editing && titleRef.current ) titleRef.current.focus(); }, [editing] );
 
-    const handleRegenerate = () => {
-        if ( regen ) return;
-        setRegen( true );
-        setTimeout( () => {
-            const next = ( variantIdx + 1 ) % TITLE_VARIANTS.length;
-            const brand = 'My Site';
-            const section = result.section || 'Page';
-            const year = new Date().getFullYear();
-            setTitle( TITLE_VARIANTS[next].replace( '{Section}', section ).replace( '{Brand}', brand ).replace( '{Year}', year ) );
-            setMeta( META_VARIANTS[next].replace( /\{section\}/g, section.toLowerCase() ).replace( /\{brand\}/g, brand ) );
-            setVariantIdx( next );
-            setRegen( false );
-        }, 800 );
+    const postId = result.postId ?? result.key;
+
+    const handleRegenerate = async () => {
+        if ( busy !== 'idle' || postId == null ) return;
+        setBusy( 'regen' );
+        try {
+            const res = await generateSingle( { postId, previous: { title, meta } } );
+            setTitle( res.title ?? '' );
+            setMeta( res.meta ?? '' );
+            onEntitlement?.( res.entitlement_state );
+        } catch ( err ) {
+            onApiError?.( err );
+        } finally {
+            setBusy( 'idle' );
+        }
+    };
+
+    const handleSave = async () => {
+        if ( postId == null ) { setEditing( false ); return; }
+        setBusy( 'save' );
+        try {
+            await updatePage( postId, { seoTitle: title, metaDesc: meta } );
+            setEditing( false );
+            onToast?.( { message: 'Saved', icon: 'check', tone: 'ok' } );
+        } catch ( err ) {
+            onApiError?.( err );
+        } finally {
+            setBusy( 'idle' );
+        }
+    };
+
+    const handleRetry = async () => {
+        if ( busy !== 'idle' || postId == null ) return;
+        setBusy( 'retry' );
+        try {
+            const res = await generateSingle( { postId } );
+            setTitle( res.title ?? '' );
+            setMeta( res.meta ?? '' );
+            setStatus( 'completed' );
+            onEntitlement?.( res.entitlement_state );
+        } catch ( err ) {
+            onApiError?.( err );
+        } finally {
+            setBusy( 'idle' );
+        }
     };
 
     const sectionLetter = ( result.section || 'P' )[0].toUpperCase();
     const hue = result.hue ?? ( index * 80 ) % 360;
+    const failed = status === 'failed';
 
     return (
         <div className="gen-row-in" style={{ padding: '14px 0', borderBottom: last ? 'none' : '1px solid var(--hairline)' }}>
@@ -414,42 +489,56 @@ const GenResultRow = ({ result, index, last }) => {
                 <div style={{ flexShrink: 0 }}>
                     <div style={{
                         width: 40, height: 40, borderRadius: 8,
-                        background: `hsl(${hue}, 32%, 94%)`,
-                        color: `hsl(${hue}, 38%, 32%)`,
+                        background: failed ? 'var(--danger-soft)' : `hsl(${hue}, 32%, 94%)`,
+                        color: failed ? 'var(--danger-ink)' : `hsl(${hue}, 38%, 32%)`,
                         border: '1px solid var(--border)',
                         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                         fontSize: 13, fontWeight: 700,
-                    }}>{sectionLetter}</div>
+                    }}>{failed ? <Icon name="alert" size={16}/> : sectionLetter}</div>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span className="mono" style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{result.url}</span>
-                        <span className="gen-check" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 16, height: 16, borderRadius: 999, background: 'var(--ok-soft)', color: 'var(--ok-ink)', border: '1px solid var(--ok-border)', flexShrink: 0 }}>
-                            <Icon name="check" size={9} strokeWidth={3}/>
-                        </span>
+                        {!failed && (
+                            <span className="gen-check" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 16, height: 16, borderRadius: 999, background: 'var(--ok-soft)', color: 'var(--ok-ink)', border: '1px solid var(--ok-border)', flexShrink: 0 }}>
+                                <Icon name="check" size={9} strokeWidth={3}/>
+                            </span>
+                        )}
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>{result.section}</div>
 
-                    {editing ? (
+                    {failed ? (
+                        <div style={{ marginTop: 6 }}>
+                            <div style={{ padding: '10px 12px', background: 'var(--danger-soft)', border: '1px solid var(--danger-border)', borderRadius: 'var(--r-sm)', fontSize: 12, color: 'var(--danger-ink)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <Icon name="alert" size={13}/>
+                                <span>Couldn't generate · <span className="mono">{result.errorCode || 'ERROR'}</span></span>
+                            </div>
+                            <div style={{ marginTop: 6 }}>
+                                <Button variant="ghost" size="sm" icon="refresh" disabled={busy !== 'idle'} onClick={handleRetry}>
+                                    {busy === 'retry' ? 'Retrying…' : 'Retry'}
+                                </Button>
+                            </div>
+                        </div>
+                    ) : editing ? (
                         <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
                             <input
                                 ref={titleRef}
                                 value={title}
                                 onChange={e => setTitle( e.target.value )}
-                                onKeyDown={e => { if ( e.key === 'Escape' ) setEditing( false ); if ( e.key === 'Enter' && ( e.metaKey || e.ctrlKey ) ) setEditing( false ); }}
+                                onKeyDown={e => { if ( e.key === 'Escape' ) setEditing( false ); if ( e.key === 'Enter' && ( e.metaKey || e.ctrlKey ) ) handleSave(); }}
                                 placeholder="Title tag"
                                 style={{ padding: '8px 10px', background: 'var(--surface)', border: '1px solid var(--primary-border)', boxShadow: '0 0 0 3px rgba(37,99,235,0.12)', borderRadius: 'var(--r-sm)', fontSize: 12.5, color: 'var(--text)', fontFamily: 'var(--font-sans)', outline: 0 }}/>
                             <textarea
                                 value={meta}
                                 onChange={e => setMeta( e.target.value )}
-                                onKeyDown={e => { if ( e.key === 'Escape' ) setEditing( false ); if ( e.key === 'Enter' && ( e.metaKey || e.ctrlKey ) ) setEditing( false ); }}
+                                onKeyDown={e => { if ( e.key === 'Escape' ) setEditing( false ); if ( e.key === 'Enter' && ( e.metaKey || e.ctrlKey ) ) handleSave(); }}
                                 rows={3}
                                 placeholder="Meta description"
                                 style={{ padding: '8px 10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', fontSize: 12.5, color: 'var(--text)', lineHeight: 1.5, fontFamily: 'var(--font-sans)', resize: 'vertical', minHeight: 60, outline: 0 }}/>
                         </div>
                     ) : (
-                        <div style={{ marginTop: 6, padding: '10px 12px', background: 'var(--surface-2)', borderRadius: 'var(--r-sm)', border: '1px solid var(--hairline)', opacity: regen ? 0.55 : 1 }}>
-                            {regen ? (
+                        <div style={{ marginTop: 6, padding: '10px 12px', background: 'var(--surface-2)', borderRadius: 'var(--r-sm)', border: '1px solid var(--hairline)', opacity: busy === 'regen' ? 0.55 : 1 }}>
+                            {busy === 'regen' ? (
                                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--text-3)' }}>
                                     <span className="pulse-dot" style={{ width: 6, height: 6, background: 'var(--primary)' }}/>
                                     <span>Rewriting…</span>
@@ -467,14 +556,16 @@ const GenResultRow = ({ result, index, last }) => {
                         </div>
                     )}
 
-                    <div style={{ marginTop: 6, display: 'flex', gap: 2 }}>
-                        <Button variant="ghost" size="sm" icon={editing ? 'check' : 'edit'} onClick={() => setEditing( v => !v )}>
-                            {editing ? 'Done' : 'Edit'}
-                        </Button>
-                        <Button variant="ghost" size="sm" icon="refresh" disabled={regen || editing} onClick={handleRegenerate}>
-                            {regen ? 'Rewriting' : 'Regenerate'}
-                        </Button>
-                    </div>
+                    {!failed && (
+                        <div style={{ marginTop: 6, display: 'flex', gap: 2 }}>
+                            <Button variant="ghost" size="sm" icon={editing ? 'check' : 'edit'} disabled={busy === 'save'} onClick={() => editing ? handleSave() : setEditing( true )}>
+                                {editing ? ( busy === 'save' ? 'Saving…' : 'Save' ) : 'Edit'}
+                            </Button>
+                            <Button variant="ghost" size="sm" icon="refresh" disabled={busy !== 'idle' || editing} onClick={handleRegenerate}>
+                                {busy === 'regen' ? 'Rewriting' : 'Regenerate'}
+                            </Button>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
@@ -505,11 +596,32 @@ const GenPlaceholderRow = ({ page }) => {
 };
 
 /* ── Paywall ───────────────────────────────────────────────────────── */
-export const Paywall = ({ open, onClose, trigger, onUpgrade }) => {
+const countdownToReset = ( entitlement, trigger ) => {
+    if ( trigger === 'monthly-limit' && entitlement?.reset_date ) {
+        const resetMs = new Date( entitlement.reset_date ).getTime();
+        const days    = Math.max( 1, Math.ceil( ( resetMs - Date.now() ) / 86400000 ) );
+        return `Free credits reset in ${days} day${days === 1 ? '' : 's'}.`;
+    }
+    if ( trigger === 'daily-limit' ) {
+        // Daily quota resets at the next UTC midnight.
+        const now  = new Date();
+        const next = Date.UTC( now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0 );
+        const mins = Math.max( 1, Math.round( ( next - now.getTime() ) / 60000 ) );
+        const h    = Math.floor( mins / 60 );
+        const m    = mins % 60;
+        const span = h > 0 ? `${h}h ${m}m` : `${m}m`;
+        const n    = entitlement?.daily_limit;
+        return n ? `Your next ${n} unlock in ${span}.` : `Your free generations reset in ${span}.`;
+    }
+    return null;
+};
+
+export const Paywall = ({ open, onClose, trigger, entitlement, onUpgrade }) => {
     if ( !open ) return null;
+    const dynamicUrgency = countdownToReset( entitlement, trigger );
     const triggers = {
-        'daily-limit':   { icon: 'clock',   title: "You've used today's free generations",     subtitle: "Pro lifts the daily allowance so you never have to wait — keep optimising every day.",     urgency: 'Your next 5 unlock in 8h 14m.' },
-        'monthly-limit': { icon: 'alert',   title: "You've reached this month's free limit",   subtitle: "Pro keeps your site improving without limits.",                                              urgency: 'Free credits reset in 14 days.' },
+        'daily-limit':   { icon: 'clock',   title: "You've used today's free generations",     subtitle: "Pro lifts the daily allowance so you never have to wait — keep optimising every day.",     urgency: dynamicUrgency || 'Your free generations reset overnight.' },
+        'monthly-limit': { icon: 'alert',   title: "You've reached this month's free limit",   subtitle: "Pro keeps your site improving without limits.",                                              urgency: dynamicUrgency || 'Free credits reset at the start of next month.' },
         'auto-feature':  { icon: 'zap',     title: 'Let BeepBeep Titles handle title & meta',  subtitle: 'Every new page you publish gets title & meta automatically.',                               urgency: 'Set it once. Never think about it again.' },
         'bulk':          { icon: 'library', title: 'Optimise your entire site in minutes',     subtitle: 'Catch up on every page with missing title & meta in one pass.',                             urgency: null },
         'default':       { icon: 'crown',   title: 'Never worry about missing meta again',    subtitle: 'Continuous, automated page SEO for your WordPress site.',                                    urgency: null },
@@ -557,7 +669,7 @@ export const Paywall = ({ open, onClose, trigger, onUpgrade }) => {
                             { ok: true, text: 'Optimise your entire site',        strong: true },
                             { ok: true, text: 'Automatic monitoring',             strong: true },
                             { ok: true, text: 'See your site improving weekly' },
-                            { ok: true, text: 'Priority API access' },
+                            { ok: true, text: 'Works across multiple sites' },
                         ]} highlight/>
                     </div>
                 </div>
@@ -651,6 +763,7 @@ export const HelpModal = ({ open, onClose }) => {
                 <div style={{ padding: '20px 24px 14px' }}>
                     <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>Help & docs</div>
                     <h2 style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.015em', margin: 0 }}>How can we help?</h2>
+                    <p style={{ fontSize: 13, color: 'var(--text-2)', margin: '4px 0 0', lineHeight: 1.5 }}>Search documentation, browse guides, or reach our support team directly.</p>
                     <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)' }}>
                         <Icon name="search" size={14} style={{ color: 'var(--text-3)' }}/>
                         <input autoFocus value={query} onChange={e => setQuery( e.target.value )} placeholder="Search help articles…" style={{ flex: 1, border: 0, outline: 0, background: 'transparent', fontSize: 13, color: 'var(--text)', fontFamily: 'var(--font-sans)' }}/>
@@ -674,7 +787,21 @@ export const HelpModal = ({ open, onClose }) => {
                         </button>
                     ) )}
                 </div>
-                <div style={{ borderTop: '1px solid var(--hairline)', background: 'var(--surface-2)', padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', borderBottomLeftRadius: 'var(--r-xl)', borderBottomRightRadius: 'var(--r-xl)' }}>
+                <div style={{ borderTop: '1px solid var(--hairline)', background: 'var(--surface-2)', padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', borderBottomLeftRadius: 'var(--r-xl)', borderBottomRightRadius: 'var(--r-xl)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11.5, color: 'var(--text-3)', flexWrap: 'wrap' }}>
+                        {[
+                            { keys: ['G'],       label: "Start today's pass" },
+                            { keys: ['⌘', 'K'],  label: 'Open command bar' },
+                            { keys: ['⌘', '/'],  label: 'Open help' },
+                            { keys: ['Esc'],     label: 'Close' },
+                        ].map( ( s, i, arr ) => (
+                            <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                                {s.keys.map( ( k, j ) => <KBD key={j}>{k}</KBD> )}
+                                <span style={{ color: 'var(--text-3)' }}>{s.label}</span>
+                                {i < arr.length - 1 && <span style={{ opacity: 0.5, marginLeft: 4 }}>·</span>}
+                            </span>
+                        ) )}
+                    </div>
                     <Button variant="secondary" size="sm" icon="external" onClick={onClose}>Open docs site</Button>
                 </div>
             </div>

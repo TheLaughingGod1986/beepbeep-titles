@@ -149,8 +149,8 @@ const TodaysPassHero = ({ queuePages, plan, dailyUsed, dailyLimit, dailyRemainin
                             <div style={{ minWidth: 0, flex: 1 }}>
                                 <div className="mono" style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pg.url}</div>
                                 <div style={{ marginTop: 3 }}>
-                                    <SignalChip tone={pg.missing === 'both' || pg.missing === 'title' ? 'danger' : 'warn'}>
-                                        {pg.missing === 'both' ? 'Missing both' : pg.missing === 'title' ? 'Missing title' : 'Missing meta'}
+                                    <SignalChip tone={pg.status === 'missing-both' || pg.status === 'missing-title' ? 'danger' : 'warn'}>
+                                        {pg.status === 'missing-both' ? 'Missing both' : pg.status === 'missing-title' ? 'Missing title' : 'Missing meta'}
                                     </SignalChip>
                                 </div>
                             </div>
@@ -235,6 +235,7 @@ const LibraryHealthCard = ({ coverage, tone, nextMilestone, hoursSaved, totalGen
     const distance = Math.max( 0, nextMilestone - coverage );
     const animCoverage = useCountUp( coverage );
     const animHours = useCountUp( parseFloat( hoursSaved ), { decimals: 1 } );
+    const stageLabel = coverage >= 90 ? 'Healthy coverage' : coverage >= 50 ? 'Coverage building' : coverage >= 15 ? 'Early optimisation stage' : 'Getting started';
 
     return (
         <Card padding={0} style={{ display: 'flex', flexDirection: 'column' }}>
@@ -242,7 +243,7 @@ const LibraryHealthCard = ({ coverage, tone, nextMilestone, hoursSaved, totalGen
                 <Ring value={animCoverage} size={56} stroke={5} tone={tone}>
                     <div className="mono tnum" style={{ fontSize: 15, fontWeight: 600, letterSpacing: '-0.02em' }}>{animCoverage}</div>
                 </Ring>
-                <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ flex: 1, minWidth: 0 }} aria-label={stageLabel}>
                     <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>Site SEO health</div>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
                         <span className="mono tnum" style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.02em', lineHeight: 1.1 }}>{animCoverage}</span>

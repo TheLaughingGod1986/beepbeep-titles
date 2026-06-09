@@ -1,5 +1,21 @@
 <?php
+/**
+ * Plugin bootstrap.
+ *
+ * Quota lives on the backend now — there is no local usage table and no
+ * direct Anthropic path. This class wires the admin UI + REST proxy, the
+ * fallback head filters (when no SEO plugin is active), and the optional
+ * auto-generate-on-publish behaviour.
+ *
+ * @package BeepBeep_Titles
+ */
+
 namespace BeepBeep_Titles;
+
+use BeepBeep_Titles\Api\Client;
+use BeepBeep_Titles\Seo\MetaWriter;
+
+defined( 'ABSPATH' ) || exit;
 
 class Plugin {
 
@@ -7,9 +23,20 @@ class Plugin {
         ( new Admin( $this ) )->init();
         ( new RestApi( $this ) )->init();
 
-        // Auto-generate on publish when Pro + setting enabled.
-        add_action( 'publish_post',  [ $this, 'maybe_auto_generate' ], 10, 2 );
-        add_action( 'publish_page',  [ $this, 'maybe_auto_generate' ], 10, 2 );
+        // When no SEO plugin owns the head, emit our generated title + meta.
+        if ( MetaWriter::active() === 'fallback' ) {
+            MetaWriter::register_fallback_filters();
+        }
+
+        // Keep the cached SEO-plugin choice fresh if the user (de)activates one.
+        add_action( 'activated_plugin',   [ MetaWriter::class, 'refresh' ] );
+        add_action( 'deactivated_plugin', [ MetaWriter::class, 'refresh' ] );
+
+        // Auto-generate on publish (Pro feature; gated by setting + backend).
+        add_action( 'save_post', [ $this, 'maybe_auto_generate' ], 20, 3 );
+
+        // Surface deferred admin notices (e.g. auto-generate failures).
+        add_action( 'admin_notices', [ $this, 'render_admin_notices' ] );
     }
 
     // ----------------------------------------------------------------
@@ -17,153 +44,147 @@ class Plugin {
     // ----------------------------------------------------------------
 
     public static function activate(): void {
-        self::create_tables();
         self::set_defaults();
+        self::drop_legacy_table();
+
+        // Establish stable identity + detect the SEO plugin once.
+        $client = new Client();
+        $client->install_hash();
+        $client->fingerprint();
+        MetaWriter::refresh();
+
         flush_rewrite_rules();
     }
 
     public static function deactivate(): void {
         delete_transient( 'bbt_scan_lock' );
+        delete_transient( 'bbt_stats' );
         flush_rewrite_rules();
-    }
-
-    private static function create_tables(): void {
-        global $wpdb;
-        $table = $wpdb->prefix . 'bbt_usage_log';
-        $charset_collate = $wpdb->get_charset_collate();
-
-        $sql = "CREATE TABLE IF NOT EXISTS {$table} (
-            id          BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-            user_id     BIGINT(20) UNSIGNED NOT NULL,
-            post_id     BIGINT(20) UNSIGNED DEFAULT NULL,
-            action      VARCHAR(50)  NOT NULL DEFAULT 'generate',
-            created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (id),
-            KEY idx_user_date (user_id, created_at),
-            KEY idx_post (post_id)
-        ) {$charset_collate};";
-
-        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-        dbDelta( $sql );
-
-        update_option( 'bbt_db_version', BBT_VERSION );
     }
 
     private static function set_defaults(): void {
         add_option( 'bbt_settings', [
             'tone'                 => 'direct',
-            'title_length'        => 'standard',
-            'meta_length'         => 'standard',
-            'auto_generate'       => false,
-            'custom_instructions' => '',
-            'notifications'       => [
-                'new_page'    => true,
-                'digest'      => false,
-                'limit_warn'  => true,
+            'title_length'         => 'standard',
+            'meta_length'          => 'standard',
+            'auto_generate'        => false,
+            'custom_instructions'  => '',
+            'brand_name_override'  => '',
+            'delete_on_uninstall'  => false,
+            'notifications'        => [
+                'new_page'   => true,
+                'digest'     => false,
+                'limit_warn' => true,
             ],
         ] );
     }
 
-    // ----------------------------------------------------------------
-    // Quota
-    // ----------------------------------------------------------------
-
-    public function get_quota( int $user_id ): array {
-        $plan = $this->get_user_plan( $user_id );
-
-        if ( $plan === 'pro' ) {
-            return [
-                'plan'           => 'pro',
-                'daily_used'     => $this->count_usage( $user_id, 'day' ),
-                'daily_limit'    => PHP_INT_MAX,
-                'monthly_used'   => $this->count_usage( $user_id, 'month' ),
-                'monthly_limit'  => PHP_INT_MAX,
-                'daily_remaining'=> PHP_INT_MAX,
-            ];
-        }
-
-        $daily_used    = $this->count_usage( $user_id, 'day' );
-        $monthly_used  = $this->count_usage( $user_id, 'month' );
-        $daily_limit   = 5;
-        $monthly_limit = 50;
-
-        return [
-            'plan'           => 'free',
-            'daily_used'     => $daily_used,
-            'daily_limit'    => $daily_limit,
-            'monthly_used'   => $monthly_used,
-            'monthly_limit'  => $monthly_limit,
-            'daily_remaining'=> max( 0, $daily_limit - $daily_used ),
-        ];
-    }
-
-    public function get_user_plan( int $user_id ): string {
-        return get_user_meta( $user_id, 'bbt_plan', true ) ?: 'free';
-    }
-
-    public function log_usage( int $user_id, int $post_id, string $action = 'generate' ): void {
-        global $wpdb;
-        $wpdb->insert(
-            $wpdb->prefix . 'bbt_usage_log',
-            [
-                'user_id'    => $user_id,
-                'post_id'    => $post_id,
-                'action'     => $action,
-                'created_at' => current_time( 'mysql' ),
-            ],
-            [ '%d', '%d', '%s', '%s' ]
-        );
-    }
-
-    private function count_usage( int $user_id, string $period ): int {
+    /** Remove the pre-1.0 local usage table — quota is backend-owned now. */
+    private static function drop_legacy_table(): void {
         global $wpdb;
         $table = $wpdb->prefix . 'bbt_usage_log';
-
-        $since = $period === 'day'
-            ? current_time( 'Y-m-d' ) . ' 00:00:00'
-            : date( 'Y-m-01', current_time( 'timestamp' ) ) . ' 00:00:00';
-
-        return (int) $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM {$table}
-             WHERE user_id = %d AND action = 'generate' AND created_at >= %s",
-            $user_id,
-            $since
-        ) );
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL
+        $wpdb->query( "DROP TABLE IF EXISTS {$table}" );
+        delete_option( 'bbt_db_version' );
     }
 
     // ----------------------------------------------------------------
     // Auto-generate on publish
     // ----------------------------------------------------------------
 
-    public function maybe_auto_generate( int $post_id, \WP_Post $post ): void {
-        $user_id  = get_current_user_id() ?: (int) $post->post_author;
-        $plan     = $this->get_user_plan( $user_id );
+    public function maybe_auto_generate( int $post_id, \WP_Post $post, bool $update ): void {
+        if ( wp_is_post_autosave( $post_id ) || wp_is_post_revision( $post_id ) ) {
+            return;
+        }
+        if ( $post->post_status !== 'publish' ) {
+            return;
+        }
+        if ( ! in_array( $post->post_type, [ 'page', 'post', 'product' ], true ) ) {
+            return;
+        }
+
         $settings = get_option( 'bbt_settings', [] );
-
-        if ( $plan !== 'pro' || empty( $settings['auto_generate'] ) ) {
+        if ( empty( $settings['auto_generate'] ) ) {
             return;
         }
 
-        // Skip if title + meta already exist.
-        $has_title = (bool) get_post_meta( $post_id, '_bbt_seo_title', true );
-        $has_meta  = (bool) get_post_meta( $post_id, '_bbt_meta_description', true );
-        if ( $has_title && $has_meta ) {
+        // Only fill gaps — never overwrite copy that already exists.
+        $current = MetaWriter::read( $post_id );
+        if ( $current['title'] !== '' && $current['meta'] !== '' ) {
             return;
         }
 
-        $generator = new Generator();
-        $result    = $generator->generate( $post, $settings );
+        $client = new Client();
+        if ( ! $client->has_license() ) {
+            return;
+        }
+
+        $result = $client->generate(
+            $this->autopilot_page_envelope( $post, $current ),
+            $this->autopilot_options( $settings )
+        );
+
         if ( is_wp_error( $result ) ) {
+            $this->queue_admin_notice(
+                sprintf(
+                    /* translators: 1: post title, 2: error message */
+                    __( 'BeepBeep Titles could not auto-generate SEO for “%1$s”: %2$s', 'beepbeep-titles' ),
+                    $post->post_title,
+                    $result->get_error_message()
+                ),
+                'warning'
+            );
             return;
         }
 
-        if ( ! $has_title && ! empty( $result['title'] ) ) {
-            update_post_meta( $post_id, '_bbt_seo_title', sanitize_text_field( $result['title'] ) );
-        }
-        if ( ! $has_meta && ! empty( $result['meta'] ) ) {
-            update_post_meta( $post_id, '_bbt_meta_description', sanitize_text_field( $result['meta'] ) );
-        }
+        MetaWriter::write( $post_id, (string) ( $result['title'] ?? '' ), (string) ( $result['meta'] ?? '' ) );
+        delete_transient( 'bbt_stats' );
+    }
 
-        $this->log_usage( $user_id, $post_id, 'generate' );
+    private function autopilot_page_envelope( \WP_Post $post, array $current ): array {
+        $excerpt = wp_strip_all_tags( strip_shortcodes( $post->post_content ) );
+        $excerpt = trim( preg_replace( '/\s+/', ' ', $excerpt ) );
+
+        return [
+            'url'             => '/' . ltrim( (string) wp_parse_url( (string) get_permalink( $post->ID ), PHP_URL_PATH ), '/' ),
+            'section'         => $post->post_type === 'page' ? 'Pages' : 'Blog',
+            'h1'              => $post->post_title,
+            'current_title'   => $current['title'] !== '' ? $current['title'] : null,
+            'current_meta'    => $current['meta'] !== '' ? $current['meta'] : null,
+            'content_excerpt' => function_exists( 'mb_substr' ) ? mb_substr( $excerpt, 0, 4000 ) : substr( $excerpt, 0, 4000 ),
+        ];
+    }
+
+    private function autopilot_options( array $settings ): array {
+        $brand = ! empty( $settings['brand_name_override'] ) ? (string) $settings['brand_name_override'] : get_bloginfo( 'name' );
+        $opts  = [ 'brand_name' => $brand ];
+        if ( ! empty( $settings['tone'] ) ) {
+            $opts['tone'] = (string) $settings['tone'];
+        }
+        return $opts;
+    }
+
+    // ----------------------------------------------------------------
+    // Admin notices (deferred)
+    // ----------------------------------------------------------------
+
+    private function queue_admin_notice( string $message, string $type = 'info' ): void {
+        $notices   = get_transient( 'bbt_admin_notices' );
+        $notices   = is_array( $notices ) ? $notices : [];
+        $notices[] = [ 'message' => $message, 'type' => $type ];
+        set_transient( 'bbt_admin_notices', $notices, 5 * MINUTE_IN_SECONDS );
+    }
+
+    public function render_admin_notices(): void {
+        $notices = get_transient( 'bbt_admin_notices' );
+        if ( empty( $notices ) || ! is_array( $notices ) ) {
+            return;
+        }
+        delete_transient( 'bbt_admin_notices' );
+
+        foreach ( $notices as $notice ) {
+            $class = 'notice notice-' . ( $notice['type'] === 'warning' ? 'warning' : 'info' ) . ' is-dismissible';
+            printf( '<div class="%1$s"><p>%2$s</p></div>', esc_attr( $class ), esc_html( $notice['message'] ) );
+        }
     }
 }

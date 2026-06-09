@@ -19,6 +19,20 @@ define( 'BBT_DIR',     plugin_dir_path( __FILE__ ) );
 define( 'BBT_URL',     plugin_dir_url( __FILE__ ) );
 define( 'BBT_SLUG',    'beepbeep-titles' );
 
+// Backend API base. Override in wp-config.php with BEEPBEEP_TITLES_API_URL
+// for local/staging backends (mirrors the alt-text plugin's BEEPBEEP_AI_API_URL).
+// Default matches the sibling alt-text plugin's production backend — the
+// titles endpoints (/api/titles/*) are served from the same host.
+define( 'BBT_API_BASE',
+    defined( 'BEEPBEEP_TITLES_API_URL' )
+        ? rtrim( BEEPBEEP_TITLES_API_URL, '/' )
+        : 'https://alttext-ai-backend.onrender.com'
+);
+define( 'BBT_PLUGIN_CHANNEL', 'stable' );
+define( 'BBT_PLUGIN_ENV',
+    ( defined( 'WP_DEBUG' ) && WP_DEBUG ) ? 'development' : 'production'
+);
+
 // PSR-4-style autoloader for BeepBeep_Titles\ namespace.
 spl_autoload_register( static function ( string $class ): void {
     if ( ! str_starts_with( $class, 'BeepBeep_Titles\\' ) ) {

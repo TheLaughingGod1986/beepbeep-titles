@@ -1,11 +1,31 @@
 <?php
+/**
+ * WP REST proxy for BeepBeep Titles.
+ *
+ * Exposes /wp-json/beepbeep-titles/v1/* endpoints that forward to the
+ * BeepBeep backend with the license + identity headers injected server-side,
+ * and persist returned copy into the active SEO plugin. The license key never
+ * reaches JS; the browser authenticates with the WP REST nonce.
+ *
+ * @package BeepBeep_Titles
+ */
+
 namespace BeepBeep_Titles;
+
+use BeepBeep_Titles\Api\Client;
+use BeepBeep_Titles\Seo\MetaWriter;
+
+defined( 'ABSPATH' ) || exit;
 
 class RestApi {
 
     private const NS = 'beepbeep-titles/v1';
 
-    public function __construct( private readonly Plugin $plugin ) {}
+    private Client $client;
+
+    public function __construct( private readonly Plugin $plugin ) {
+        $this->client = new Client();
+    }
 
     public function init(): void {
         add_action( 'rest_api_init', [ $this, 'register_routes' ] );
@@ -14,7 +34,64 @@ class RestApi {
     public function register_routes(): void {
         $ns = self::NS;
 
-        // Pages (read)
+        // ── Generation ─────────────────────────────────────────────
+        register_rest_route( $ns, '/generate', [
+            'methods'             => 'POST',
+            'callback'            => [ $this, 'generate' ],
+            'permission_callback' => [ $this, 'require_editor' ],
+            'args'                => [
+                'post_id'  => [ 'required' => true, 'type' => 'integer', 'sanitize_callback' => 'absint' ],
+                'previous' => [ 'type' => 'object' ],
+            ],
+        ] );
+
+        // ── Bulk jobs ──────────────────────────────────────────────
+        register_rest_route( $ns, '/jobs', [
+            'methods'             => 'POST',
+            'callback'            => [ $this, 'submit_job' ],
+            'permission_callback' => [ $this, 'require_editor' ],
+            'args'                => [
+                'post_ids' => [
+                    'required'          => true,
+                    'type'              => 'array',
+                    'items'             => [ 'type' => 'integer' ],
+                    'sanitize_callback' => static fn( $v ) => array_values( array_filter( array_map( 'absint', (array) $v ) ) ),
+                ],
+                'scope'    => [ 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ],
+            ],
+        ] );
+
+        register_rest_route( $ns, '/jobs/(?P<id>[A-Za-z0-9\-_]+)', [
+            'methods'             => 'GET',
+            'callback'            => [ $this, 'poll_job' ],
+            'permission_callback' => [ $this, 'require_editor' ],
+        ] );
+
+        // ── Quota ──────────────────────────────────────────────────
+        register_rest_route( $ns, '/quota', [
+            'methods'             => 'GET',
+            'callback'            => [ $this, 'get_quota' ],
+            'permission_callback' => [ $this, 'require_editor' ],
+        ] );
+
+        // ── License (admin only) ───────────────────────────────────
+        register_rest_route( $ns, '/license', [
+            [
+                'methods'             => 'POST',
+                'callback'            => [ $this, 'set_license' ],
+                'permission_callback' => [ $this, 'require_admin' ],
+                'args'                => [
+                    'license_key' => [ 'required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ],
+                ],
+            ],
+            [
+                'methods'             => 'DELETE',
+                'callback'            => [ $this, 'clear_license' ],
+                'permission_callback' => [ $this, 'require_admin' ],
+            ],
+        ] );
+
+        // ── Pages (read + manual edit) ─────────────────────────────
         register_rest_route( $ns, '/pages', [
             'methods'             => 'GET',
             'callback'            => [ $this, 'get_pages' ],
@@ -27,7 +104,6 @@ class RestApi {
             ],
         ] );
 
-        // Single page (read + update)
         register_rest_route( $ns, '/pages/(?P<id>\d+)', [
             [
                 'methods'             => 'GET',
@@ -45,36 +121,14 @@ class RestApi {
             ],
         ] );
 
-        // Batch generate
-        register_rest_route( $ns, '/generate', [
-            'methods'             => 'POST',
-            'callback'            => [ $this, 'generate' ],
-            'permission_callback' => [ $this, 'require_editor' ],
-            'args'                => [
-                'page_ids' => [
-                    'required'          => true,
-                    'type'              => 'array',
-                    'items'             => [ 'type' => 'integer' ],
-                    'sanitize_callback' => static fn( $v ) => array_map( 'absint', (array) $v ),
-                ],
-            ],
-        ] );
-
-        // Quota (read)
-        register_rest_route( $ns, '/quota', [
-            'methods'             => 'GET',
-            'callback'            => [ $this, 'get_quota' ],
-            'permission_callback' => [ $this, 'require_editor' ],
-        ] );
-
-        // Scan
+        // ── Scan ───────────────────────────────────────────────────
         register_rest_route( $ns, '/scan', [
             'methods'             => 'POST',
             'callback'            => [ $this, 'run_scan' ],
             'permission_callback' => [ $this, 'require_editor' ],
         ] );
 
-        // Settings (read + write)
+        // ── Settings ───────────────────────────────────────────────
         register_rest_route( $ns, '/settings', [
             [
                 'methods'             => 'GET',
@@ -90,7 +144,164 @@ class RestApi {
     }
 
     // ----------------------------------------------------------------
-    // Handlers
+    // Generation
+    // ----------------------------------------------------------------
+
+    public function generate( \WP_REST_Request $req ): \WP_REST_Response {
+        $post = get_post( (int) $req->get_param( 'post_id' ) );
+        if ( ! $post ) {
+            return new \WP_REST_Response( [ 'success' => false, 'code' => 'INVALID_REQUEST', 'message' => __( 'Page not found.', 'beepbeep-titles' ) ], 400 );
+        }
+
+        $previous = $req->get_param( 'previous' );
+        $previous = $this->sanitize_previous( $previous );
+
+        $result = $this->client->generate(
+            $this->page_envelope( $post ),
+            $this->generation_options(),
+            $previous
+        );
+
+        if ( is_wp_error( $result ) ) {
+            return $this->error_response( $result );
+        }
+
+        // Persist into the active SEO plugin.
+        $title = (string) ( $result['title'] ?? '' );
+        $meta  = (string) ( $result['meta'] ?? '' );
+        MetaWriter::write( $post->ID, $title, $meta );
+        $this->bust_stats();
+
+        $result['wp_post_id'] = $post->ID;
+        return new \WP_REST_Response( $result, 200 );
+    }
+
+    // ----------------------------------------------------------------
+    // Bulk jobs
+    // ----------------------------------------------------------------
+
+    public function submit_job( \WP_REST_Request $req ): \WP_REST_Response {
+        $post_ids = (array) $req->get_param( 'post_ids' );
+        $post_ids = array_slice( $post_ids, 0, 100 );
+
+        $pages   = [];
+        $ordered = [];
+        foreach ( $post_ids as $post_id ) {
+            $post = get_post( $post_id );
+            if ( ! $post ) {
+                continue;
+            }
+            $envelope       = $this->page_envelope( $post );
+            $envelope['id'] = (string) $post->ID; // client ref echoed back in poll items
+            $pages[]        = $envelope;
+            $ordered[]      = $post->ID;
+        }
+
+        if ( empty( $pages ) ) {
+            return new \WP_REST_Response( [ 'success' => false, 'code' => 'INVALID_REQUEST', 'message' => __( 'No valid pages to generate.', 'beepbeep-titles' ) ], 400 );
+        }
+
+        $scope   = $req->get_param( 'scope' );
+        $context = $scope ? [ 'scope' => sanitize_text_field( $scope ) ] : [];
+
+        $result = $this->client->submit_job( $pages, $this->generation_options(), $context );
+        if ( is_wp_error( $result ) ) {
+            return $this->error_response( $result );
+        }
+
+        $job_id = (string) ( $result['jobId'] ?? '' );
+        if ( $job_id !== '' ) {
+            // Cache ordered post ids so we can map poll items back even if the
+            // backend assigns its own item ids.
+            set_transient( 'bbt_job_' . $job_id, $ordered, HOUR_IN_SECONDS );
+        }
+
+        return new \WP_REST_Response( $result, 200 );
+    }
+
+    public function poll_job( \WP_REST_Request $req ): \WP_REST_Response {
+        $job_id  = (string) $req['id'];
+        $result  = $this->client->poll_job( $job_id );
+        if ( is_wp_error( $result ) ) {
+            return $this->error_response( $result );
+        }
+
+        $ordered = get_transient( 'bbt_job_' . $job_id );
+        $ordered = is_array( $ordered ) ? $ordered : [];
+        $items   = isset( $result['items'] ) && is_array( $result['items'] ) ? $result['items'] : [];
+        $wrote   = false;
+
+        foreach ( $items as $i => &$item ) {
+            $post_id = $this->resolve_item_post_id( $item, $ordered, $i );
+            if ( $post_id > 0 ) {
+                $item['wp_post_id'] = $post_id;
+                $post               = get_post( $post_id );
+                if ( $post ) {
+                    $item['url']     = $this->permalink_path( $post );
+                    $item['section'] = $this->section_for( $post );
+                }
+
+                if ( ( $item['status'] ?? '' ) === 'completed' ) {
+                    MetaWriter::write( $post_id, (string) ( $item['title'] ?? '' ), (string) ( $item['meta'] ?? '' ) );
+                    $wrote = true;
+                }
+            }
+        }
+        unset( $item );
+
+        $result['items'] = $items;
+
+        if ( $wrote ) {
+            $this->bust_stats();
+        }
+
+        // Clean up the mapping once the job is terminal.
+        if ( in_array( $result['status'] ?? '', [ 'completed', 'failed' ], true ) ) {
+            delete_transient( 'bbt_job_' . $job_id );
+        }
+
+        return new \WP_REST_Response( $result, 200 );
+    }
+
+    // ----------------------------------------------------------------
+    // Quota + license
+    // ----------------------------------------------------------------
+
+    public function get_quota( \WP_REST_Request $req ): \WP_REST_Response {
+        if ( ! $this->client->has_license() ) {
+            return new \WP_REST_Response( [ 'success' => false, 'code' => 'INVALID_LICENSE', 'connected' => false ], 200 );
+        }
+        $result = $this->client->quota();
+        if ( is_wp_error( $result ) ) {
+            return $this->error_response( $result );
+        }
+        $result['connected'] = true;
+        return new \WP_REST_Response( $result, 200 );
+    }
+
+    public function set_license( \WP_REST_Request $req ): \WP_REST_Response {
+        $key = (string) $req->get_param( 'license_key' );
+        $this->client->set_license_key( $key );
+
+        // Validate by reading quota; on failure, roll the key back out.
+        $result = $this->client->quota();
+        if ( is_wp_error( $result ) ) {
+            $this->client->clear_license_key();
+            return $this->error_response( $result );
+        }
+
+        $result['connected']    = true;
+        $result['license_last4'] = substr( $key, -4 );
+        return new \WP_REST_Response( $result, 200 );
+    }
+
+    public function clear_license( \WP_REST_Request $req ): \WP_REST_Response {
+        $this->client->clear_license_key();
+        return new \WP_REST_Response( [ 'success' => true, 'connected' => false ], 200 );
+    }
+
+    // ----------------------------------------------------------------
+    // Pages (Scanner-backed)
     // ----------------------------------------------------------------
 
     public function get_pages( \WP_REST_Request $req ): \WP_REST_Response {
@@ -102,10 +313,12 @@ class RestApi {
             (int) $req->get_param( 'per_page' )
         );
 
+        $stats = $scanner->get_stats();
         return new \WP_REST_Response( [
-            'pages' => $result['items'],
-            'total' => $result['total'],
-            'stats' => $scanner->get_stats(),
+            'pages'           => $result['items'],
+            'total'           => $result['total'],
+            'total_optimised' => $stats['optimised'] ?? 0,
+            'stats'           => $stats,
         ] );
     }
 
@@ -114,7 +327,7 @@ class RestApi {
         if ( ! $post || $post->post_status !== 'publish' ) {
             return new \WP_Error( 'not_found', __( 'Page not found.', 'beepbeep-titles' ), [ 'status' => 404 ] );
         }
-        return new \WP_REST_Response( $this->format_post( $post ) );
+        return new \WP_REST_Response( ( new Scanner() )->format_post( $post ) );
     }
 
     public function update_page( \WP_REST_Request $req ): \WP_REST_Response|\WP_Error {
@@ -123,93 +336,37 @@ class RestApi {
             return new \WP_Error( 'not_found', __( 'Page not found.', 'beepbeep-titles' ), [ 'status' => 404 ] );
         }
 
-        $updated = false;
-        if ( null !== $req->get_param( 'seo_title' ) ) {
-            update_post_meta( $post->ID, '_bbt_seo_title', $req->get_param( 'seo_title' ) );
-            $updated = true;
-        }
-        if ( null !== $req->get_param( 'meta_desc' ) ) {
-            update_post_meta( $post->ID, '_bbt_meta_description', $req->get_param( 'meta_desc' ) );
-            $updated = true;
+        $title = $req->get_param( 'seo_title' );
+        $meta  = $req->get_param( 'meta_desc' );
+
+        if ( null !== $title || null !== $meta ) {
+            MetaWriter::write( $post->ID, (string) $title, (string) $meta );
+            $this->bust_stats();
         }
 
-        if ( $updated ) {
-            $this->plugin->log_usage( get_current_user_id(), $post->ID, 'edit' );
-        }
-
-        return new \WP_REST_Response( $this->format_post( get_post( $post->ID ) ) );
-    }
-
-    public function generate( \WP_REST_Request $req ): \WP_REST_Response|\WP_Error {
-        $user_id  = get_current_user_id();
-        $quota    = $this->plugin->get_quota( $user_id );
-        $page_ids = (array) $req->get_param( 'page_ids' );
-
-        if ( $quota['plan'] === 'free' ) {
-            $remaining = $quota['daily_remaining'];
-            if ( $remaining <= 0 ) {
-                return new \WP_Error(
-                    'quota_exceeded',
-                    __( 'Daily limit reached. Upgrade to Pro for unlimited generations.', 'beepbeep-titles' ),
-                    [ 'status' => 429 ]
-                );
-            }
-            $page_ids = array_slice( $page_ids, 0, $remaining );
-        }
-
-        $generator = new Generator();
-        $settings  = get_option( 'bbt_settings', [] );
-        $results   = [];
-
-        foreach ( $page_ids as $post_id ) {
-            $post = get_post( $post_id );
-            if ( ! $post ) {
-                continue;
-            }
-
-            $generated = $generator->generate( $post, $settings );
-
-            if ( is_wp_error( $generated ) ) {
-                $results[] = [
-                    'id'    => $post_id,
-                    'error' => $generated->get_error_message(),
-                ];
-                continue;
-            }
-
-            update_post_meta( $post_id, '_bbt_seo_title',       sanitize_text_field( $generated['title'] ) );
-            update_post_meta( $post_id, '_bbt_meta_description', sanitize_textarea_field( $generated['meta'] ) );
-            $this->plugin->log_usage( $user_id, $post_id, 'generate' );
-
-            $results[] = [
-                'id'        => $post_id,
-                'seo_title' => $generated['title'],
-                'meta_desc' => $generated['meta'],
-            ];
-        }
-
-        return new \WP_REST_Response( [
-            'results' => $results,
-            'quota'   => $this->plugin->get_quota( $user_id ),
-        ] );
-    }
-
-    public function get_quota( \WP_REST_Request $req ): \WP_REST_Response {
-        return new \WP_REST_Response( $this->plugin->get_quota( get_current_user_id() ) );
+        return new \WP_REST_Response( ( new Scanner() )->format_post( get_post( $post->ID ) ) );
     }
 
     public function run_scan( \WP_REST_Request $req ): \WP_REST_Response {
-        $scanner = new Scanner();
-        return new \WP_REST_Response( $scanner->scan_and_cache() );
+        return new \WP_REST_Response( ( new Scanner() )->scan_and_cache() );
     }
 
+    // ----------------------------------------------------------------
+    // Settings
+    // ----------------------------------------------------------------
+
     public function get_settings( \WP_REST_Request $req ): \WP_REST_Response {
-        return new \WP_REST_Response( get_option( 'bbt_settings', [] ) );
+        $settings              = get_option( 'bbt_settings', [] );
+        $settings              = is_array( $settings ) ? $settings : [];
+        $settings['seo_plugin'] = MetaWriter::active();
+        $settings['connected']  = $this->client->has_license();
+        return new \WP_REST_Response( $settings );
     }
 
     public function update_settings( \WP_REST_Request $req ): \WP_REST_Response {
         $current  = get_option( 'bbt_settings', [] );
-        $allowed  = [ 'tone', 'title_length', 'meta_length', 'auto_generate', 'custom_instructions', 'notifications' ];
+        $current  = is_array( $current ) ? $current : [];
+        $allowed  = [ 'tone', 'title_length', 'meta_length', 'auto_generate', 'custom_instructions', 'brand_name_override', 'notifications', 'scan_daily', 'weekly_digest', 'notify_new_pages', 'notify_quota_warning', 'delete_on_uninstall' ];
         $incoming = $req->get_json_params() ?? [];
 
         foreach ( $allowed as $key ) {
@@ -235,44 +392,112 @@ class RestApi {
     }
 
     // ----------------------------------------------------------------
-    // Helpers
+    // Shared helpers
     // ----------------------------------------------------------------
 
-    private function format_post( \WP_Post $post ): array {
-        $seo_title = (string) get_post_meta( $post->ID, '_bbt_seo_title',       true );
-        $meta_desc = (string) get_post_meta( $post->ID, '_bbt_meta_description', true );
-
-        $missing = match( true ) {
-            $seo_title === '' && $meta_desc === '' => 'both',
-            $seo_title === ''                      => 'title',
-            $meta_desc === ''                      => 'meta',
-            default                                => 'none',
-        };
+    /** Build the backend `page` envelope from a post. */
+    private function page_envelope( \WP_Post $post ): array {
+        $current = MetaWriter::read( $post->ID );
+        $excerpt = wp_strip_all_tags( strip_shortcodes( $post->post_content ) );
+        $excerpt = trim( preg_replace( '/\s+/', ' ', $excerpt ) );
 
         return [
-            'id'        => $post->ID,
-            'url'       => '/' . ltrim( (string) parse_url( (string) get_permalink( $post->ID ), PHP_URL_PATH ), '/' ),
-            'title'     => $post->post_title,
-            'seo_title' => $seo_title,
-            'meta_desc' => $meta_desc,
-            'section'   => $this->get_section( $post ),
-            'missing'   => $missing,
-            'traffic'   => (int) get_post_meta( $post->ID, '_bbt_monthly_traffic', true ),
-            'type'      => $post->post_type,
-            'is_new'    => strtotime( $post->post_date ) > strtotime( '-7 days' ),
+            'url'             => $this->permalink_path( $post ),
+            'section'         => $this->section_for( $post ),
+            'h1'              => $post->post_title,
+            'current_title'   => $current['title'] !== '' ? $current['title'] : null,
+            'current_meta'    => $current['meta'] !== '' ? $current['meta'] : null,
+            'content_excerpt' => function_exists( 'mb_substr' ) ? mb_substr( $excerpt, 0, 4000 ) : substr( $excerpt, 0, 4000 ),
         ];
     }
 
-    private function get_section( \WP_Post $post ): string {
-        return match ( $post->post_type ) {
-            'page'    => 'Pages',
-            'product' => 'Shop',
-            default   => $this->primary_category( $post->ID ),
-        };
+    /** Options block shared by single + bulk generation. */
+    private function generation_options(): array {
+        $settings = get_option( 'bbt_settings', [] );
+        $settings = is_array( $settings ) ? $settings : [];
+
+        $brand = ! empty( $settings['brand_name_override'] )
+            ? (string) $settings['brand_name_override']
+            : get_bloginfo( 'name' );
+
+        $options = [ 'brand_name' => $brand ];
+
+        if ( ! empty( $settings['tone'] ) ) {
+            $options['tone'] = (string) $settings['tone'];
+        }
+
+        $title_max = [ 'compact' => 50, 'standard' => 60, 'rich' => 65 ];
+        $meta_max  = [ 'brief' => 130, 'standard' => 160, 'detailed' => 170 ];
+        if ( isset( $settings['title_length'], $title_max[ $settings['title_length'] ] ) ) {
+            $options['title_max_chars'] = $title_max[ $settings['title_length'] ];
+        }
+        if ( isset( $settings['meta_length'], $meta_max[ $settings['meta_length'] ] ) ) {
+            $options['meta_max_chars'] = $meta_max[ $settings['meta_length'] ];
+        }
+
+        return $options;
     }
 
-    private function primary_category( int $post_id ): string {
-        $cats = get_the_category( $post_id );
-        return $cats ? $cats[0]->name : 'Blog';
+    private function sanitize_previous( $previous ): ?array {
+        if ( ! is_array( $previous ) ) {
+            return null;
+        }
+        $title = isset( $previous['title'] ) ? sanitize_text_field( (string) $previous['title'] ) : '';
+        $meta  = isset( $previous['meta'] ) ? sanitize_textarea_field( (string) $previous['meta'] ) : '';
+        if ( $title === '' && $meta === '' ) {
+            return null;
+        }
+        return [ 'title' => $title, 'meta' => $meta ];
+    }
+
+    /** Map a poll item to a WP post id: prefer the echoed client id, else order. */
+    private function resolve_item_post_id( array $item, array $ordered, int $index ): int {
+        $id = $item['id'] ?? null;
+        if ( is_numeric( $id ) && in_array( (int) $id, $ordered, true ) ) {
+            return (int) $id;
+        }
+        return $ordered[ $index ] ?? 0;
+    }
+
+    private function permalink_path( \WP_Post $post ): string {
+        return '/' . ltrim( (string) wp_parse_url( (string) get_permalink( $post->ID ), PHP_URL_PATH ), '/' );
+    }
+
+    private function section_for( \WP_Post $post ): string {
+        switch ( $post->post_type ) {
+            case 'page':
+                return 'Pages';
+            case 'product':
+                return 'Shop';
+            default:
+                $cats = get_the_category( $post->ID );
+                return $cats ? $cats[0]->name : 'Blog';
+        }
+    }
+
+    private function bust_stats(): void {
+        delete_transient( 'bbt_stats' );
+    }
+
+    /**
+     * Translate a Client WP_Error into a flat JSON response the JS can read
+     * uniformly: { success:false, code, message, entitlement_state? }.
+     */
+    private function error_response( \WP_Error $error ): \WP_REST_Response {
+        $data    = $error->get_error_data();
+        $data    = is_array( $data ) ? $data : [];
+        $status  = (int) ( $data['status'] ?? 500 );
+        $code    = (string) ( $data['code'] ?? 'API_ERROR' );
+
+        $body = [
+            'success' => false,
+            'code'    => $code,
+            'message' => $error->get_error_message(),
+        ];
+        if ( isset( $data['entitlement_state'] ) ) {
+            $body['entitlement_state'] = $data['entitlement_state'];
+        }
+
+        return new \WP_REST_Response( $body, $status );
     }
 }

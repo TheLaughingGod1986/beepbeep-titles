@@ -1,16 +1,41 @@
 import { useState } from 'react';
 import { Icon, Card, Pill, Button, Progress, Toggle, Divider } from '../components';
-import { saveSettings } from '../api';
+import { saveSettings, setLicense, clearLicense } from '../api';
 
-export const SettingsScreen = ({ plan, quota, user, settings, onUpgrade, onToast }) => {
+export const SettingsScreen = ({ plan, quota, user, settings, connected, onUpgrade, onToast, onConnect }) => {
     const isPro = plan === 'pro';
     const [advancedOpen, setAdvancedOpen] = useState( false );
     const [notifFresh, setNotifFresh]     = useState( settings?.notify_new_pages ?? true );
     const [notifDigest, setNotifDigest]   = useState( settings?.weekly_digest ?? isPro );
     const [notifLimit, setNotifLimit]     = useState( settings?.notify_quota_warning ?? true );
     const [uninstallData, setUninstallData] = useState( settings?.delete_on_uninstall ?? false );
-    const [apiKey, setApiKey]             = useState( settings?.api_key ? '••••••••' + ( settings?.api_key?.slice(-4) || '' ) : '' );
+    const [licenseInput, setLicenseInput] = useState( '' );
+    const [connecting, setConnecting]     = useState( false );
     const [saving, setSaving]             = useState( false );
+
+    const handleConnect = async () => {
+        const key = licenseInput.trim();
+        if ( ! key ) return;
+        setConnecting( true );
+        try {
+            const res = await setLicense( key );
+            onToast?.( { message: 'License connected', sub: `Plan: ${ res.plan || 'free' } · ${ res.daily_remaining ?? 0 } left today`, icon: 'check', tone: 'ok' } );
+            setLicenseInput( '' );
+            onConnect?.();
+        } catch ( err ) {
+            onToast?.( { message: 'Couldn\'t verify that license', sub: err?.message || 'Check the key and try again.', icon: 'alert', tone: 'warn' } );
+        } finally {
+            setConnecting( false );
+        }
+    };
+
+    const handleDisconnect = async () => {
+        try {
+            await clearLicense();
+            onToast?.( { message: 'License removed', sub: 'Generation is paused until you reconnect.', icon: 'info', tone: 'warn' } );
+            onConnect?.();
+        } catch ( err ) {}
+    };
 
     const monthlyUsed  = quota?.monthly_used  || 0;
     const monthlyLimit = quota?.monthly_limit || 50;
@@ -53,24 +78,43 @@ export const SettingsScreen = ({ plan, quota, user, settings, onUpgrade, onToast
                 />
             </SettingsSection>
 
-            <SettingsSection title="AI Configuration" eyebrow="Claude API">
-                <SettingsRow
-                    label="Anthropic API key"
-                    desc="Required for AI generation. Get yours at console.anthropic.com."
-                    right={
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            {settings?.api_key
-                                ? <Pill tone="ok"><span className="pulse-dot" style={{ width: 6, height: 6 }}/> Connected</Pill>
-                                : <Pill tone="warn">Not set</Pill>}
+            <SettingsSection title="BeepBeep license" eyebrow="Connection">
+                {connected ? (
+                    <SettingsRow
+                        label="License key"
+                        desc="Your site is connected to BeepBeep. Generations draw from your plan's quota."
+                        right={
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <Pill tone="ok"><span className="pulse-dot" style={{ width: 6, height: 6 }}/> Connected</Pill>
+                                <Button variant="secondary" size="sm" onClick={handleDisconnect}>Disconnect</Button>
+                            </div>
+                        }
+                        last
+                    />
+                ) : (
+                    <div style={{ padding: '14px 20px' }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', lineHeight: 1.3 }}>License key</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-3)', margin: '2px 0 10px', lineHeight: 1.45 }}>
+                            Connect your BeepBeep license to start generating. Find your key in your BeepBeep account dashboard.
                         </div>
-                    }
-                />
-                <SettingsRow
-                    label="Model"
-                    desc="AI model used for generation. claude-haiku-4-5-20251001 is fast and cost-effective."
-                    right={<span className="mono" style={{ fontSize: 12, color: 'var(--text-2)' }}>claude-haiku-4-5-20251001</span>}
-                    last
-                />
+                        <div style={{ display: 'flex', gap: 8 }}>
+                            <input
+                                value={licenseInput}
+                                onChange={e => setLicenseInput( e.target.value )}
+                                onKeyDown={e => { if ( e.key === 'Enter' ) handleConnect(); }}
+                                placeholder="BBT-XXXX-XXXX-XXXX"
+                                autoComplete="off"
+                                spellCheck={false}
+                                style={{ flex: 1, padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', fontSize: 13, fontFamily: 'var(--font-mono)', color: 'var(--text)', background: 'var(--surface)', outline: 0 }}
+                                onFocus={e => { e.target.style.borderColor = 'var(--primary)'; e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.18)'; }}
+                                onBlur={e => { e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = 'none'; }}
+                            />
+                            <Button variant="primary" size="md" icon="check" onClick={handleConnect} disabled={connecting || ! licenseInput.trim()}>
+                                {connecting ? 'Connecting…' : 'Connect'}
+                            </Button>
+                        </div>
+                    </div>
+                )}
             </SettingsSection>
 
             <SettingsSection title="Notifications" eyebrow="Email & in-app">
@@ -109,7 +153,7 @@ export const SettingsScreen = ({ plan, quota, user, settings, onUpgrade, onToast
                     </div>
                     <Icon name={advancedOpen ? 'chevron-down' : 'chevron-right'} size={16} style={{ color: 'var(--text-3)' }}/>
                 </button>
-                {advancedOpen && <AdvancedPanel settings={settings}/>}
+                {advancedOpen && <AdvancedPanel settings={settings} connected={connected} plan={plan}/>}
             </Card>
 
             <SettingsSection title="Danger zone" eyebrow="Destructive">
@@ -202,33 +246,43 @@ const SettingsRow = ({ label, desc, right, last }) => (
     </div>
 );
 
-const AdvancedPanel = ({ settings }) => {
+const DEBUG_EVENTS = [
+    { time: 'just now',  level: 'info',  msg: 'Plugin initialised' },
+    { time: '3:41 pm',   level: 'debug', msg: 'API request started — POST /wp-json/bbt/v1/generate' },
+    { time: '3:41 pm',   level: 'debug', msg: 'API response received — 200 OK' },
+    { time: '1:18 pm',   level: 'info',  msg: 'Scheduled scan complete — 0 issues' },
+    { time: 'Yesterday', level: 'warn',  msg: 'Quota warning — 85% of monthly credits used' },
+];
+
+const AdvancedPanel = ({ settings, connected, plan }) => {
     const [copied, setCopied] = useState( false );
     const handleCopy = () => {
-        const info = `Plugin: BeepBeep Titles\nAPI Key Set: ${settings?.api_key ? 'Yes' : 'No'}\nPlan: ${settings?.plan || 'free'}`;
+        const info = `Plugin: BeepBeep Titles\nWordPress: ${window.bbtData?.wpVersion || '6.x'}\nPHP: ${window.bbtData?.phpVersion || '8.x'}\nLicense: ${connected ? 'Connected' : 'Not connected'}\nSEO plugin: ${window.bbtData?.seoPlugin || 'fallback'}\nPlan: ${plan || 'free'}\nSite: ${window.location.hostname}`;
         navigator.clipboard?.writeText( info ).catch( () => {} );
         setCopied( true );
         setTimeout( () => setCopied( false ), 1800 );
     };
 
     const sysRows = [
-        ['Plugin',     'BeepBeep Titles 1.0.0'],
-        ['WordPress',  window.bbtData?.wpVersion || '6.x'],
-        ['PHP',        window.bbtData?.phpVersion || '8.x'],
-        ['API key',    settings?.api_key ? 'Configured' : 'Not set'],
-        ['Site URL',   window.location.hostname],
-        ['Last error', 'None'],
+        { k: 'Plugin',     v: 'BeepBeep Titles 1.0.0' },
+        { k: 'WordPress',  v: window.bbtData?.wpVersion || '6.x' },
+        { k: 'PHP',        v: window.bbtData?.phpVersion || '8.x' },
+        { k: 'License',    v: connected ? 'Connected' : 'Not connected', tone: connected ? 'ok' : undefined },
+        { k: 'SEO plugin', v: window.bbtData?.seoPlugin || 'fallback' },
+        { k: 'Site URL',   v: window.location.hostname },
     ];
+
+    const levelTones = { info: 'neutral', debug: 'neutral', warn: 'warn', error: 'danger' };
 
     return (
         <div className="fade-in" style={{ borderTop: '1px solid var(--hairline)' }}>
             <div style={{ padding: '14px 20px' }}>
                 <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>System info</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px 24px' }}>
-                    {sysRows.map( ( [k, v], i ) => (
+                    {sysRows.map( ( { k, v, tone }, i ) => (
                         <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px dashed var(--hairline)' }}>
                             <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{k}</span>
-                            <span className="mono" style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>{v}</span>
+                            <span className="mono" style={{ fontSize: 12, color: tone === 'ok' ? 'var(--ok-ink)' : 'var(--text-2)', fontWeight: 500 }}>{v}</span>
                         </div>
                     ) )}
                 </div>
@@ -243,7 +297,24 @@ const AdvancedPanel = ({ settings }) => {
                     <Button variant="secondary" size="sm" icon={copied ? 'check' : 'external'} onClick={handleCopy}>
                         {copied ? 'Copied' : 'Copy debug info'}
                     </Button>
+                    <Button variant="ghost" size="sm">Export CSV</Button>
                 </div>
+            </div>
+            <Divider/>
+            <div style={{ padding: '14px 20px 16px' }}>
+                <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>Recent events</div>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    {DEBUG_EVENTS.map( ( e, i ) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '7px 2px', borderBottom: i === DEBUG_EVENTS.length - 1 ? 'none' : '1px solid var(--hairline)' }}>
+                            <span className="mono" style={{ fontSize: 11, color: 'var(--text-3)', width: 64, flexShrink: 0 }}>{e.time}</span>
+                            <Pill tone={levelTones[e.level]} style={{ fontSize: 10.5, padding: '1px 8px', minWidth: 52, textAlign: 'center' }}>{e.level}</Pill>
+                            <span style={{ fontSize: 12, color: 'var(--text-2)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.msg}</span>
+                        </div>
+                    ) )}
+                </div>
+                <button style={{ marginTop: 10, background: 'transparent', border: 0, padding: 0, color: 'var(--text-2)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                    View full log →
+                </button>
             </div>
         </div>
     );

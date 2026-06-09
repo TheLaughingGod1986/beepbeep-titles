@@ -1,43 +1,66 @@
 /**
- * BeepBeep Titles — WordPress REST API client.
+ * BeepBeep Titles — WordPress REST client.
  *
- * All functions return the response JSON on success and throw an Error
- * with a human-readable message on failure. The nonce and base URL come
- * from window.bbtData, which is localised by Admin.php before this
- * script runs.
+ * Talks only to the plugin's own /wp-json/beepbeep-titles/v1 proxy, which
+ * injects the license + identity headers server-side. The browser never sees
+ * the license key; it authenticates with the WP REST nonce.
+ *
+ * Every call resolves to the response JSON, or throws an `ApiError` carrying
+ * the backend `.code`, HTTP `.status`, and `.entitlement_state` so callers
+ * can map errors to the right paywall / toast.
  */
 
-const data = window.bbtData ?? {};
+const data  = window.bbtData ?? {};
 const BASE  = data.apiBase ?? '/wp-json/beepbeep-titles/v1';
 const NONCE = data.nonce   ?? '';
 
+export class ApiError extends Error {
+    constructor( message, { code, status, entitlement_state } = {} ) {
+        super( message || 'Request failed' );
+        this.name              = 'ApiError';
+        this.code              = code || 'API_ERROR';
+        this.status            = status || 0;
+        this.entitlement_state = entitlement_state || null;
+    }
+}
+
 async function request( method, path, body = null ) {
-    const opts = {
-        method,
-        headers: {
-            'Content-Type': 'application/json',
-            'X-WP-Nonce':   NONCE,
-        },
-        credentials: 'same-origin',
-    };
-    if ( body !== null ) {
-        opts.body = JSON.stringify( body );
+    let res;
+    try {
+        res = await fetch( BASE + path, {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+                'X-WP-Nonce':   NONCE,
+            },
+            credentials: 'same-origin',
+            body: body !== null ? JSON.stringify( body ) : undefined,
+        } );
+    } catch ( e ) {
+        const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+        throw new ApiError(
+            offline ? 'You appear to be offline.' : 'Couldn\'t reach the generator.',
+            { code: offline ? 'OFFLINE' : 'NETWORK_ERROR', status: 0 }
+        );
     }
 
-    const res = await fetch( BASE + path, opts );
     const json = await res.json().catch( () => null );
 
+    // Non-2xx is the error signal. The proxy returns 200 with
+    // { connected: false } for the "no license yet" case, which is NOT an
+    // error — callers read that flag directly.
     if ( ! res.ok ) {
-        throw new Error( json?.message ?? `HTTP ${ res.status }` );
+        throw new ApiError( json?.message, {
+            code:              json?.code,
+            status:            res.status,
+            entitlement_state: json?.entitlement_state,
+        } );
     }
 
     return json;
 }
 
-// ----------------------------------------------------------------
-// Pages
-// ----------------------------------------------------------------
-
+// ── Pages ───────────────────────────────────────────────────────────
 export async function fetchPages( { filter = 'needs', search = '', page = 1, perPage = 30 } = {} ) {
     const qs = new URLSearchParams( {
         filter,
@@ -55,34 +78,81 @@ export async function updatePage( id, { seoTitle, metaDesc } ) {
     } );
 }
 
-// ----------------------------------------------------------------
-// Generation
-// ----------------------------------------------------------------
+// ── Generation ──────────────────────────────────────────────────────
 
-export async function generatePages( pageIds ) {
-    return request( 'POST', '/generate', { page_ids: pageIds } );
+/**
+ * Generate a single page. Pass `previous` ONLY for the Regenerate action.
+ *
+ * @param {{ postId:number, previous?:{title:string,meta:string} }} args
+ */
+export async function generateSingle( { postId, previous = null } ) {
+    const body = { post_id: postId };
+    if ( previous ) {
+        body.previous = previous;
+    }
+    return request( 'POST', '/generate', body );
 }
 
-// ----------------------------------------------------------------
-// Quota
-// ----------------------------------------------------------------
+/** Submit a bulk job. Returns { jobId, total, ... }. */
+export async function submitJob( postIds, { scope } = {} ) {
+    const body = { post_ids: postIds };
+    if ( scope ) {
+        body.scope = scope;
+    }
+    return request( 'POST', '/jobs', body );
+}
 
+/** Poll a bulk job once. */
+export async function pollJob( jobId ) {
+    return request( 'GET', `/jobs/${ encodeURIComponent( jobId ) }` );
+}
+
+// ── Quota ───────────────────────────────────────────────────────────
 export async function fetchQuota() {
-    return request( 'GET', '/quota' );
+    return normalizeQuota( await request( 'GET', '/quota' ) );
 }
 
-// ----------------------------------------------------------------
-// Scan
-// ----------------------------------------------------------------
+/**
+ * Map the backend `entitlement_state` shape onto the flat quota object the
+ * React screens read (daily_used / monthly_used / …). Tolerates the
+ * not-connected response ({ connected: false }).
+ */
+export function normalizeQuota( ent ) {
+    if ( ! ent || ent.connected === false || ent.success === false ) {
+        return { plan: 'free', connected: false, daily_used: 0, daily_limit: 5, daily_remaining: 0, monthly_used: 0, monthly_limit: 50, reset_date: null };
+    }
+    const dailyLimit     = ent.daily_limit ?? 5;
+    const dailyRemaining = ent.daily_remaining ?? dailyLimit;
+    const monthlyLimit   = ent.total_limit ?? ent.monthly_limit ?? 50;
+    const monthlyUsed    = ent.credits_used ?? ( monthlyLimit - ( ent.credits_remaining ?? monthlyLimit ) );
+    return {
+        ...ent,
+        connected:       true,
+        plan:            ent.plan ?? 'free',
+        daily_limit:     dailyLimit,
+        daily_remaining: dailyRemaining,
+        daily_used:      Math.max( 0, dailyLimit - dailyRemaining ),
+        monthly_limit:   monthlyLimit,
+        monthly_used:    monthlyUsed,
+        reset_date:      ent.reset_date ?? null,
+    };
+}
 
+// ── License ─────────────────────────────────────────────────────────
+export async function setLicense( key ) {
+    return request( 'POST', '/license', { license_key: key } );
+}
+
+export async function clearLicense() {
+    return request( 'DELETE', '/license' );
+}
+
+// ── Scan ────────────────────────────────────────────────────────────
 export async function runScan() {
     return request( 'POST', '/scan' );
 }
 
-// ----------------------------------------------------------------
-// Settings
-// ----------------------------------------------------------------
-
+// ── Settings ────────────────────────────────────────────────────────
 export async function fetchSettings() {
     return request( 'GET', '/settings' );
 }
@@ -91,14 +161,15 @@ export async function saveSettings( settings ) {
     return request( 'PATCH', '/settings', settings );
 }
 
-// ----------------------------------------------------------------
-// Localised initial state (from PHP)
-// ----------------------------------------------------------------
-
+// ── Localised initial state (from PHP) ──────────────────────────────
 export function getInitialData() {
     return {
-        user:     data.user     ?? { id: 0, name: 'Admin', email: '' },
-        quota:    data.quota    ?? { plan: 'free', daily_used: 0, daily_limit: 5, monthly_used: 0, monthly_limit: 50, daily_remaining: 5 },
-        settings: data.settings ?? {},
+        user:      data.user      ?? { id: 0, name: 'Admin', email: '' },
+        connected: data.connected ?? false,
+        seoPlugin: data.seoPlugin ?? 'fallback',
+        settings:  data.settings  ?? {},
+        // Quota is fetched on mount; this is just a neutral placeholder so the
+        // first render doesn't crash before /quota resolves.
+        quota:     { plan: 'free', connected: data.connected ?? false },
     };
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Icon, Card, Pill, Button } from '../components';
+import { Icon, Card, Pill, Button, KBD } from '../components';
 import { fetchPages, updatePage } from '../api';
 
 export const PagesLibrary = ({ plan, quota, onGenerate, onBulkGenerate, onUpgrade }) => {
@@ -72,13 +72,13 @@ export const PagesLibrary = ({ plan, quota, onGenerate, onBulkGenerate, onUpgrad
     const toggleAll = () => selected.size === pages.length && pages.length > 0 ? setSelected( new Set() ) : setSelected( new Set( pages.map( p => p.id ) ) );
 
     const tryBulk = () => {
-        const ids = Array.from( selected );
-        if ( plan === 'free' && ids.length > dailyRemaining ) {
-            if ( dailyRemaining > 0 ) onBulkGenerate( ids.slice( 0, dailyRemaining ) );
+        const selectedPages = pages.filter( p => selected.has( p.id ) );
+        if ( plan === 'free' && selectedPages.length > dailyRemaining ) {
+            if ( dailyRemaining > 0 ) onBulkGenerate( selectedPages.slice( 0, dailyRemaining ) );
             onUpgrade();
             return;
         }
-        onBulkGenerate( ids );
+        onBulkGenerate( selectedPages );
     };
 
     const handleSave = async ( id, vals ) => {
@@ -370,16 +370,14 @@ const EditPageSEOModal = ({ page, onClose, onSave }) => {
                             {title || <em style={{ color: '#b00020', fontStyle: 'normal' }}>(no title set)</em>}
                         </div>
                         <div style={{ fontSize: 13, lineHeight: 1.55, color: '#4d5156', fontFamily: 'arial, sans-serif' }}>
-                            {meta || <em style={{ color: '#5f6368' }}>(no meta description)</em>}
+                            {meta || <em style={{ color: '#5f6368' }}>(no meta description — Google will pick a snippet from the page)</em>}
                         </div>
                     </div>
                 </div>
 
                 <div style={{ padding: '12px 22px', background: 'var(--surface-2)', borderTop: '1px solid var(--hairline)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
                     <span style={{ fontSize: 11.5, color: 'var(--text-3)' }}>
-                        <kbd style={{ fontFamily: 'var(--font-mono)', fontSize: 11, background: 'var(--bg-sunken)', border: '1px solid var(--border)', borderBottomWidth: 2, borderRadius: 4, padding: '1px 5px', color: 'var(--text-2)' }}>⌘</kbd>
-                        {' '}<kbd style={{ fontFamily: 'var(--font-mono)', fontSize: 11, background: 'var(--bg-sunken)', border: '1px solid var(--border)', borderBottomWidth: 2, borderRadius: 4, padding: '1px 5px', color: 'var(--text-2)' }}>↵</kbd>
-                        <span style={{ marginLeft: 4 }}>to save</span>
+                        <KBD>⌘</KBD>{' '}<KBD>↵</KBD><span style={{ marginLeft: 4 }}>to save</span>
                     </span>
                     <div style={{ display: 'flex', gap: 8 }}>
                         <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>

@@ -147,6 +147,24 @@ export async function clearLicense() {
     return request( 'DELETE', '/license' );
 }
 
+// ── Billing (shared account — Pro + credit packs) ──────────────────
+export async function fetchPlans() {
+    return request( 'GET', '/billing/plans' );
+}
+
+/** Start a Stripe Checkout. `plan` is 'pro' | 'agency' | 'credits'. Resolves to { url }. */
+export async function createCheckout( { plan, priceId } = {} ) {
+    const body = {};
+    if ( plan ) body.plan = plan;
+    if ( priceId ) body.price_id = priceId;
+    return request( 'POST', '/billing/checkout', body );
+}
+
+/** Open the Stripe billing portal for managing an existing plan. Resolves to { url }. */
+export async function createBillingPortal() {
+    return request( 'POST', '/billing/portal', {} );
+}
+
 // ── Scan ────────────────────────────────────────────────────────────
 export async function runScan() {
     return request( 'POST', '/scan' );

@@ -91,6 +91,38 @@ class Client {
     }
 
     // ----------------------------------------------------------------
+    // Billing — shared account/wallet, same backend the alt-text plugin uses.
+    // A Pro upgrade or credit pack bought here applies to the whole account,
+    // so credits/Pro are available to every BeepBeep plugin on this site.
+    // ----------------------------------------------------------------
+
+    /** Available plans + Stripe price ids ({ pro, agency, credits }). */
+    public function billing_plans(): array|\WP_Error {
+        return $this->request( 'GET', '/billing/plans', null, 30 );
+    }
+
+    /** Current billing/subscription info for this account. */
+    public function billing_info(): array|\WP_Error {
+        return $this->request( 'GET', '/billing/info', null, 30 );
+    }
+
+    /** Create a Stripe Checkout session; returns { url } to redirect to. */
+    public function create_checkout( string $price_id, string $success_url, string $cancel_url ): array|\WP_Error {
+        return $this->request( 'POST', '/billing/checkout', [
+            'priceId'    => $price_id,
+            'successUrl' => $success_url,
+            'cancelUrl'  => $cancel_url,
+        ], 45 );
+    }
+
+    /** Create a Stripe billing-portal session for managing an existing plan. */
+    public function billing_portal( string $return_url ): array|\WP_Error {
+        return $this->request( 'POST', '/billing/portal', [
+            'returnUrl' => $return_url,
+        ], 45 );
+    }
+
+    // ----------------------------------------------------------------
     // License storage (encrypted at rest)
     // ----------------------------------------------------------------
 
@@ -200,6 +232,7 @@ class Client {
             'Accept'             => 'application/json',
             'X-License-Key'      => $this->get_license_key(),
             'X-Site-Hash'        => $this->site_hash(),
+            'X-Site-Key'         => $this->site_hash(), // alias the backend's billing routes require
             'X-Site-URL'         => home_url(),
             'X-Install-Hash'     => $this->install_hash(),
             'X-Site-Fingerprint' => $this->fingerprint(),

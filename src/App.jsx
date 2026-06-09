@@ -6,7 +6,7 @@ import { AutopilotScreen } from './screens/Autopilot';
 import { SettingsScreen } from './screens/Settings';
 import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal } from './modals/index';
 import { SignOutConfirm } from './auth';
-import { getInitialData, fetchQuota, fetchPages, runScan, normalizeQuota } from './api';
+import { getInitialData, fetchQuota, fetchPages, runScan, normalizeQuota, createCheckout, createBillingPortal } from './api';
 import { paywallTrigger, errorToast } from './errors';
 
 export default function App() {
@@ -36,7 +36,21 @@ export default function App() {
         refreshQuota();
         loadQueuePages();
         loadStats();
-        if ( ! initial.connected ) {
+
+        // Returning from Stripe checkout?
+        const params  = new URLSearchParams( window.location.search );
+        const billing = params.get( 'bbt_billing' );
+        if ( billing === 'success' ) {
+            setToast( { message: 'Purchase complete 🎉', sub: 'Your credits/plan are now active across every BeepBeep plugin.', icon: 'crown', tone: 'ok' } );
+            refreshQuota();
+        } else if ( billing === 'cancelled' ) {
+            setToast( { message: 'Checkout cancelled', sub: 'No charge was made.', icon: 'info', tone: 'warn' } );
+        }
+        if ( billing ) {
+            params.delete( 'bbt_billing' );
+            const qs = params.toString();
+            window.history.replaceState( {}, '', window.location.pathname + ( qs ? '?' + qs : '' ) );
+        } else if ( ! initial.connected ) {
             // No license yet — nudge the user toward Settings, but don't block.
             setToast( { message: 'Connect your BeepBeep license', sub: 'Add your license key in Settings to start generating.', icon: 'info', tone: 'warn' } );
         }
@@ -143,9 +157,29 @@ export default function App() {
         setToast( { message: val ? 'Auto-generate enabled' : 'Auto-generate paused', sub: val ? 'BeepBeep Titles will write title & meta for every new page you publish.' : null, icon: val ? 'check' : 'info', tone: 'ok' } );
     };
 
-    const handleUpgrade = () => {
-        setPaywall( { open: false, trigger: 'default', entitlement: null } );
-        setToast( { message: 'Upgrade flow coming soon', sub: 'Contact support to upgrade to Pro.', icon: 'crown', tone: 'ok' } );
+    // ── Billing: redirect to Stripe checkout / portal (shared account) ──
+    const goToCheckout = async ( plan ) => {
+        try {
+            const res = await createCheckout( { plan } );
+            if ( res?.url ) {
+                window.location.href = res.url;
+            } else {
+                setToast( errorToast( {} ) );
+            }
+        } catch ( e ) {
+            handleApiError( e );
+        }
+    };
+
+    const handleUpgrade      = () => goToCheckout( 'pro' );
+    const handleBuyCredits   = () => goToCheckout( 'credits' );
+    const handleManageBilling = async () => {
+        try {
+            const res = await createBillingPortal();
+            if ( res?.url ) window.location.href = res.url;
+        } catch ( e ) {
+            handleApiError( e );
+        }
     };
 
     const handleScan = async () => {
@@ -208,6 +242,8 @@ export default function App() {
                     settings={settings}
                     connected={connected}
                     onUpgrade={() => setPaywall( { open: true, trigger: 'default', entitlement: null } )}
+                    onBuyCredits={handleBuyCredits}
+                    onManageBilling={handleManageBilling}
                     onToast={setToast}
                     onConnect={refreshQuota}
                 />
@@ -259,6 +295,7 @@ export default function App() {
                 entitlement={paywall.entitlement}
                 onClose={() => setPaywall( { open: false, trigger: 'default', entitlement: null } )}
                 onUpgrade={handleUpgrade}
+                onBuyCredits={handleBuyCredits}
             />
 
             <SignOutConfirm

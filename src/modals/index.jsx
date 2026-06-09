@@ -616,7 +616,7 @@ const countdownToReset = ( entitlement, trigger ) => {
     return null;
 };
 
-export const Paywall = ({ open, onClose, trigger, entitlement, onUpgrade }) => {
+export const Paywall = ({ open, onClose, trigger, entitlement, onUpgrade, onBuyCredits }) => {
     if ( !open ) return null;
     const dynamicUrgency = countdownToReset( entitlement, trigger );
     const triggers = {
@@ -663,7 +663,7 @@ export const Paywall = ({ open, onClose, trigger, entitlement, onUpgrade }) => {
                             { ok: false, text: 'Bulk site optimisation' },
                             { ok: false, text: 'Background monitoring' },
                         ]}/>
-                        <PlanColumn title="Pro" subtitle="$9 / month" features={[
+                        <PlanColumn title="Pro" subtitle="$14.99 / month" features={[
                             { ok: true, text: 'Unlimited AI generations',         strong: true },
                             { ok: true, text: 'Never worry about missing meta',   strong: true },
                             { ok: true, text: 'Optimise your entire site',        strong: true },
@@ -675,11 +675,18 @@ export const Paywall = ({ open, onClose, trigger, entitlement, onUpgrade }) => {
                 </div>
 
                 <div style={{ padding: '16px 32px 28px' }}>
-                    <Button variant="pro" size="lg" full icon="crown" onClick={onUpgrade}>Start 14-day Pro trial · $9/mo after</Button>
+                    <Button variant="pro" size="lg" full icon="crown" onClick={onUpgrade}>Upgrade to Pro · $14.99/mo</Button>
+                    {onBuyCredits && (
+                        <button onClick={onBuyCredits} style={{ width: '100%', marginTop: 10, background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', padding: '10px 14px', fontSize: 13, fontWeight: 600, color: 'var(--text)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                            onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--border-strong)'}
+                            onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}>
+                            <Icon name="zap" size={14}/> Or buy a one-time credit pack · $11.99 for 100 credits
+                        </button>
+                    )}
                     <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 12, fontSize: 11, color: 'var(--text-3)' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name="check" size={11}/> No credit card today</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name="check" size={11}/> Secure Stripe checkout</span>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name="check" size={11}/> Cancel anytime</span>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name="check" size={11}/> Keep all generated meta</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name="check" size={11}/> Shared across your BeepBeep plugins</span>
                     </div>
                 </div>
             </div>

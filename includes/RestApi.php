@@ -91,6 +91,35 @@ class RestApi {
             ],
         ] );
 
+        // ── Billing (shared account: Pro + credit packs) ──────────
+        register_rest_route( $ns, '/billing/plans', [
+            'methods'             => 'GET',
+            'callback'            => [ $this, 'billing_plans' ],
+            'permission_callback' => [ $this, 'require_editor' ],
+        ] );
+
+        register_rest_route( $ns, '/billing/info', [
+            'methods'             => 'GET',
+            'callback'            => [ $this, 'billing_info' ],
+            'permission_callback' => [ $this, 'require_editor' ],
+        ] );
+
+        register_rest_route( $ns, '/billing/checkout', [
+            'methods'             => 'POST',
+            'callback'            => [ $this, 'billing_checkout' ],
+            'permission_callback' => [ $this, 'require_admin' ],
+            'args'                => [
+                'plan'     => [ 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ],
+                'price_id' => [ 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ],
+            ],
+        ] );
+
+        register_rest_route( $ns, '/billing/portal', [
+            'methods'             => 'POST',
+            'callback'            => [ $this, 'billing_portal' ],
+            'permission_callback' => [ $this, 'require_admin' ],
+        ] );
+
         // ── Pages (read + manual edit) ─────────────────────────────
         register_rest_route( $ns, '/pages', [
             'methods'             => 'GET',
@@ -298,6 +327,78 @@ class RestApi {
     public function clear_license( \WP_REST_Request $req ): \WP_REST_Response {
         $this->client->clear_license_key();
         return new \WP_REST_Response( [ 'success' => true, 'connected' => false ], 200 );
+    }
+
+    // ----------------------------------------------------------------
+    // Billing — proxies the shared account's checkout/portal. A Pro upgrade
+    // or credit pack purchased here lands on the same account/wallet every
+    // BeepBeep plugin shares.
+    // ----------------------------------------------------------------
+
+    public function billing_plans( \WP_REST_Request $req ): \WP_REST_Response {
+        $result = $this->client->billing_plans();
+        if ( is_wp_error( $result ) ) {
+            return $this->error_response( $result );
+        }
+        return new \WP_REST_Response( $result, 200 );
+    }
+
+    public function billing_info( \WP_REST_Request $req ): \WP_REST_Response {
+        $result = $this->client->billing_info();
+        if ( is_wp_error( $result ) ) {
+            return $this->error_response( $result );
+        }
+        return new \WP_REST_Response( $result, 200 );
+    }
+
+    public function billing_checkout( \WP_REST_Request $req ): \WP_REST_Response {
+        $price_id = (string) $req->get_param( 'price_id' );
+        $plan     = (string) $req->get_param( 'plan' );
+
+        // Resolve a plan key ('pro' | 'agency' | 'credits') to its Stripe price.
+        if ( $price_id === '' && $plan !== '' ) {
+            $plans = $this->client->billing_plans();
+            if ( is_wp_error( $plans ) ) {
+                return $this->error_response( $plans );
+            }
+            $price_id = $this->resolve_price_id( $plans, $plan );
+        }
+
+        if ( $price_id === '' ) {
+            return new \WP_REST_Response( [ 'success' => false, 'code' => 'INVALID_REQUEST', 'message' => __( 'No plan or price selected.', 'beepbeep-titles' ) ], 400 );
+        }
+
+        $base    = admin_url( 'admin.php?page=' . BBT_SLUG );
+        $success = add_query_arg( 'bbt_billing', 'success',   $base );
+        $cancel  = add_query_arg( 'bbt_billing', 'cancelled', $base );
+
+        $result = $this->client->create_checkout( $price_id, $success, $cancel );
+        if ( is_wp_error( $result ) ) {
+            return $this->error_response( $result );
+        }
+        return new \WP_REST_Response( $result, 200 );
+    }
+
+    public function billing_portal( \WP_REST_Request $req ): \WP_REST_Response {
+        $return = admin_url( 'admin.php?page=' . BBT_SLUG );
+        $result = $this->client->billing_portal( $return );
+        if ( is_wp_error( $result ) ) {
+            return $this->error_response( $result );
+        }
+        return new \WP_REST_Response( $result, 200 );
+    }
+
+    /** Map a plan key to its Stripe price id from the backend /plans payload. */
+    private function resolve_price_id( array $plans, string $plan ): string {
+        if ( isset( $plans['priceIds'][ $plan ] ) && is_string( $plans['priceIds'][ $plan ] ) ) {
+            return $plans['priceIds'][ $plan ];
+        }
+        foreach ( (array) ( $plans['plans'] ?? [] ) as $p ) {
+            if ( ( $p['id'] ?? '' ) === $plan && ! empty( $p['priceId'] ) ) {
+                return (string) $p['priceId'];
+            }
+        }
+        return '';
     }
 
     // ----------------------------------------------------------------

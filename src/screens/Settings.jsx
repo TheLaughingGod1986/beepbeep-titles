@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Icon, Card, Pill, Button, Progress, Toggle, Divider } from '../components';
 import { saveSettings, setLicense, clearLicense } from '../api';
 
-export const SettingsScreen = ({ plan, quota, user, settings, connected, onUpgrade, onToast, onConnect }) => {
+export const SettingsScreen = ({ plan, quota, user, settings, connected, onUpgrade, onBuyCredits, onManageBilling, onToast, onConnect }) => {
     const isPro = plan === 'pro';
     const [advancedOpen, setAdvancedOpen] = useState( false );
     const [notifFresh, setNotifFresh]     = useState( settings?.notify_new_pages ?? true );
@@ -62,7 +62,7 @@ export const SettingsScreen = ({ plan, quota, user, settings, connected, onUpgra
                 <p style={{ fontSize: 13, color: 'var(--text-2)', margin: '4px 0 0', lineHeight: 1.5 }}>Manage your account, notifications, and advanced options.</p>
             </div>
 
-            <PlanCard isPro={isPro} monthlyUsed={monthlyUsed} monthlyLimit={monthlyLimit} pct={pct} resetDate={resetDate} onUpgrade={onUpgrade}/>
+            <PlanCard isPro={isPro} monthlyUsed={monthlyUsed} monthlyLimit={monthlyLimit} pct={pct} resetDate={resetDate} onUpgrade={onUpgrade} onBuyCredits={onBuyCredits} onManageBilling={onManageBilling}/>
 
             <SettingsSection title="Account" eyebrow="Sign-in">
                 <SettingsRow
@@ -173,7 +173,7 @@ export const SettingsScreen = ({ plan, quota, user, settings, connected, onUpgra
     );
 };
 
-const PlanCard = ({ isPro, monthlyUsed, monthlyLimit, pct, resetDate, onUpgrade }) => (
+const PlanCard = ({ isPro, monthlyUsed, monthlyLimit, pct, resetDate, onUpgrade, onBuyCredits, onManageBilling }) => (
     <Card padding={0} style={{ marginBottom: 18, overflow: 'hidden', ...( isPro ? { background: 'var(--primary-soft)', borderColor: 'var(--primary-border)' } : {} ) }}>
         <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'flex-start', gap: 14 }}>
             <div style={{ width: 36, height: 36, borderRadius: 9, background: isPro ? 'var(--primary)' : 'var(--bg-sunken)', color: isPro ? '#fff' : 'var(--text-2)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: isPro ? 'none' : '1px solid var(--border)' }}>
@@ -190,9 +190,12 @@ const PlanCard = ({ isPro, monthlyUsed, monthlyLimit, pct, resetDate, onUpgrade 
                         : '5 AI generations per day · up to 50 per month · manual generation only.'}
                 </div>
             </div>
-            {isPro
-                ? <Button variant="secondary" size="sm" icon="external">Manage billing</Button>
-                : <Button variant="pro" size="sm" icon="crown" onClick={onUpgrade}>Upgrade to Pro</Button>}
+            <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                <Button variant="secondary" size="sm" icon="zap" onClick={onBuyCredits}>Buy credits</Button>
+                {isPro
+                    ? <Button variant="secondary" size="sm" icon="external" onClick={onManageBilling}>Manage billing</Button>
+                    : <Button variant="pro" size="sm" icon="crown" onClick={onUpgrade}>Upgrade to Pro</Button>}
+            </div>
         </div>
         <div style={{ borderTop: '1px solid var(--hairline)', padding: '12px 20px 14px', background: 'var(--surface-2)' }}>
             {isPro ? (

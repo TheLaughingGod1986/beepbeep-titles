@@ -31,6 +31,8 @@ export const Dashboard = ({ quota, stats, queuePages, autoOptimise, onAutoToggle
     const monthlyUsed = quota?.monthly_used || 0;
     const monthlyLimit = quota?.monthly_limit || 50;
     const dailyRemaining = quota?.daily_remaining ?? ( dailyLimit - dailyUsed );
+    const hasDailyLimit  = ( quota?.daily_limit ?? null ) !== null; // backend has no daily cap on the shared wallet
+    const monthlyRemaining = Math.max( 0, monthlyLimit - monthlyUsed );
     const streak = stats?.streak || 0;
 
     const total      = stats?.total      || 0;
@@ -55,6 +57,8 @@ export const Dashboard = ({ quota, stats, queuePages, autoOptimise, onAutoToggle
                 dailyUsed={dailyUsed}
                 dailyLimit={dailyLimit}
                 dailyRemaining={dailyRemaining}
+                hasDailyLimit={hasDailyLimit}
+                monthlyRemaining={monthlyRemaining}
                 newSince={newSince}
                 needsAttn={needsAttn}
                 onGenerate={onGenerate}
@@ -82,6 +86,7 @@ export const Dashboard = ({ quota, stats, queuePages, autoOptimise, onAutoToggle
                 streak={streak}
                 dailyUsed={dailyUsed}
                 dailyLimit={dailyLimit}
+                hasDailyLimit={hasDailyLimit}
                 monthlyUsed={monthlyUsed}
                 monthlyLimit={monthlyLimit}
                 plan={plan}
@@ -90,7 +95,7 @@ export const Dashboard = ({ quota, stats, queuePages, autoOptimise, onAutoToggle
     );
 };
 
-const TodaysPassHero = ({ queuePages, plan, dailyUsed, dailyLimit, dailyRemaining, newSince, needsAttn, onGenerate, onUpgrade }) => {
+const TodaysPassHero = ({ queuePages, plan, dailyUsed, dailyLimit, dailyRemaining, hasDailyLimit, monthlyRemaining, newSince, needsAttn, onGenerate, onUpgrade }) => {
     const queueCount = Math.min( dailyRemaining, Math.min( needsAttn, 5 ), queuePages?.length || 0 );
     const showQueue = queueCount > 0;
     const [hover, setHover] = useState( false );
@@ -164,7 +169,7 @@ const TodaysPassHero = ({ queuePages, plan, dailyUsed, dailyLimit, dailyRemainin
                         <div style={{ flex: 1, fontSize: 13, color: 'var(--ok-ink)', lineHeight: 1.45 }}>
                             {plan === 'pro'
                                 ? <><strong>Optimisation complete.</strong> Autopilot is monitoring new pages in the background.</>
-                                : <><strong>Daily goal complete.</strong> Next pass unlocks in 8h 14m.</>}
+                                : <><strong>All caught up.</strong> <span className="mono tnum">{monthlyRemaining}</span> credits left this billing cycle.</>}
                         </div>
                     </div>
                 </div>
@@ -188,14 +193,15 @@ const TodaysPassHero = ({ queuePages, plan, dailyUsed, dailyLimit, dailyRemainin
                     ) : showQueue ? (
                         <>
                             <span style={{ color: 'var(--text-2)', fontWeight: 500 }}>
-                                <span className="mono tnum">{dailyUsed}</span> of <span className="mono tnum">{dailyLimit}</span> today's free generations
+                                {hasDailyLimit
+                                    ? <><span className="mono tnum">{dailyUsed}</span> of <span className="mono tnum">{dailyLimit}</span> today's free generations</>
+                                    : <><span className="mono tnum">{monthlyRemaining}</span> credits left this billing cycle</>}
                             </span>
-                            <span>· refreshes in 8h</span>
                         </>
                     ) : (
                         <>
                             <Icon name="check" size={12} style={{ color: 'var(--ok-ink)' }} strokeWidth={2.6}/>
-                            <span style={{ color: 'var(--text-2)', fontWeight: 500 }}><span className="mono">{dailyLimit}</span> of <span className="mono">{dailyLimit}</span> completed today</span>
+                            <span style={{ color: 'var(--text-2)', fontWeight: 500 }}>Library fully optimised</span>
                         </>
                     )}
                 </div>
@@ -205,7 +211,7 @@ const TodaysPassHero = ({ queuePages, plan, dailyUsed, dailyLimit, dailyRemainin
                             {plan === 'pro' ? 'Run optimisation pass' : 'Start today\'s pass'}
                         </Button>
                     ) : plan === 'free' ? (
-                        <Button variant="pro" size="sm" icon="crown" onClick={onUpgrade}>Lift the daily allowance</Button>
+                        <Button variant="pro" size="sm" icon="crown" onClick={onUpgrade}>Get more credits</Button>
                     ) : (
                         <Button variant="secondary" size="md" disabled>All caught up</Button>
                     )}
@@ -392,7 +398,7 @@ const ActivityStrip = ({ onView, newSince }) => {
     );
 };
 
-const FooterMetrics = ({ streak, dailyUsed, dailyLimit, monthlyUsed, monthlyLimit, plan }) => {
+const FooterMetrics = ({ streak, dailyUsed, dailyLimit, hasDailyLimit, monthlyUsed, monthlyLimit, plan }) => {
     const Item = ({ label, value }) => (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <div style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{label}</div>
@@ -400,6 +406,7 @@ const FooterMetrics = ({ streak, dailyUsed, dailyLimit, monthlyUsed, monthlyLimi
         </div>
     );
     const dailyExhausted = plan === 'free' && dailyUsed >= dailyLimit;
+    const monthlyRemaining = Math.max( 0, monthlyLimit - monthlyUsed );
 
     return (
         <div style={{ display: 'flex', alignItems: 'center', padding: '14px 4px 4px', gap: 40, flexWrap: 'wrap', borderTop: '1px solid var(--hairline)', marginTop: 20 }}>
@@ -411,12 +418,15 @@ const FooterMetrics = ({ streak, dailyUsed, dailyLimit, monthlyUsed, monthlyLimi
                 </>
             ) : (
                 <>
-                    <Item label="Daily allowance" value={
-                        dailyExhausted
-                            ? <><span className="mono tnum">{dailyLimit}</span> of <span className="mono tnum">{dailyLimit}</span> completed · <span style={{ color: 'var(--text-3)' }}>next in 8h</span></>
-                            : <><span className="mono tnum">{dailyUsed}</span> of <span className="mono tnum">{dailyLimit}</span> · <span style={{ color: 'var(--text-3)' }}>refills in 8h</span></>
-                    }/>
-                    <Item label="Monthly usage" value={<><span className="mono tnum">{monthlyUsed}</span> of <span className="mono tnum">{monthlyLimit}</span> · <span style={{ color: 'var(--text-3)' }}>resets in 4d</span></>}/>
+                    {hasDailyLimit && (
+                        <Item label="Daily allowance" value={
+                            dailyExhausted
+                                ? <><span className="mono tnum">{dailyLimit}</span> of <span className="mono tnum">{dailyLimit}</span> completed today</>
+                                : <><span className="mono tnum">{dailyUsed}</span> of <span className="mono tnum">{dailyLimit}</span> today</>
+                        }/>
+                    )}
+                    <Item label="Monthly usage" value={<><span className="mono tnum">{monthlyUsed}</span> of <span className="mono tnum">{monthlyLimit}</span> used</>}/>
+                    <Item label="Remaining" value={<><span className="mono tnum">{monthlyRemaining}</span> credits left this cycle</>}/>
                 </>
             )}
         </div>

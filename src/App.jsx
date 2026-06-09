@@ -6,7 +6,7 @@ import { AutopilotScreen } from './screens/Autopilot';
 import { SettingsScreen } from './screens/Settings';
 import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal } from './modals/index';
 import { SignOutConfirm } from './auth';
-import { getInitialData, fetchQuota, fetchPages, runScan, normalizeQuota, createCheckout, createBillingPortal } from './api';
+import { getInitialData, fetchQuota, fetchPages, runScan, normalizeQuota, createCheckout, createBillingPortal, clearLicense } from './api';
 import { paywallTrigger, errorToast } from './errors';
 
 export default function App() {
@@ -301,9 +301,13 @@ export default function App() {
             <SignOutConfirm
                 open={signOutOpen}
                 onCancel={() => setSignOutOpen( false )}
-                onConfirm={() => {
+                onConfirm={async () => {
                     setSignOutOpen( false );
-                    setToast( { message: 'Signed out', icon: 'check', tone: 'ok' } );
+                    try { await clearLicense(); } catch ( e ) {}
+                    setConnected( false );
+                    setQuota( normalizeQuota( null ) );
+                    setTab( 'settings' );
+                    setToast( { message: 'Signed out', sub: 'Reconnect your license key in Settings to resume.', icon: 'check', tone: 'ok' } );
                 }}
             />
 

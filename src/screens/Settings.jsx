@@ -187,7 +187,7 @@ const PlanCard = ({ isPro, monthlyUsed, monthlyLimit, pct, resetDate, onUpgrade,
                 <div style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.45 }}>
                     {isPro
                         ? 'Unlimited AI generations · no daily or monthly limits · automation & priority queue.'
-                        : '5 AI generations per day · up to 50 per month · manual generation only.'}
+                        : `Up to ${monthlyLimit} AI generations per month · shared across your BeepBeep plugins · manual generation only.`}
                 </div>
             </div>
             <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>

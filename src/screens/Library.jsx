@@ -194,7 +194,7 @@ export const PagesLibrary = ({ plan, quota, onGenerate, onBulkGenerate, onUpgrad
 
                 <div style={{ borderTop: '1px solid var(--hairline)', padding: '10px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--surface-2)', fontSize: 11.5, color: 'var(--text-3)' }}>
                     <span>Showing <span className="mono tnum" style={{ color: 'var(--text-2)', fontWeight: 500 }}>{pages.length}</span> of <span className="mono tnum">{total}</span></span>
-                    {plan === 'free' && <span><span className="mono tnum">{dailyUsed}</span> of <span className="mono tnum">{dailyLimit}</span> used today</span>}
+                    {plan === 'free' && <span><span className="mono tnum">{quota?.monthly_used ?? 0}</span> of <span className="mono tnum">{quota?.monthly_limit ?? 50}</span> credits used this cycle</span>}
                 </div>
             </Card>
 
@@ -212,7 +212,7 @@ export const PagesLibrary = ({ plan, quota, onGenerate, onBulkGenerate, onUpgrad
             {plan === 'free' && selected.size === 0 && (
                 <div style={{ marginTop: 14, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--text-3)' }}>
                     <Icon name="info" size={13} style={{ color: 'var(--text-3)', flexShrink: 0 }}/>
-                    <span style={{ flex: 1 }}>On Free, you can generate up to <span className="mono">{dailyLimit}</span> titles & metas per day. Pro lifts the daily allowance and unlocks bulk site optimisation.</span>
+                    <span style={{ flex: 1 }}>On Free, you get <span className="mono">{quota?.monthly_limit ?? 50}</span> AI generations per month (shared with your other BeepBeep plugins). Pro unlocks unlimited generation and bulk site optimisation.</span>
                     <button onClick={onUpgrade} style={{ background: 'transparent', border: 'none', padding: 0, color: 'var(--primary-ink)', fontSize: 12.5, fontWeight: 500, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                         See Pro <Icon name="arrow-right" size={11}/>
                     </button>

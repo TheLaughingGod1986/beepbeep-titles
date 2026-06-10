@@ -36,9 +36,6 @@ export const AutopilotScreen = ({ plan, settings, autoOptimise, onAutoToggle, on
     const [titleLen, setTitleLen]     = useState( settings?.title_length || 'standard' );
     const [metaLen, setMetaLen]       = useState( settings?.meta_length  || 'standard' );
     const [instructions, setInstructions] = useState( settings?.custom_instructions || '' );
-    const [scanDaily, setScanDaily]   = useState( isPro && ( settings?.scan_daily ?? true ) );
-    const [weeklyDigest, setWeeklyDigest] = useState( isPro && ( settings?.weekly_digest ?? false ) );
-    const [driftAlerts, setDriftAlerts]   = useState( false );
     const [saving, setSaving]         = useState( false );
 
     const preset = PRESETS.find( p => p.id === style );
@@ -48,7 +45,7 @@ export const AutopilotScreen = ({ plan, settings, autoOptimise, onAutoToggle, on
     const handleSave = async () => {
         setSaving( true );
         try {
-            await saveSettings( { tone: style, title_length: titleLen, meta_length: metaLen, custom_instructions: instructions, scan_daily: scanDaily, weekly_digest: weeklyDigest } );
+            await saveSettings( { tone: style, title_length: titleLen, meta_length: metaLen, custom_instructions: instructions } );
             if ( onToast ) onToast( { message: 'Settings saved', icon: 'check', tone: 'ok' } );
         } catch ( e ) {
             if ( onToast ) onToast( { message: 'Failed to save settings', icon: 'alert', tone: 'warn' } );
@@ -105,32 +102,6 @@ export const AutopilotScreen = ({ plan, settings, autoOptimise, onAutoToggle, on
             </Card>
 
             <SERPPreviewCard preset={preset} title={previewTitle} meta={previewMeta} instructions={instructions}/>
-
-            <SectionTitle eyebrow="Run on a schedule" title="Background work" subtitle="Optional Pro extras that keep your site SEO healthy without you opening BeepBeep Titles."/>
-
-            <Card padding={0} style={{ marginBottom: 14 }}>
-                <ScheduleRow icon="calendar" title="Daily site crawl" desc="Sweep your published pages every morning to catch anything with missing or weak titles & meta." on={isPro && scanDaily} locked={!isPro}
-                    onChange={() => {
-                        if ( !isPro ) return onUpgrade();
-                        const next = !scanDaily;
-                        setScanDaily( next );
-                        if ( next && onToast ) onToast( { message: 'Daily crawl enabled', sub: 'BeepBeep Titles will sweep your pages every morning.', icon: 'calendar', tone: 'ok' } );
-                    }}/>
-                <Divider/>
-                <ScheduleRow icon="mail" title="Weekly digest email" desc="A Sunday health report: what was optimised, what needs review, coverage trend." on={isPro && weeklyDigest} locked={!isPro}
-                    onChange={() => {
-                        if ( !isPro ) return onUpgrade();
-                        const next = !weeklyDigest;
-                        setWeeklyDigest( next );
-                        if ( next && onToast ) onToast( { message: 'Weekly digest enabled', sub: 'Next report lands Sunday.', icon: 'mail', tone: 'ok' } );
-                    }}/>
-                <Divider/>
-                <ScheduleRow icon="bell" title="SEO drift alerts" desc="Notify when content updates make existing title & meta stale or off-topic." on={isPro && driftAlerts} locked={!isPro}
-                    onChange={() => {
-                        if ( !isPro ) return onUpgrade();
-                        setDriftAlerts( v => !v );
-                    }}/>
-            </Card>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
                 <Button variant="ghost" size="md" onClick={handleReset}>Reset defaults</Button>
@@ -275,18 +246,3 @@ const SERPPreviewCard = ({ preset, title, meta, instructions }) => (
     </Card>
 );
 
-const ScheduleRow = ({ icon, title, desc, on, locked, onChange }) => (
-    <div style={{ padding: '13px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
-        <div style={{ width: 30, height: 30, borderRadius: 8, background: locked ? 'transparent' : on ? 'var(--ok-soft)' : 'var(--bg-sunken)', color: locked ? 'var(--text-3)' : on ? 'var(--ok-ink)' : 'var(--text-3)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: locked ? '1px solid var(--border)' : 'none' }}>
-            <Icon name={locked ? 'lock' : icon} size={14}/>
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: locked ? 'var(--text-2)' : 'var(--text)', lineHeight: 1.3 }}>{title}</span>
-                {locked && <Pill tone="neutral">Pro</Pill>}
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2, lineHeight: 1.45 }}>{desc}</div>
-        </div>
-        <Toggle on={on} disabled={locked} onChange={onChange}/>
-    </div>
-);

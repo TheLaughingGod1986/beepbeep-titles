@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Icon, Card, Pill, Button, Divider, Toggle } from '../components';
+import { Icon, Card, Pill, Button, Divider, Toggle, SerpPreview } from '../components';
 import { saveSettings } from '../api';
 
 const PRESETS = [
@@ -251,19 +251,16 @@ const SERPPreviewCard = ({ preset, title, meta, instructions }) => (
             <span className="mono" style={{ fontSize: 11, color: 'var(--text-3)' }}>{preset.label}</span>
         </div>
         <div style={{ padding: '18px 22px' }}>
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', padding: '16px 18px', fontFamily: 'arial, sans-serif' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <span style={{ width: 18, height: 18, borderRadius: 999, background: '#1a73e8', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700 }}>M</span>
-                    <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2, minWidth: 0 }}>
-                        <span style={{ fontSize: 13, color: '#202124' }}>My Site</span>
-                        <span style={{ fontSize: 12, color: '#5f6368' }}>https://mysite.com › page</span>
-                    </div>
-                </div>
-                <div key={title} style={{ fontSize: 20, lineHeight: 1.3, color: '#1a0dab', fontWeight: 400, fontFamily: 'arial, sans-serif', margin: '4px 0' }}>{title}</div>
-                <div key={meta} style={{ fontSize: 14, lineHeight: 1.58, color: '#4d5156', fontFamily: 'arial, sans-serif' }}>
-                    <span style={{ color: '#70757a', marginRight: 4 }}>May 2026 —</span>{meta}
-                </div>
-            </div>
+            <SerpPreview
+                variant="large"
+                faviconLetter="M"
+                siteName="My Site"
+                displayUrl="https://mysite.com › page"
+                title={title}
+                titleKey={title}
+                meta={meta}
+                metaKey={meta}
+                metaPrefix="May 2026 —"/>
             <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-3)' }}>
                 <span className="mono">Title <span style={{ color: title.length > 60 ? 'var(--warn-ink)' : 'var(--text-2)', fontWeight: 600 }}>{title.length}</span>/60 chars</span>
                 <span className="mono">Meta <span style={{ color: meta.length > 160 ? 'var(--warn-ink)' : 'var(--text-2)', fontWeight: 600 }}>{meta.length}</span>/160 chars</span>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Icon, Card, Pill, Button, Progress, Ring } from '../components';
+import { Icon, Card, Pill, Button, Progress, Ring, PageAvatar } from '../components';
 
 const useCountUp = ( target, { duration = 900, decimals = 0 } = {} ) => {
     const [value, setValue] = useState( target );
@@ -148,9 +148,7 @@ const TodaysPassHero = ({ queuePages, plan, dailyUsed, dailyLimit, dailyRemainin
                 <div style={{ padding: '12px 20px 0', display: 'grid', gridTemplateColumns: `repeat(${Math.min( queueCount, 5 )}, minmax(0, 1fr))`, gap: 8 }}>
                     {displayPages.map( ( pg, i ) => (
                         <div key={pg.id || i} style={{ padding: 10, background: 'var(--surface-2)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                            <div style={{ width: 36, height: 36, borderRadius: 8, background: `hsl(${pg.hue ?? 220}, 32%, 94%)`, color: `hsl(${pg.hue ?? 220}, 38%, 32%)`, border: '1px solid var(--border)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, flexShrink: 0 }}>
-                                {( pg.section || 'P' )[0]}
-                            </div>
+                            <PageAvatar section={pg.section} hue={pg.hue ?? 220} size={36} style={{ flexShrink: 0 }}/>
                             <div style={{ minWidth: 0, flex: 1 }}>
                                 <div className="mono" style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pg.url}</div>
                                 <div style={{ marginTop: 3 }}>

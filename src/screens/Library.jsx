@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Icon, Card, Pill, Button, KBD } from '../components';
+import { Icon, Card, Pill, Button, KBD, PageAvatar, SerpPreview } from '../components';
 import { fetchPages, updatePage } from '../api';
 
 export const PagesLibrary = ({ plan, quota, onGenerate, onBulkGenerate, onUpgrade }) => {
@@ -250,9 +250,7 @@ const PageRow = ({ pg, selected, onToggle, onGenerate, onEdit, justSaved, plan, 
             }}>
             <Checkbox checked={selected} onChange={onToggle}/>
 
-            <div style={{ width: 36, height: 36, borderRadius: 8, background: `hsl(${pg.hue ?? 220}, 32%, 94%)`, color: `hsl(${pg.hue ?? 220}, 38%, 32%)`, border: '1px solid var(--border)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, flexShrink: 0 }}>
-                {( pg.section || 'P' )[0]}
-            </div>
+            <PageAvatar section={pg.section} hue={pg.hue ?? 220} size={36} style={{ flexShrink: 0 }}/>
 
             <div style={{ minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -319,9 +317,7 @@ const EditPageSEOModal = ({ page, onClose, onSave }) => {
         <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,23,42,0.45)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
             <div onClick={e => e.stopPropagation()} style={{ width: 620, maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-xl)', boxShadow: 'var(--shadow-lg)', animation: 'bbt-scale-in .2s cubic-bezier(0.16,1,0.3,1)' }}>
                 <div style={{ padding: '18px 22px 12px', display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 8, background: `hsl(${hue}, 32%, 94%)`, color: `hsl(${hue}, 38%, 32%)`, border: '1px solid var(--border)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, flexShrink: 0 }}>
-                        {( page.section || 'P' )[0]}
-                    </div>
+                    <PageAvatar section={page.section} hue={hue} fontSize={14} style={{ flexShrink: 0 }}/>
                     <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 2 }}>Edit page SEO</div>
                         <div className="mono" style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{page.url}</div>
@@ -361,18 +357,14 @@ const EditPageSEOModal = ({ page, onClose, onSave }) => {
 
                 <div style={{ padding: '10px 22px 18px' }}>
                     <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>Search preview</div>
-                    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', padding: '12px 14px', fontFamily: 'arial, sans-serif' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-                            <span style={{ width: 16, height: 16, borderRadius: 999, background: '#1a73e8', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700 }}>Y</span>
-                            <span style={{ fontSize: 12, color: '#5f6368' }}>yoursite.com{page.url}</span>
-                        </div>
-                        <div style={{ fontSize: 18, lineHeight: 1.3, color: '#1a0dab', fontFamily: 'arial, sans-serif', margin: '2px 0 3px' }}>
-                            {title || <em style={{ color: '#b00020', fontStyle: 'normal' }}>(no title set)</em>}
-                        </div>
-                        <div style={{ fontSize: 13, lineHeight: 1.55, color: '#4d5156', fontFamily: 'arial, sans-serif' }}>
-                            {meta || <em style={{ color: '#5f6368' }}>(no meta description — Google will pick a snippet from the page)</em>}
-                        </div>
-                    </div>
+                    <SerpPreview
+                        variant="compact"
+                        faviconLetter="Y"
+                        url={`yoursite.com${page.url}`}
+                        title={title}
+                        titleFallback={<em style={{ color: '#b00020', fontStyle: 'normal' }}>(no title set)</em>}
+                        meta={meta}
+                        metaFallback={<em style={{ color: '#5f6368' }}>(no meta description — Google will pick a snippet from the page)</em>}/>
                 </div>
 
                 <div style={{ padding: '12px 22px', background: 'var(--surface-2)', borderTop: '1px solid var(--hairline)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>

@@ -142,17 +142,13 @@ class Plugin {
     }
 
     private function autopilot_page_envelope( \WP_Post $post, array $current ): array {
-        $excerpt = wp_strip_all_tags( strip_shortcodes( $post->post_content ) );
-        $excerpt = trim( preg_replace( '/\s+/', ' ', $excerpt ) );
+        $envelope = PostPresenter::envelope( $post, $current );
 
-        return [
-            'url'             => '/' . ltrim( (string) wp_parse_url( (string) get_permalink( $post->ID ), PHP_URL_PATH ), '/' ),
-            'section'         => $post->post_type === 'page' ? 'Pages' : 'Blog',
-            'h1'              => $post->post_title,
-            'current_title'   => $current['title'] !== '' ? $current['title'] : null,
-            'current_meta'    => $current['meta'] !== '' ? $current['meta'] : null,
-            'content_excerpt' => function_exists( 'mb_substr' ) ? mb_substr( $excerpt, 0, 4000 ) : substr( $excerpt, 0, 4000 ),
-        ];
+        // Preserve the v1 auto-generate payload: the publish hook has always
+        // sent a simplified section (no Shop / taxonomy lookup on save_post).
+        $envelope['section'] = $post->post_type === 'page' ? 'Pages' : 'Blog';
+
+        return $envelope;
     }
 
     private function autopilot_options( array $settings ): array {

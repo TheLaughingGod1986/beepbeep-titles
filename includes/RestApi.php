@@ -186,7 +186,7 @@ class RestApi {
         $previous = $this->sanitize_previous( $previous );
 
         $result = $this->client->generate(
-            $this->page_envelope( $post ),
+            PostPresenter::envelope( $post ),
             $this->generation_options(),
             $previous
         );
@@ -220,7 +220,7 @@ class RestApi {
             if ( ! $post ) {
                 continue;
             }
-            $envelope       = $this->page_envelope( $post );
+            $envelope       = PostPresenter::envelope( $post );
             $envelope['id'] = (string) $post->ID; // client ref echoed back in poll items
             $pages[]        = $envelope;
             $ordered[]      = $post->ID;
@@ -266,8 +266,8 @@ class RestApi {
                 $item['wp_post_id'] = $post_id;
                 $post               = get_post( $post_id );
                 if ( $post ) {
-                    $item['url']     = $this->permalink_path( $post );
-                    $item['section'] = $this->section_for( $post );
+                    $item['url']     = PostPresenter::permalink_path( $post );
+                    $item['section'] = PostPresenter::section_for( $post );
                 }
 
                 if ( ( $item['status'] ?? '' ) === 'completed' ) {
@@ -498,22 +498,6 @@ class RestApi {
     // Shared helpers
     // ----------------------------------------------------------------
 
-    /** Build the backend `page` envelope from a post. */
-    private function page_envelope( \WP_Post $post ): array {
-        $current = MetaWriter::read( $post->ID );
-        $excerpt = wp_strip_all_tags( strip_shortcodes( $post->post_content ) );
-        $excerpt = trim( preg_replace( '/\s+/', ' ', $excerpt ) );
-
-        return [
-            'url'             => $this->permalink_path( $post ),
-            'section'         => $this->section_for( $post ),
-            'h1'              => $post->post_title,
-            'current_title'   => $current['title'] !== '' ? $current['title'] : null,
-            'current_meta'    => $current['meta'] !== '' ? $current['meta'] : null,
-            'content_excerpt' => function_exists( 'mb_substr' ) ? mb_substr( $excerpt, 0, 4000 ) : substr( $excerpt, 0, 4000 ),
-        ];
-    }
-
     /** Options block shared by single + bulk generation. */
     private function generation_options(): array {
         $settings = get_option( 'bbt_settings', [] );
@@ -560,22 +544,6 @@ class RestApi {
             return (int) $id;
         }
         return $ordered[ $index ] ?? 0;
-    }
-
-    private function permalink_path( \WP_Post $post ): string {
-        return '/' . ltrim( (string) wp_parse_url( (string) get_permalink( $post->ID ), PHP_URL_PATH ), '/' );
-    }
-
-    private function section_for( \WP_Post $post ): string {
-        switch ( $post->post_type ) {
-            case 'page':
-                return 'Pages';
-            case 'product':
-                return 'Shop';
-            default:
-                $cats = get_the_category( $post->ID );
-                return $cats ? $cats[0]->name : 'Blog';
-        }
     }
 
     private function bust_stats(): void {

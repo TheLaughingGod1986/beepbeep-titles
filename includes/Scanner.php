@@ -102,11 +102,11 @@ class Scanner {
 
         return [
             'id'        => $post->ID,
-            'url'       => '/' . ltrim( (string) wp_parse_url( (string) get_permalink( $post->ID ), PHP_URL_PATH ), '/' ),
+            'url'       => PostPresenter::permalink_path( $post ),
             'title'     => $post->post_title,
             'seo_title' => $seo_title,
             'meta_desc' => $meta_desc,
-            'section'   => $this->section_for( $post ),
+            'section'   => PostPresenter::section_for( $post ),
             'status'    => $status,
             'hue'       => $hue,
             'traffic'   => (int) get_post_meta( $post->ID, '_bbt_monthly_traffic', true ),
@@ -213,18 +213,6 @@ class Scanner {
         );
 
         return [ $with_title, $with_meta, $both ];
-    }
-
-    private function section_for( \WP_Post $post ): string {
-        switch ( $post->post_type ) {
-            case 'page':
-                return 'Pages';
-            case 'product':
-                return 'Shop';
-            default:
-                $cats = get_the_category( $post->ID );
-                return $cats ? $cats[0]->name : 'Blog';
-        }
     }
 
     private function filter_to_meta_query( string $filter ): array {

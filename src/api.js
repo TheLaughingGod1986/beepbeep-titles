@@ -182,7 +182,8 @@ export async function saveSettings( settings ) {
 // ── Localised initial state (from PHP) ──────────────────────────────
 export function getInitialData() {
     return {
-        user:      data.user      ?? { id: 0, name: 'Admin', email: '' },
+        user:         data.user         ?? { id: 0, name: 'Admin', email: '' },
+        accountEmail: data.accountEmail ?? '',
         connected: data.connected ?? false,
         seoPlugin: data.seoPlugin ?? 'fallback',
         settings:  data.settings  ?? {},

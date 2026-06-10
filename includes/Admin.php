@@ -81,6 +81,7 @@ class Admin {
         $user_id  = get_current_user_id();
         $settings = get_option( 'bbt_settings', [] );
         $settings = is_array( $settings ) ? $settings : [];
+        $client   = new Client();
 
         wp_localize_script( 'beepbeep-titles', 'bbtData', [
             'nonce'      => wp_create_nonce( 'wp_rest' ),
@@ -91,7 +92,8 @@ class Admin {
                 'name'  => wp_get_current_user()->display_name,
                 'email' => wp_get_current_user()->user_email,
             ],
-            'connected'  => ( new Client() )->has_license(),
+            'accountEmail' => $client->get_account_email(),
+            'connected'  => $client->has_license(),
             'seoPlugin'  => MetaWriter::active(),
             'settings'   => $settings,
             'wpVersion'  => (string) $wp_version,

@@ -1,7 +1,7 @@
 import { Icon, Button, Tooltip } from './components';
 import { UserMenu } from './auth';
 
-export const WPChrome = ({ children, activeTab, onTab, plan, onUpgrade, user, onSignOut, onHelp }) => {
+export const WPChrome = ({ children, activeTab, onTab, plan, onUpgrade, user, connected, onSignOut, onHelp }) => {
     const naiTabs = [
         { id: 'dashboard',  label: 'Home' },
         { id: 'library',    label: 'Library' },
@@ -83,7 +83,7 @@ export const WPChrome = ({ children, activeTab, onTab, plan, onUpgrade, user, on
                             Pro
                         </span>
                     )}
-                    {user && (
+                    {connected && user ? (
                         <UserMenu
                             user={user}
                             plan={plan}
@@ -91,6 +91,8 @@ export const WPChrome = ({ children, activeTab, onTab, plan, onUpgrade, user, on
                             onAccount={() => onTab( 'settings' )}
                             onHelp={onHelp || (() => {})}
                         />
+                    ) : (
+                        <Button variant="secondary" size="sm" icon="user" onClick={() => onTab( 'settings' )}>Sign in</Button>
                     )}
                 </div>
             </div>

@@ -4,7 +4,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-BASE="${BBT_REST_BASE:-http://localhost:8888/wp-json/beepbeep-titles/v1}"
+BASE="${BBT_REST_BASE:-http://localhost:8890/wp-json/beepbeep-titles/v1}"
 
 echo "== REST PHP lint =="
 while IFS= read -r -d '' file; do
@@ -13,7 +13,7 @@ done < <(find includes/Rest -name '*.php' -print0)
 php -l includes/RestApi.php
 
 echo "== REST route registration (optional wp-env) =="
-if ! curl -sf --max-time 2 "${BASE%/}/" -o /dev/null 2>/dev/null; then
+if ! curl -sf --max-time 2 "http://localhost:${WP_ENV_PORT:-8890}/wp-json/" -o /dev/null 2>/dev/null; then
     echo "SKIP: wp-env not reachable at ${BASE} (start with: npx wp-env start)"
     echo "REST SMOKE OK (lint only)"
     exit 0

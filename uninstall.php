@@ -21,6 +21,7 @@ $bbt_delete_all = is_array( $bbt_settings ) && ! empty( $bbt_settings['delete_on
 // 1. Options.
 $bbt_options = [
     'bbt_license_key',
+    'bbt_account_email',
     'bbt_install_hash',
     'bbt_site_fingerprint',
     'bbt_settings',

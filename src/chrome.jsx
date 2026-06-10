@@ -2,7 +2,7 @@ import { Icon, Button, Tooltip } from './components';
 import { UserMenu } from './auth';
 
 export const WPChrome = ({ children, activeTab, onTab, plan, onUpgrade, user, connected, onSignOut, onHelp }) => {
-    const naiTabs = [
+    const tabs = [
         { id: 'dashboard',  label: 'Home' },
         { id: 'library',    label: 'Library' },
         { id: 'automation', label: 'Autopilot' },
@@ -24,7 +24,7 @@ export const WPChrome = ({ children, activeTab, onTab, plan, onUpgrade, user, co
                     <span style={{ fontWeight: 700, fontSize: 14.5, letterSpacing: '-0.015em', color: 'var(--text)' }}>BeepBeep Titles</span>
                 </div>
                 <nav style={{ display: 'flex', alignItems: 'center', gap: 2, height: '100%' }}>
-                    {naiTabs.map( t => {
+                    {tabs.map( t => {
                         const active = activeTab === t.id;
                         return (
                             <button key={t.id} onClick={() => onTab( t.id )}

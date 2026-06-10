@@ -71,12 +71,10 @@ class Plugin {
             'onboarding_complete'  => false,
             'custom_instructions'  => '',
             'brand_name_override'  => '',
-            'delete_on_uninstall'  => false,
-            'notifications'        => [
-                'new_page'   => true,
-                'digest'     => false,
-                'limit_warn' => true,
-            ],
+            'delete_on_uninstall'    => false,
+            'notify_new_pages'     => true,
+            'weekly_digest'        => false,
+            'notify_quota_warning' => true,
         ] );
     }
 

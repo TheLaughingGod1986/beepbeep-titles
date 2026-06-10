@@ -44,4 +44,22 @@ $valid = SettingsSanitizer::sanitize_patch( [ 'tone' => 'direct', 'title_length'
 assert_eq( 'direct', $valid['tone'], 'valid tone kept' );
 assert_eq( 'standard', $valid['title_length'], 'valid title_length kept' );
 
+$legacy = SettingsSanitizer::normalize_settings( [
+	'notifications' => [
+		'new_page'   => true,
+		'digest'     => '1',
+		'limit_warn' => false,
+	],
+] );
+assert_eq( true, $legacy['notify_new_pages'], 'legacy new_page → notify_new_pages' );
+assert_eq( true, $legacy['weekly_digest'], 'legacy digest → weekly_digest' );
+assert_eq( false, $legacy['notify_quota_warning'], 'legacy limit_warn → notify_quota_warning' );
+assert_eq( null, $legacy['notifications'] ?? null, 'legacy notifications key removed' );
+
+$flat_wins = SettingsSanitizer::normalize_settings( [
+	'notify_new_pages' => false,
+	'notifications'    => [ 'new_page' => true ],
+] );
+assert_eq( false, $flat_wins['notify_new_pages'], 'flat key wins over legacy nested' );
+
 echo "OK: SettingsSanitizer\n";

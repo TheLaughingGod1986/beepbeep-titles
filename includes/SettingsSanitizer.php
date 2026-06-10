@@ -32,6 +32,33 @@ class SettingsSanitizer {
     private const META_LENGTHS  = [ 'brief', 'standard', 'detailed' ];
 
     /**
+     * Canonicalise stored settings: map legacy notifications.* to flat keys.
+     *
+     * @return array<string, mixed>
+     */
+    public static function normalize_settings( array $settings ): array {
+        if ( ! isset( $settings['notifications'] ) || ! is_array( $settings['notifications'] ) ) {
+            return $settings;
+        }
+
+        $legacy_map = [
+            'new_page'   => 'notify_new_pages',
+            'digest'     => 'weekly_digest',
+            'limit_warn' => 'notify_quota_warning',
+        ];
+
+        foreach ( $legacy_map as $legacy_key => $flat_key ) {
+            if ( ! array_key_exists( $flat_key, $settings ) && array_key_exists( $legacy_key, $settings['notifications'] ) ) {
+                $settings[ $flat_key ] = self::to_bool( $settings['notifications'][ $legacy_key ] );
+            }
+        }
+
+        unset( $settings['notifications'] );
+
+        return $settings;
+    }
+
+    /**
      * @return array<string, mixed> Sanitised key => value pairs to merge.
      */
     public static function sanitize_patch( array $incoming ): array {

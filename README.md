@@ -1,25 +1,90 @@
-# CODING AGENTS: READ THIS FIRST
+# BeepBeep Titles
 
-This is a **handoff bundle** from Claude Design (claude.ai/design).
+AI-powered SEO title and meta description generation for WordPress. React admin UI, PHP REST API, and a remote BeepBeep backend for generation and billing.
 
-A user mocked up designs in HTML/CSS/JS using an AI design tool, then exported this bundle so a coding agent can implement the designs for real.
+**Requirements:** WordPress 6.3+, PHP 8.1+
 
-## What you should do — IMPORTANT
+## Install
 
-**Read the chat transcripts first.** There are 5 chat transcript(s) in `chats/`. The transcripts show the full back-and-forth between the user and the design assistant — they tell you **what the user actually wants** and **where they landed** after iterating. Don't skip them. The final HTML files are the output, but the chat is where the intent lives.
+1. Copy or symlink this plugin into `wp-content/plugins/beepbeep-titles`.
+2. Run `npm install && npm run build` (ships with a pre-built `build/`; rebuild after changing `src/`).
+3. Activate **BeepBeep Titles** in wp-admin.
+4. Open **BeepBeep Titles** in the admin menu and connect your license key.
 
-**Read `project/BeepBeep Titles.html` in full.** The user had this file open when they triggered the handoff, so it's almost certainly the primary design they want built. Read it top to bottom — don't skim. Then **follow its imports**: open every file it pulls in (shared components, CSS, scripts) so you understand how the pieces fit together before you start implementing.
+Generation, quota, and billing are enforced by the BeepBeep backend. A stored license key alone does not guarantee entitlement — the API validates on each generate call.
 
-**If anything is ambiguous, ask the user to confirm before you start implementing.** It's much cheaper to clarify scope up front than to build the wrong thing.
+## License
 
-## About the design files
+Enter your key under **Settings → License**. Keys are encrypted at rest when OpenSSL is available. Disconnecting clears the key and pauses generation.
 
-The design medium is **HTML/CSS/JS** — these are prototypes, not production code. Your job is to **recreate them pixel-perfectly** in whatever technology makes sense for the target codebase (React, Vue, native, whatever fits). Match the visual output; don't copy the prototype's internal structure unless it happens to fit.
+Override the API host in `wp-config.php`:
 
-**Don't render these files in a browser or take screenshots unless the user asks you to.** Everything you need — dimensions, colors, layout rules — is spelled out in the source. Read the HTML and CSS directly; a screenshot won't tell you anything they don't.
+```php
+define( 'BEEPBEEP_TITLES_API_URL', 'https://your-backend.example.com' );
+```
 
-## Bundle contents
+## Local development (wp-env)
 
-- `README.md` — this file
-- `chats/` — conversation transcripts (read these!)
-- `project/` — the `Title and meta description AI plugin` project files (HTML prototypes, assets, components)
+```bash
+npm install
+npx @wordpress/env start
+```
+
+Default site: `http://localhost:8890` (port set in `.wp-env.json` if 8888 is taken).
+
+| Item | Value |
+|------|-------|
+| Admin | `http://localhost:8890/wp-admin` |
+| Plugin page | `admin.php?page=beepbeep-titles` |
+| Login | `admin` / `password` |
+
+```bash
+npx @wordpress/env stop
+npx @wordpress/env reset   # clean database
+```
+
+## Tests & smoke checks
+
+```bash
+# PHP lint + production JS build
+npm run smoke
+
+# Jest unit tests
+npm run test:unit
+
+# PHP sanitizer + uninstall option list
+php tests/php/settings-sanitize.test.php
+php tests/php/uninstall-options.test.php
+
+# REST route registration (requires wp-env running)
+bash scripts/rest-smoke.sh
+
+# Full manual QA checklist (Playwright + wp-cli)
+npx --yes -p playwright node scripts/wp-env-manual-qa.mjs
+```
+
+Set `WP_ENV_URL` / `WP_ENV_CLI` if your wp-env port or container name differs.
+
+## Project layout
+
+```
+beepbeep-titles.php   Bootstrap, constants, hooks
+includes/
+  Plugin.php          Auto-generate on publish, activation defaults
+  Api/Client.php      Backend HTTP client (license headers, errors)
+  PostPresenter.php   Post → API page envelope
+  Seo/MetaWriter.php  Yoast / Rank Math / AIOSEO / fallback meta I/O
+  Rest/               REST routes and controllers
+  Scanner.php         Library stats and page listing
+src/                  React admin app (built to build/)
+scripts/              smoke.sh, rest-smoke.sh, wp-env-manual-qa.mjs
+tests/                Jest + PHP CLI tests
+```
+
+## Distribution zip
+
+Exclude dev files with `.distignore` (via `wp dist-archive` or similar). The README is included in release archives.
+
+## Support
+
+https://beepbeep.ai

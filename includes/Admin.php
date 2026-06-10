@@ -81,6 +81,7 @@ class Admin {
         $user_id  = get_current_user_id();
         $settings = get_option( 'bbt_settings', [] );
         $settings = is_array( $settings ) ? $settings : [];
+        $settings = SettingsSanitizer::normalize_settings( $settings );
         $client   = new Client();
 
         wp_localize_script( 'beepbeep-titles', 'bbtData', [

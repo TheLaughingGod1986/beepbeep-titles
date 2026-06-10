@@ -68,6 +68,7 @@ class PagesController {
     public function get_settings( \WP_REST_Request $req ): \WP_REST_Response {
         $settings               = get_option( 'bbt_settings', [] );
         $settings               = is_array( $settings ) ? $settings : [];
+        $settings               = SettingsSanitizer::normalize_settings( $settings );
         $settings['seo_plugin'] = MetaWriter::active();
         $settings['connected']  = $this->client->has_license();
         return new \WP_REST_Response( $settings );
@@ -76,6 +77,7 @@ class PagesController {
     public function update_settings( \WP_REST_Request $req ): \WP_REST_Response {
         $current  = get_option( 'bbt_settings', [] );
         $current  = is_array( $current ) ? $current : [];
+        $current  = SettingsSanitizer::normalize_settings( $current );
         $incoming = $req->get_json_params() ?? [];
         $incoming = is_array( $incoming ) ? $incoming : [];
 
@@ -83,6 +85,7 @@ class PagesController {
             $current[ $key ] = $value;
         }
 
+        $current = SettingsSanitizer::normalize_settings( $current );
         update_option( 'bbt_settings', $current );
         return new \WP_REST_Response( $current );
     }

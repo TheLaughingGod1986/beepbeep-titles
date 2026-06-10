@@ -63,7 +63,6 @@ export const PagesLibrary = ({ plan, quota, onGenerate, onBulkGenerate, onUpgrad
         needs:          pages.filter( needsAttention ).length,
         'missing-title': pages.filter( p => p.status === 'missing-title' || p.status === 'missing-both' ).length,
         'missing-meta':  pages.filter( p => p.status === 'missing-meta'  || p.status === 'missing-both' ).length,
-        low:            pages.filter( p => p.status === 'low' ).length,
         ok:             pages.filter( p => p.status === 'ok'  ).length,
         new:            pages.filter( p => p.is_new ).length,
         all:            total,
@@ -98,7 +97,6 @@ export const PagesLibrary = ({ plan, quota, onGenerate, onBulkGenerate, onUpgrad
         { id: 'needs',         label: 'Needs attention', count: counts.needs },
         { id: 'missing-title', label: 'Missing title',   count: counts['missing-title'] },
         { id: 'missing-meta',  label: 'Missing meta',    count: counts['missing-meta'] },
-        { id: 'low',           label: 'Low quality',     count: counts.low },
         { id: 'new',           label: 'New pages',       count: counts.new },
         { id: 'ok',            label: 'Optimised',       count: counts.ok },
         { id: 'all',           label: 'All pages',       count: counts.all },
@@ -231,7 +229,6 @@ const PageRow = ({ pg, selected, onToggle, onGenerate, onEdit, justSaved, plan, 
         'missing-both':  { tone: 'danger', label: 'Missing both' },
         'missing-title': { tone: 'danger', label: 'Missing title' },
         'missing-meta':  { tone: 'warn',   label: 'Missing meta' },
-        'low':           { tone: 'warn',   label: 'Low quality' },
         'ok':            { tone: 'ok',     label: 'Optimised' },
     };
     const cfg = statusConfig[pg.status] || { tone: 'neutral', label: pg.status || '—' };

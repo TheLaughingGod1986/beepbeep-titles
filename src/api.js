@@ -1,3 +1,5 @@
+import { QUOTA_DEFAULTS } from './quota';
+
 /**
  * BeepBeep Titles — WordPress REST client.
  *
@@ -119,11 +121,18 @@ export async function fetchQuota() {
  */
 export function normalizeQuota( ent ) {
     if ( ! ent || ent.connected === false || ent.success === false ) {
-        return { plan: 'free', connected: false, daily_used: 0, daily_limit: 5, daily_remaining: 0, monthly_used: 0, monthly_limit: 50, reset_date: null };
+        return {
+            plan: 'free', connected: false, daily_used: 0,
+            daily_limit: QUOTA_DEFAULTS.daily_limit,
+            daily_remaining: QUOTA_DEFAULTS.daily_remaining,
+            monthly_used: 0,
+            monthly_limit: QUOTA_DEFAULTS.monthly_limit,
+            reset_date: null,
+        };
     }
-    const dailyLimit     = ent.daily_limit ?? 5;
+    const dailyLimit     = ent.daily_limit ?? QUOTA_DEFAULTS.daily_limit;
     const dailyRemaining = ent.daily_remaining ?? dailyLimit;
-    const monthlyLimit   = ent.total_limit ?? ent.monthly_limit ?? 50;
+    const monthlyLimit   = ent.total_limit ?? ent.monthly_limit ?? QUOTA_DEFAULTS.monthly_limit;
     const monthlyUsed    = ent.credits_used ?? ( monthlyLimit - ( ent.credits_remaining ?? monthlyLimit ) );
     return {
         ...ent,

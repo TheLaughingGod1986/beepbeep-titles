@@ -8,6 +8,8 @@
     "start": "wp-scripts start",
     "lint:js": "wp-scripts lint-js src",
     "lint:css": "wp-scripts lint-style src",
+    "test:unit": "wp-scripts test-unit-js",
+    "smoke": "bash scripts/smoke.sh",
     "env:start": "docker compose up -d",
     "env:stop": "docker compose down",
     "env:logs": "docker compose logs -f wordpress"

@@ -5,7 +5,7 @@ import { PagesLibrary } from './screens/Library';
 import { AutopilotScreen } from './screens/Autopilot';
 import { SettingsScreen } from './screens/Settings';
 import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal } from './modals/index';
-import { getInitialData, fetchQuota, fetchPages, runScan, normalizeQuota, createCheckout, createBillingPortal, clearLicense } from './api';
+import { getInitialData, fetchQuota, fetchPages, runScan, normalizeQuota, createCheckout, createBillingPortal, clearLicense, saveSettings } from './api';
 import { paywallTrigger, errorToast } from './errors';
 import { usePaywallGate } from './hooks/usePaywallGate';
 
@@ -159,13 +159,19 @@ export default function App() {
         refreshQuota();
     };
 
-    const handleAutoToggle = ( val ) => {
+    const handleAutoToggle = async ( val ) => {
         if ( isFree ) {
             setPaywall( { open: true, trigger: 'auto-feature', entitlement: quota } );
             return;
         }
-        setAutoOptimise( val );
-        setToast( { message: val ? 'Auto-generate enabled' : 'Auto-generate paused', sub: val ? 'BeepBeep Titles will write title & meta for every new page you publish.' : null, icon: val ? 'check' : 'info', tone: 'ok' } );
+        try {
+            await saveSettings( { auto_generate: val } );
+            setAutoOptimise( val );
+            setSettings( s => ( { ...s, auto_generate: val } ) );
+            setToast( { message: val ? 'Auto-generate enabled' : 'Auto-generate paused', sub: val ? 'BeepBeep Titles will write title & meta for every new page you publish.' : null, icon: val ? 'check' : 'info', tone: 'ok' } );
+        } catch ( e ) {
+            handleApiError( e );
+        }
     };
 
     // ── Billing: redirect to Stripe checkout / portal (shared account) ──

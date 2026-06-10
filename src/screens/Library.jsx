@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Icon, Card, Pill, Button, KBD, PageAvatar, SerpPreview } from '../components';
 import { fetchPages, updatePage } from '../api';
+import { QUOTA_DEFAULTS, canGenerateOne, dailyRemainingForLibrary, isBulkOverLimit } from '../quota';
 
 export const PagesLibrary = ({ plan, quota, onGenerate, onBulkGenerate, onUpgrade }) => {
     const [filter, setFilter]     = useState( 'needs' );
@@ -17,9 +18,9 @@ export const PagesLibrary = ({ plan, quota, onGenerate, onBulkGenerate, onUpgrad
     const [scanning, setScanning] = useState( false );
     const sentinelRef = useRef( null );
 
-    const dailyRemaining = plan === 'pro' ? Infinity : ( quota?.daily_remaining ?? 5 );
+    const dailyRemaining = dailyRemainingForLibrary( quota, plan );
     const dailyUsed  = quota?.daily_used || 0;
-    const dailyLimit = quota?.daily_limit || 5;
+    const dailyLimit = quota?.daily_limit || QUOTA_DEFAULTS.daily_limit;
 
     useEffect( () => {
         loadPages();
@@ -73,7 +74,7 @@ export const PagesLibrary = ({ plan, quota, onGenerate, onBulkGenerate, onUpgrad
 
     const tryBulk = () => {
         const selectedPages = pages.filter( p => selected.has( p.id ) );
-        if ( plan === 'free' && selectedPages.length > dailyRemaining ) {
+        if ( isBulkOverLimit( plan, selectedPages.length, dailyRemaining ) ) {
             if ( dailyRemaining > 0 ) onBulkGenerate( selectedPages.slice( 0, dailyRemaining ) );
             onUpgrade();
             return;
@@ -91,7 +92,7 @@ export const PagesLibrary = ({ plan, quota, onGenerate, onBulkGenerate, onUpgrad
         setTimeout( () => setSavedFlash( curr => curr === id ? null : curr ), 1800 );
     };
 
-    const overLimit = plan === 'free' && selected.size > dailyRemaining;
+    const overLimit = isBulkOverLimit( plan, selected.size, dailyRemaining );
 
     const filterTabs = [
         { id: 'needs',         label: 'Needs attention', count: counts.needs },
@@ -234,7 +235,7 @@ const PageRow = ({ pg, selected, onToggle, onGenerate, onEdit, justSaved, plan, 
         'ok':            { tone: 'ok',     label: 'Optimised' },
     };
     const cfg = statusConfig[pg.status] || { tone: 'neutral', label: pg.status || '—' };
-    const canGenerate = plan === 'pro' || dailyRemaining > 0;
+    const canGenerate = canGenerateOne( plan, dailyRemaining );
     const isOk = pg.status === 'ok';
 
     return (

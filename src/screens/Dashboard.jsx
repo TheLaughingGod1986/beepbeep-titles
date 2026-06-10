@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Icon, Card, Pill, Button, Progress, Ring, PageAvatar } from '../components';
+import { QUOTA_DEFAULTS } from '../quota';
 
 const useCountUp = ( target, { duration = 900, decimals = 0 } = {} ) => {
     const [value, setValue] = useState( target );
@@ -27,9 +28,9 @@ const useCountUp = ( target, { duration = 900, decimals = 0 } = {} ) => {
 export const Dashboard = ({ quota, stats, queuePages, autoOptimise, onAutoToggle, onGenerate, onUpgrade, onView }) => {
     const plan = quota?.plan || 'free';
     const dailyUsed = quota?.daily_used || 0;
-    const dailyLimit = quota?.daily_limit || 5;
+    const dailyLimit = quota?.daily_limit || QUOTA_DEFAULTS.daily_limit;
     const monthlyUsed = quota?.monthly_used || 0;
-    const monthlyLimit = quota?.monthly_limit || 50;
+    const monthlyLimit = quota?.monthly_limit || QUOTA_DEFAULTS.monthly_limit;
     const dailyRemaining = quota?.daily_remaining ?? ( dailyLimit - dailyUsed );
     const hasDailyLimit  = ( quota?.daily_limit ?? null ) !== null; // backend has no daily cap on the shared wallet
     const monthlyRemaining = Math.max( 0, monthlyLimit - monthlyUsed );

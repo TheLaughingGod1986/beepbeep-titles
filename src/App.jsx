@@ -7,6 +7,7 @@ import { SettingsScreen } from './screens/Settings';
 import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal } from './modals/index';
 import { getInitialData, fetchQuota, fetchPages, runScan, normalizeQuota, createCheckout, createBillingPortal, clearLicense } from './api';
 import { paywallTrigger, errorToast } from './errors';
+import { usePaywallGate } from './hooks/usePaywallGate';
 
 export default function App() {
     const initial = getInitialData();
@@ -35,7 +36,7 @@ export default function App() {
     };
 
     const plan = quota?.plan || 'free';
-    const dailyRemaining = quota?.daily_remaining ?? ( ( quota?.daily_limit || 5 ) - ( quota?.daily_used || 0 ) );
+    const { dailyRemaining, isDailyExhausted, isBulkOverLimit, heroCap, isFree } = usePaywallGate( plan, quota );
 
     // The avatar menu represents the BeepBeep account (license), not the WP
     // user — show the account email when we know it, fall back to WP identity.
@@ -123,18 +124,17 @@ export default function App() {
 
     // ── Open generation drawer ──
     const openGen = () => {
-        if ( plan === 'free' && dailyRemaining <= 0 ) {
+        if ( isDailyExhausted() ) {
             setPaywall( { open: true, trigger: 'daily-limit', entitlement: quota } );
             return;
         }
-        const cap   = plan === 'pro' ? 10 : Math.min( dailyRemaining, 5 );
-        const count = Math.min( cap, queuePages.length );
+        const count = Math.min( heroCap(), queuePages.length );
         if ( count <= 0 ) return;
         setDrawer( { open: true, pages: queuePages.slice( 0, count ) } );
     };
 
     const openGenSingle = ( pg ) => {
-        if ( plan === 'free' && dailyRemaining <= 0 ) {
+        if ( isDailyExhausted() ) {
             setPaywall( { open: true, trigger: 'daily-limit', entitlement: quota } );
             return;
         }
@@ -142,7 +142,7 @@ export default function App() {
     };
 
     const openBulk = ( pages ) => {
-        if ( plan === 'free' && pages.length > dailyRemaining ) {
+        if ( isBulkOverLimit( pages.length ) ) {
             setPaywall( { open: true, trigger: 'bulk', entitlement: quota } );
             return;
         }
@@ -160,7 +160,7 @@ export default function App() {
     };
 
     const handleAutoToggle = ( val ) => {
-        if ( plan === 'free' ) {
+        if ( isFree ) {
             setPaywall( { open: true, trigger: 'auto-feature', entitlement: quota } );
             return;
         }

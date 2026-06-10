@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Icon, Button, Progress } from '../components';
+import { Icon, Button, Progress, PageAvatar } from '../components';
 import { generateSingle, submitJob, updatePage } from '../api';
 import { pollUntilComplete } from '../jobs';
 import { isPaywall, errorToast } from '../errors';
@@ -275,7 +275,6 @@ const GenResultRow = ({ result, index, last, onEntitlement, onApiError, onToast 
         }
     };
 
-    const sectionLetter = ( result.section || 'P' )[0].toUpperCase();
     const hue = result.hue ?? ( index * 80 ) % 360;
     const failed = status === 'failed';
 
@@ -283,14 +282,7 @@ const GenResultRow = ({ result, index, last, onEntitlement, onApiError, onToast 
         <div className="gen-row-in" style={{ padding: '14px 0', borderBottom: last ? 'none' : '1px solid var(--hairline)' }}>
             <div style={{ display: 'flex', gap: 12 }}>
                 <div style={{ flexShrink: 0 }}>
-                    <div style={{
-                        width: 40, height: 40, borderRadius: 8,
-                        background: failed ? 'var(--danger-soft)' : `hsl(${hue}, 32%, 94%)`,
-                        color: failed ? 'var(--danger-ink)' : `hsl(${hue}, 38%, 32%)`,
-                        border: '1px solid var(--border)',
-                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 13, fontWeight: 700,
-                    }}>{failed ? <Icon name="alert" size={16}/> : sectionLetter}</div>
+                    <PageAvatar section={result.section} hue={hue} uppercase failed={failed}/>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -370,13 +362,12 @@ const GenResultRow = ({ result, index, last, onEntitlement, onApiError, onToast 
 
 const GenPlaceholderRow = ({ page }) => {
     const phrase = useRotatingPhrase( ASSISTANT_PHRASES, 1100, true );
-    const sectionLetter = ( page.section || 'P' )[0].toUpperCase();
     const hue = page.hue ?? 220;
     return (
         <div style={{ padding: '14px 0' }}>
             <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                 <div style={{ flexShrink: 0 }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 8, background: `hsl(${hue}, 32%, 94%)`, color: `hsl(${hue}, 38%, 32%)`, border: '1px solid var(--border)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 }}>{sectionLetter}</div>
+                    <PageAvatar section={page.section} hue={hue} uppercase/>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="mono" style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{page.url}</div>

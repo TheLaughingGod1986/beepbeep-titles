@@ -1,5 +1,8 @@
 import { useState } from 'react';
 
+export { PageAvatar } from './PageAvatar';
+export { SerpPreview } from './SerpPreview';
+
 export const Icon = ({ name, size = 16, strokeWidth = 1.75, className = '', style = {} }) => {
     const s = size;
     const props = {

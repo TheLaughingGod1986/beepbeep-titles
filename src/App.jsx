@@ -68,6 +68,13 @@ export default function App() {
         }
     }, [] );
 
+    // First-time connected users see the onboarding wizard once.
+    useEffect( () => {
+        if ( connected && ! ( settings?.onboarding_complete ?? true ) ) {
+            setOnboardingOpen( true );
+        }
+    }, [connected, settings?.onboarding_complete] );
+
     const refreshQuota = async () => {
         try {
             const q = await fetchQuota();
@@ -287,7 +294,11 @@ export default function App() {
                 open={onboardingOpen}
                 onClose={() => setOnboardingOpen( false )}
                 onScan={handleScan}
-                onComplete={() => {
+                onComplete={async () => {
+                    try {
+                        await saveSettings( { onboarding_complete: true } );
+                        setSettings( s => ( { ...s, onboarding_complete: true } ) );
+                    } catch ( e ) {}
                     setOnboardingOpen( false );
                     setToast( { message: 'Welcome to BeepBeep Titles', sub: 'Your first 5 daily generations are ready.', icon: 'logo', tone: 'ok' } );
                 }}

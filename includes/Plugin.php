@@ -68,6 +68,7 @@ class Plugin {
             'title_length'         => 'standard',
             'meta_length'          => 'standard',
             'auto_generate'        => false,
+            'onboarding_complete'  => false,
             'custom_instructions'  => '',
             'brand_name_override'  => '',
             'delete_on_uninstall'  => false,

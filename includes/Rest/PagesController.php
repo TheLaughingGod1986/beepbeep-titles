@@ -10,6 +10,7 @@ namespace BeepBeep_Titles\Rest;
 use BeepBeep_Titles\Api\Client;
 use BeepBeep_Titles\Scanner;
 use BeepBeep_Titles\Seo\MetaWriter;
+use BeepBeep_Titles\SettingsSanitizer;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -75,13 +76,11 @@ class PagesController {
     public function update_settings( \WP_REST_Request $req ): \WP_REST_Response {
         $current  = get_option( 'bbt_settings', [] );
         $current  = is_array( $current ) ? $current : [];
-        $allowed  = [ 'tone', 'title_length', 'meta_length', 'auto_generate', 'custom_instructions', 'brand_name_override', 'notifications', 'scan_daily', 'weekly_digest', 'notify_new_pages', 'notify_quota_warning', 'delete_on_uninstall' ];
         $incoming = $req->get_json_params() ?? [];
+        $incoming = is_array( $incoming ) ? $incoming : [];
 
-        foreach ( $allowed as $key ) {
-            if ( array_key_exists( $key, $incoming ) ) {
-                $current[ $key ] = $incoming[ $key ];
-            }
+        foreach ( SettingsSanitizer::sanitize_patch( $incoming ) as $key => $value ) {
+            $current[ $key ] = $value;
         }
 
         update_option( 'bbt_settings', $current );

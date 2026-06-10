@@ -183,20 +183,6 @@ export const Ring = ({ value, max = 100, size = 96, stroke = 8, tone = 'ok', chi
     );
 };
 
-export const Thumb = ({ label, size = 40, radius = 6, hue = 250 }) => (
-    <div className="thumb-placeholder" style={{
-        width: size, height: size, borderRadius: radius,
-        flexShrink: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 9, fontFamily: 'var(--font-mono)',
-        color: '#475569',
-        border: '1px solid var(--border)',
-        overflow: 'hidden',
-        backgroundColor: `oklch(0.93 0.02 ${hue})`,
-        backgroundImage: `repeating-linear-gradient(45deg, oklch(0.88 0.025 ${hue}) 0, oklch(0.88 0.025 ${hue}) 6px, oklch(0.93 0.02 ${hue}) 6px, oklch(0.93 0.02 ${hue}) 12px)`,
-    }}>{label}</div>
-);
-
 export const Divider = ({ vertical, style = {} }) => (
     vertical
         ? <div style={{ width: 1, alignSelf: 'stretch', background: 'var(--border)', ...style }}/>

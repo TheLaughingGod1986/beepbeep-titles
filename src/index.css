@@ -165,12 +165,6 @@
   animation: bbt-shimmer 1.4s linear infinite;
 }
 
-/* Thumb placeholder */
-.thumb-placeholder {
-  background-color: #E2E8F0;
-  background-image: repeating-linear-gradient(45deg,#CBD5E1 0,#CBD5E1 6px,#E2E8F0 6px,#E2E8F0 12px);
-}
-
 /* Scrollbar */
 #bbt-root ::-webkit-scrollbar       { width:10px; height:10px; }
 #bbt-root ::-webkit-scrollbar-thumb { background:#D2D8E2; border-radius:999px; border:2px solid var(--bg); }

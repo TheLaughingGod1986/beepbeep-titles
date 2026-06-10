@@ -19,10 +19,11 @@ defined( 'ABSPATH' ) || exit;
 
 class Client {
 
-    private const OPT_LICENSE      = 'bbt_license_key';
-    private const OPT_INSTALL_HASH = 'bbt_install_hash';
-    private const OPT_FINGERPRINT  = 'bbt_site_fingerprint';
-    private const ENC_PREFIX       = 'enc:';
+    private const OPT_LICENSE       = 'bbt_license_key';
+    private const OPT_ACCOUNT_EMAIL = 'bbt_account_email';
+    private const OPT_INSTALL_HASH  = 'bbt_install_hash';
+    private const OPT_FINGERPRINT   = 'bbt_site_fingerprint';
+    private const ENC_PREFIX        = 'enc:';
 
     // ----------------------------------------------------------------
     // Public API
@@ -106,6 +107,33 @@ class Client {
         return $this->request( 'GET', '/billing/info', null, 30 );
     }
 
+    /**
+     * Resolve the BeepBeep account email for the stored license and cache it.
+     * Best-effort: returns the cached value on backend failure.
+     */
+    public function refresh_account_email(): string {
+        $key = $this->get_license_key();
+        if ( $key === '' ) {
+            return '';
+        }
+        $result = $this->request( 'POST', '/license/validate', [ 'license_key' => $key ], 30 );
+        if ( is_wp_error( $result ) ) {
+            return $this->get_account_email();
+        }
+        $email = isset( $result['license']['email'] ) && is_string( $result['license']['email'] )
+            ? sanitize_email( $result['license']['email'] )
+            : '';
+        if ( $email !== '' ) {
+            update_option( self::OPT_ACCOUNT_EMAIL, $email, false );
+        }
+        return $email;
+    }
+
+    public function get_account_email(): string {
+        $email = get_option( self::OPT_ACCOUNT_EMAIL, '' );
+        return is_string( $email ) ? $email : '';
+    }
+
     /** Create a Stripe Checkout session; returns { url } to redirect to. */
     public function create_checkout( string $price_id, string $success_url, string $cancel_url ): array|\WP_Error {
         return $this->request( 'POST', '/billing/checkout', [
@@ -150,6 +178,7 @@ class Client {
 
     public function clear_license_key(): void {
         delete_option( self::OPT_LICENSE );
+        delete_option( self::OPT_ACCOUNT_EMAIL );
     }
 
     // ----------------------------------------------------------------

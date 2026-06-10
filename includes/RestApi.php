@@ -304,7 +304,8 @@ class RestApi {
         if ( is_wp_error( $result ) ) {
             return $this->error_response( $result );
         }
-        $result['connected'] = true;
+        $result['connected']     = true;
+        $result['account_email'] = $this->client->get_account_email();
         return new \WP_REST_Response( $result, 200 );
     }
 
@@ -319,8 +320,9 @@ class RestApi {
             return $this->error_response( $result );
         }
 
-        $result['connected']    = true;
+        $result['connected']     = true;
         $result['license_last4'] = substr( $key, -4 );
+        $result['account_email'] = $this->client->refresh_account_email();
         return new \WP_REST_Response( $result, 200 );
     }
 

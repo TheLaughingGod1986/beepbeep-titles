@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Icon, Pill, Button } from './components';
-import { Modal } from './modals/index';
+import { Icon, Pill } from './components';
 
 export const UserMenu = ({ user, plan, onSignOut, onAccount, onHelp }) => {
     const [open, setOpen] = useState( false );
@@ -118,25 +117,3 @@ export const Avatar = ({ initials, size = 28 }) => (
     }}>{initials}</span>
 );
 
-export const SignOutConfirm = ({ open, onCancel, onConfirm }) => (
-    <Modal open={open} onClose={onCancel} width={420}>
-        <div style={{ padding: '22px 24px 20px' }}>
-            <div style={{
-                width: 38, height: 38, borderRadius: 999,
-                background: 'var(--bg-sunken)', border: '1px solid var(--border)',
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                marginBottom: 12,
-            }}>
-                <Icon name="logout" size={17} style={{ color: 'var(--text-2)' }}/>
-            </div>
-            <h2 style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.015em', margin: '0 0 6px' }}>Sign out?</h2>
-            <p style={{ fontSize: 13, color: 'var(--text-2)', margin: 0, lineHeight: 1.55 }}>
-                Auto-generate will pause until you return. All previously generated titles and meta descriptions stay on your site.
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
-                <Button variant="ghost" size="md" onClick={onCancel}>Stay signed in</Button>
-                <Button variant="secondary" size="md" onClick={onConfirm}>Sign out</Button>
-            </div>
-        </div>
-    </Modal>
-);

@@ -5,7 +5,6 @@ import { PagesLibrary } from './screens/Library';
 import { AutopilotScreen } from './screens/Autopilot';
 import { SettingsScreen } from './screens/Settings';
 import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal } from './modals/index';
-import { SignOutConfirm } from './auth';
 import { getInitialData, fetchQuota, fetchPages, runScan, normalizeQuota, createCheckout, createBillingPortal, clearLicense } from './api';
 import { paywallTrigger, errorToast } from './errors';
 
@@ -26,10 +25,22 @@ export default function App() {
     const [toast, setToast]           = useState( null );
     const [onboardingOpen, setOnboardingOpen] = useState( false );
     const [helpOpen, setHelpOpen]     = useState( false );
-    const [signOutOpen, setSignOutOpen] = useState( false );
+
+    const handleSignOut = async () => {
+        try { await clearLicense(); } catch ( e ) {}
+        setConnected( false );
+        setQuota( normalizeQuota( null ) );
+        setTab( 'settings' );
+        setToast( { message: 'Signed out', sub: 'Reconnect your license key in Settings to resume.', icon: 'check', tone: 'ok' } );
+    };
 
     const plan = quota?.plan || 'free';
     const dailyRemaining = quota?.daily_remaining ?? ( ( quota?.daily_limit || 5 ) - ( quota?.daily_used || 0 ) );
+
+    // The avatar menu represents the BeepBeep account (license), not the WP
+    // user — show the account email when we know it, fall back to WP identity.
+    const accountEmail = quota?.account_email || initial.accountEmail || '';
+    const menuUser     = accountEmail ? { name: accountEmail.split( '@' )[0], email: accountEmail } : user;
 
     // Bootstrap: refresh quota + load queue/stats on mount.
     useEffect( () => {
@@ -257,8 +268,9 @@ export default function App() {
                 activeTab={tab}
                 onTab={setTab}
                 plan={plan}
-                user={user}
-                onSignOut={() => setSignOutOpen( true )}
+                user={menuUser}
+                connected={connected}
+                onSignOut={handleSignOut}
                 onHelp={() => setHelpOpen( true )}
                 onUpgrade={() => setPaywall( { open: true, trigger: 'default', entitlement: null } )}
             >
@@ -296,19 +308,6 @@ export default function App() {
                 onClose={() => setPaywall( { open: false, trigger: 'default', entitlement: null } )}
                 onUpgrade={handleUpgrade}
                 onBuyCredits={handleBuyCredits}
-            />
-
-            <SignOutConfirm
-                open={signOutOpen}
-                onCancel={() => setSignOutOpen( false )}
-                onConfirm={async () => {
-                    setSignOutOpen( false );
-                    try { await clearLicense(); } catch ( e ) {}
-                    setConnected( false );
-                    setQuota( normalizeQuota( null ) );
-                    setTab( 'settings' );
-                    setToast( { message: 'Signed out', sub: 'Reconnect your license key in Settings to resume.', icon: 'check', tone: 'ok' } );
-                }}
             />
 
             {toast && <Toast {...toast} onDismiss={() => setToast( null )}/>}

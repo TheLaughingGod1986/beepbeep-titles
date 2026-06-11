@@ -257,6 +257,8 @@ export default function App() {
                 <PagesLibrary
                     plan={plan}
                     quota={quota}
+                    connected={connected}
+                    onConnect={() => setConnectOpen( true )}
                     onGenerate={openGenSingle}
                     onBulkGenerate={openBulk}
                     onUpgrade={() => setPaywall( { open: true, trigger: 'bulk', entitlement: quota } )}

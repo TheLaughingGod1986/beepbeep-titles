@@ -10,6 +10,7 @@ const {
 	isBulkOverLimit,
 	canGenerateOne,
 	heroGenerationCap,
+	isGenerationLocked,
 } = require( '../../src/quota' );
 
 describe( 'QUOTA_DEFAULTS', () => {
@@ -41,5 +42,20 @@ describe( 'paywall gate helpers', () => {
 		expect( canGenerateOne( 'free', 0 ) ).toBe( false );
 		expect( heroGenerationCap( 'free', 3 ) ).toBe( 3 );
 		expect( heroGenerationCap( 'pro', 3 ) ).toBe( 10 );
+	} );
+
+	test( 'isGenerationLocked locks the Library when signed out', () => {
+		expect( isGenerationLocked( false, 'pro', Infinity ) ).toBe( true );
+		expect( isGenerationLocked( false, 'free', 5 ) ).toBe( true );
+	} );
+
+	test( 'isGenerationLocked locks free plans only when the allowance is exhausted', () => {
+		expect( isGenerationLocked( true, 'free', 0 ) ).toBe( true );
+		expect( isGenerationLocked( true, 'free', 3 ) ).toBe( false );
+	} );
+
+	test( 'isGenerationLocked never locks connected pro plans', () => {
+		expect( isGenerationLocked( true, 'pro', 0 ) ).toBe( false );
+		expect( isGenerationLocked( true, 'pro', Infinity ) ).toBe( false );
 	} );
 } );

@@ -37,6 +37,15 @@ export function canGenerateOne( plan, dailyRemaining ) {
     return plan === 'pro' || dailyRemaining > 0;
 }
 
+/**
+ * Library.jsx lock-out (mirrors the ALT plugin's locked Library): generation
+ * CTAs render as locks when no license is connected or the allowance is
+ * exhausted. Locked CTAs stay clickable and route to connect/upgrade.
+ */
+export function isGenerationLocked( connected, plan, dailyRemaining ) {
+    return ! connected || ! canGenerateOne( plan, dailyRemaining );
+}
+
 export function heroGenerationCap( plan, dailyRemaining ) {
     return plan === 'pro' ? 10 : Math.min( dailyRemaining, 5 );
 }

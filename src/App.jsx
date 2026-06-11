@@ -5,7 +5,8 @@ import { PagesLibrary } from './screens/Library';
 import { AutopilotScreen } from './screens/Autopilot';
 import { SettingsScreen } from './screens/Settings';
 import { AuditSignedOutScreen } from './screens/Audit';
-import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal } from './modals/index';
+import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal, ConnectModal } from './modals/index';
+import { SignOutConfirm } from './auth';
 import { getInitialData, fetchQuota, fetchPages, runScan, normalizeQuota, createCheckout, createBillingPortal, clearLicense, saveSettings } from './api';
 import { paywallTrigger, errorToast } from './errors';
 import { usePaywallGate } from './hooks/usePaywallGate';
@@ -27,6 +28,8 @@ export default function App() {
     const [toast, setToast]           = useState( null );
     const [onboardingOpen, setOnboardingOpen] = useState( false );
     const [helpOpen, setHelpOpen]     = useState( false );
+    const [signOutOpen, setSignOutOpen] = useState( false );
+    const [connectOpen, setConnectOpen] = useState( false );
 
     const handleSignOut = async () => {
         try { await clearLicense(); } catch ( e ) {}
@@ -66,8 +69,8 @@ export default function App() {
             const qs = params.toString();
             window.history.replaceState( {}, '', window.location.pathname + ( qs ? '?' + qs : '' ) );
         } else if ( ! initial.connected ) {
-            // No license yet — nudge the user toward Settings, but don't block.
-            setToast( { message: 'Connect your BeepBeep license', sub: 'Add your license key in Settings to start generating.', icon: 'info', tone: 'warn' } );
+            // No license yet — nudge the user toward the connect modal.
+            setToast( { message: 'Connect your BeepBeep license', sub: 'Click "Connect license" to activate AI title & meta generation.', icon: 'info', tone: 'warn' } );
         }
     }, [] );
 
@@ -244,7 +247,7 @@ export default function App() {
             ) : (
                 <AuditSignedOutScreen
                     stats={stats}
-                    onConnect={() => setTab( 'settings' )}
+                    onConnect={() => setConnectOpen( true )}
                     onHelp={() => setHelpOpen( true )}
                 />
             );
@@ -298,7 +301,7 @@ export default function App() {
                 plan={plan}
                 user={menuUser}
                 connected={connected}
-                onSignOut={handleSignOut}
+                onSignOut={() => setSignOutOpen( true )}
                 onHelp={() => setHelpOpen( true )}
                 onUpgrade={() => setPaywall( { open: true, trigger: 'default', entitlement: null } )}
             >
@@ -315,11 +318,28 @@ export default function App() {
                         setSettings( s => ( { ...s, onboarding_complete: true } ) );
                     } catch ( e ) {}
                     setOnboardingOpen( false );
-                    setToast( { message: 'Welcome to BeepBeep Titles', sub: 'Your first 5 daily generations are ready.', icon: 'logo', tone: 'ok' } );
+                    setToast( plan === 'pro'
+                        ? { message: 'Welcome to BeepBeep Titles', sub: 'Autopilot is monitoring your site — continuous optimisation enabled.', icon: 'zap', tone: 'ok' }
+                        : { message: 'Welcome to BeepBeep Titles', sub: 'Your first 5 daily generations are ready.', icon: 'logo', tone: 'ok' } );
                 }}
             />
 
             <HelpModal open={helpOpen} onClose={() => setHelpOpen( false )}/>
+
+            <ConnectModal
+                open={connectOpen}
+                onClose={() => setConnectOpen( false )}
+                onSuccess={( res ) => {
+                    refreshQuota();
+                    setToast( { message: 'License connected', sub: `Plan: ${ res?.plan || 'free' } · generations ready.`, icon: 'check', tone: 'ok' } );
+                }}
+            />
+
+            <SignOutConfirm
+                open={signOutOpen}
+                onCancel={() => setSignOutOpen( false )}
+                onConfirm={() => { setSignOutOpen( false ); handleSignOut(); }}
+            />
 
             <GenerationDrawer
                 open={drawer.open}

@@ -305,6 +305,7 @@ export default function App() {
                 connected={connected}
                 onSignOut={() => setSignOutOpen( true )}
                 onHelp={() => setHelpOpen( true )}
+                onConnect={() => setConnectOpen( true )}
                 onUpgrade={() => setPaywall( { open: true, trigger: 'default', entitlement: null } )}
             >
                 {body}

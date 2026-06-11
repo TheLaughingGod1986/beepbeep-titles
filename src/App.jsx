@@ -4,6 +4,7 @@ import { Dashboard } from './screens/Dashboard';
 import { PagesLibrary } from './screens/Library';
 import { AutopilotScreen } from './screens/Autopilot';
 import { SettingsScreen } from './screens/Settings';
+import { AuditSignedOutScreen } from './screens/Audit';
 import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal } from './modals/index';
 import { getInitialData, fetchQuota, fetchPages, runScan, normalizeQuota, createCheckout, createBillingPortal, clearLicense, saveSettings } from './api';
 import { paywallTrigger, errorToast } from './errors';
@@ -31,7 +32,9 @@ export default function App() {
         try { await clearLicense(); } catch ( e ) {}
         setConnected( false );
         setQuota( normalizeQuota( null ) );
-        setTab( 'settings' );
+        // Land on the signed-out audit report (Home) rather than Settings —
+        // it carries the reconnect CTA and shows what's at stake.
+        setTab( 'dashboard' );
         setToast( { message: 'Signed out', sub: 'Reconnect your license key in Settings to resume.', icon: 'check', tone: 'ok' } );
     };
 
@@ -101,17 +104,21 @@ export default function App() {
 
     const loadStats = async () => {
         try {
-            const res = await fetchPages( { filter: 'needs', perPage: 1 } );
-            const s   = res.stats || {};
+            const res   = await fetchPages( { filter: 'needs', perPage: 1 } );
+            const s     = res.stats || {};
+            const total = s.total || 0;
             setStats( {
-                total:               s.total     || 0,
+                total,
                 optimised:           s.optimised || 0,
                 needs_attention:     s.remaining || res.total || 0,
+                missing_title:       Math.max( 0, total - ( s.with_title ?? total ) ),
+                missing_meta:        Math.max( 0, total - ( s.with_meta ?? total ) ),
+                coverage:            s.coverage ?? ( total > 0 ? Math.round( ( ( s.optimised || 0 ) / total ) * 100 ) : 0 ),
                 new_since_last_visit: 0,
                 streak:              0,
             } );
         } catch ( e ) {
-            setStats( { total: 0, optimised: 0, needs_attention: 0, new_since_last_visit: 0, streak: 0 } );
+            setStats( { total: 0, optimised: 0, needs_attention: 0, missing_title: 0, missing_meta: 0, coverage: 0, new_since_last_visit: 0, streak: 0 } );
         }
     };
 
@@ -221,7 +228,9 @@ export default function App() {
     let body = null;
     switch ( tab ) {
         case 'dashboard':
-            body = (
+            // No license connected → conversion-focused audit report
+            // (Claude Design signed-out screen) in place of the dashboard.
+            body = connected ? (
                 <Dashboard
                     quota={quota}
                     stats={stats}
@@ -231,6 +240,12 @@ export default function App() {
                     onGenerate={openGen}
                     onUpgrade={() => setPaywall( { open: true, trigger: 'default', entitlement: null } )}
                     onView={setTab}
+                />
+            ) : (
+                <AuditSignedOutScreen
+                    stats={stats}
+                    onConnect={() => setTab( 'settings' )}
+                    onHelp={() => setHelpOpen( true )}
                 />
             );
             break;

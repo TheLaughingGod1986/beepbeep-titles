@@ -50,6 +50,35 @@ class BillingController {
         return new \WP_REST_Response( [ 'success' => true, 'connected' => false ], 200 );
     }
 
+    /**
+     * Sign in with a BeepBeep account (email + password). The backend returns
+     * the account's license key, which we store and then validate via /quota —
+     * the response shape matches set_license so the JS can treat them alike.
+     */
+    public function login( \WP_REST_Request $req ): \WP_REST_Response {
+        $email    = sanitize_email( (string) $req->get_param( 'email' ) );
+        $password = (string) $req->get_param( 'password' );
+
+        if ( $email === '' || ! is_email( $email ) || $password === '' ) {
+            return new \WP_REST_Response( [ 'success' => false, 'code' => 'INVALID_REQUEST', 'message' => __( 'Enter your account email and password.', 'beepbeep-titles' ) ], 400 );
+        }
+
+        $user = $this->client->login( $email, $password );
+        if ( is_wp_error( $user ) ) {
+            return ErrorResponder::from_wp_error( $user );
+        }
+
+        $result = $this->client->quota();
+        if ( is_wp_error( $result ) ) {
+            $this->client->clear_license_key();
+            return ErrorResponder::from_wp_error( $result );
+        }
+
+        $result['connected']     = true;
+        $result['account_email'] = $this->client->get_account_email();
+        return new \WP_REST_Response( $result, 200 );
+    }
+
     public function billing_plans( \WP_REST_Request $req ): \WP_REST_Response {
         $result = $this->client->billing_plans();
         if ( is_wp_error( $result ) ) {

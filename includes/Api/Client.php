@@ -23,7 +23,17 @@ class Client {
     private const OPT_ACCOUNT_EMAIL = 'bbt_account_email';
     private const OPT_INSTALL_HASH  = 'bbt_install_hash';
     private const OPT_FINGERPRINT   = 'bbt_site_fingerprint';
+    private const OPT_DISCONNECTED  = 'bbt_license_disconnected';
     private const ENC_PREFIX        = 'enc:';
+
+    /**
+     * License options written by sibling BeepBeep plugins on this site.
+     * They use the identical enc: AES-256-CBC scheme keyed on wp_salt('auth'),
+     * so maybe_decrypt() reads them directly.
+     */
+    private const SIBLING_LICENSE_OPTIONS = [
+        'beepbeepai_license_key', // BeepBeep AI Alt Text
+    ];
 
     // ----------------------------------------------------------------
     // Public API
@@ -174,11 +184,89 @@ class Client {
         }
         $stored = $this->encrypt( $key );
         update_option( self::OPT_LICENSE, $stored !== '' ? $stored : $key, false );
+        delete_option( self::OPT_DISCONNECTED );
     }
 
     public function clear_license_key(): void {
         delete_option( self::OPT_LICENSE );
         delete_option( self::OPT_ACCOUNT_EMAIL );
+        // Remember the explicit disconnect so we don't immediately re-adopt a
+        // sibling plugin's license on the next page load.
+        update_option( self::OPT_DISCONNECTED, '1', false );
+    }
+
+    /**
+     * Adopt a license key already stored on this site by another BeepBeep
+     * plugin (the same key works across all of them). No-op when we already
+     * have a key or the user explicitly signed out of this plugin.
+     *
+     * @return bool Whether a sibling license was adopted.
+     */
+    public function adopt_shared_license(): bool {
+        if ( $this->has_license() || get_option( self::OPT_DISCONNECTED, '' ) !== '' ) {
+            return false;
+        }
+        foreach ( self::SIBLING_LICENSE_OPTIONS as $option ) {
+            $stored = get_option( $option, '' );
+            if ( ! is_string( $stored ) || $stored === '' ) {
+                continue;
+            }
+            $key = $this->maybe_decrypt( $stored );
+            if ( $key !== '' ) {
+                $this->set_license_key( $key );
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // ----------------------------------------------------------------
+    // Account login — exchange BeepBeep credentials for the license key.
+    // Same /auth/login route the alt-text plugin uses; the backend returns
+    // the account's license key alongside the JWT, which is all we need.
+    // ----------------------------------------------------------------
+
+    /**
+     * @return array|\WP_Error Backend user payload on success (license stored).
+     */
+    public function login( string $email, string $password ): array|\WP_Error {
+        $result = $this->do_request( 'POST', '/auth/login', [
+            'email'        => $email,
+            'password'     => $password,
+            'site_id'      => $this->site_hash(),
+            'site_url'     => get_site_url(),
+            'blog_id'      => function_exists( 'get_current_blog_id' ) ? absint( get_current_blog_id() ) : 0,
+            'network_id'   => function_exists( 'get_current_network_id' ) ? absint( get_current_network_id() ) : 0,
+            'is_multisite' => is_multisite(),
+        ], 45 );
+
+        if ( is_wp_error( $result ) ) {
+            return $result;
+        }
+
+        // Backend wraps the payload as { success, data: { token, user } } but
+        // older deployments return { token, user } at the top level.
+        $user = $result['data']['user'] ?? $result['user'] ?? null;
+        $key  = is_array( $user ) && isset( $user['license_key'] ) && is_string( $user['license_key'] )
+            ? trim( $user['license_key'] )
+            : '';
+
+        if ( $key === '' ) {
+            return new \WP_Error(
+                'bbt_no_account_license',
+                __( 'Signed in, but no license key is attached to this account yet. Visit your BeepBeep dashboard to claim one.', 'beepbeep-titles' ),
+                [ 'status' => 422, 'code' => 'NO_ACCOUNT_LICENSE' ]
+            );
+        }
+
+        $this->set_license_key( $key );
+
+        $account_email = isset( $user['email'] ) && is_string( $user['email'] ) ? sanitize_email( $user['email'] ) : sanitize_email( $email );
+        if ( $account_email !== '' ) {
+            update_option( self::OPT_ACCOUNT_EMAIL, $account_email, false );
+        }
+
+        return is_array( $user ) ? $user : [];
     }
 
     // ----------------------------------------------------------------
@@ -288,7 +376,11 @@ class Client {
                 [ 'status' => 401, 'code' => 'INVALID_LICENSE' ]
             );
         }
+        return $this->do_request( $method, $path, $body, $timeout );
+    }
 
+    /** Same plumbing as request() but without the license guard (auth routes). */
+    private function do_request( string $method, string $path, ?array $body, int $timeout ): array|\WP_Error {
         $url  = BBT_API_BASE . '/' . ltrim( $path, '/' );
         $args = [
             'method'    => $method,

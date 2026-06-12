@@ -93,6 +93,16 @@ class Routes {
             ],
         ] );
 
+        register_rest_route( $ns, '/auth/login', [
+            'methods'             => 'POST',
+            'callback'            => [ $b, 'login' ],
+            'permission_callback' => [ $this, 'require_admin' ],
+            'args'                => [
+                'email'    => [ 'required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_email' ],
+                'password' => [ 'required' => true, 'type' => 'string' ],
+            ],
+        ] );
+
         // ── Billing (shared account: Pro + credit packs) ──────────
         register_rest_route( $ns, '/billing/plans', [
             'methods'             => 'GET',

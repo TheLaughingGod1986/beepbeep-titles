@@ -82,7 +82,10 @@ class Admin {
         $settings = get_option( 'bbt_settings', [] );
         $settings = is_array( $settings ) ? $settings : [];
         $settings = SettingsSanitizer::normalize_settings( $settings );
-        $client   = new Client();
+        $client = new Client();
+        // If another BeepBeep plugin on this site already stores a license
+        // (same key works across all of them), connect with it automatically.
+        $adopted = $client->adopt_shared_license();
 
         wp_localize_script( 'beepbeep-titles', 'bbtData', [
             'nonce'      => wp_create_nonce( 'wp_rest' ),
@@ -95,6 +98,7 @@ class Admin {
             ],
             'accountEmail' => $client->get_account_email(),
             'connected'  => $client->has_license(),
+            'licenseAdopted' => $adopted,
             'seoPlugin'  => MetaWriter::active(),
             'settings'   => $settings,
             'wpVersion'  => (string) $wp_version,

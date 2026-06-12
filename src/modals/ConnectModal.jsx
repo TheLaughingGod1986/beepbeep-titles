@@ -1,15 +1,63 @@
 import { useState } from 'react';
 import { Modal } from './Modal';
 import { Icon, Button } from '../components';
-import { setLicense } from '../api';
+import { setLicense, loginWithPassword } from '../api';
+
+const inputStyle = ( error, mono = false ) => ( {
+    display: 'block', width: '100%', boxSizing: 'border-box',
+    padding: '11px 14px',
+    border: `1.5px solid ${ error ? 'var(--danger)' : 'var(--border)' }`,
+    borderRadius: 'var(--r-md)',
+    fontSize: 14, fontFamily: mono ? 'var(--font-mono)' : 'inherit',
+    color: 'var(--text)', background: error ? 'var(--danger-soft)' : 'var(--surface)',
+    outline: 0,
+    transition: 'border-color .15s ease, box-shadow .15s ease, background .15s ease',
+    letterSpacing: mono ? '0.04em' : 'normal',
+} );
+
+const focusHandlers = ( error ) => ( {
+    onFocus: e => {
+        if ( ! error ) {
+            e.target.style.borderColor = 'var(--primary)';
+            e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.16)';
+        }
+    },
+    onBlur: e => {
+        if ( ! error ) {
+            e.target.style.borderColor = 'var(--border)';
+            e.target.style.boxShadow = 'none';
+        }
+    },
+} );
+
+const FieldLabel = ({ children }) => (
+    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', marginBottom: 6, letterSpacing: '0.02em' }}>
+        {children}
+    </div>
+);
+
+const FieldError = ({ children }) => (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginTop: 7, fontSize: 12, color: 'var(--danger-ink)', lineHeight: 1.45 }}>
+        <Icon name="alert" size={13} style={{ flexShrink: 0, marginTop: 1 }}/>
+        {children}
+    </div>
+);
 
 export const ConnectModal = ({ open, onClose, onSuccess }) => {
+    const [mode, setMode]         = useState( 'password' ); // 'password' | 'license'
+    const [email, setEmail]       = useState( '' );
+    const [password, setPassword] = useState( '' );
+    const [showPw, setShowPw]     = useState( false );
     const [key, setKey]           = useState( '' );
     const [connecting, setConnecting] = useState( false );
     const [error, setError]       = useState( null );
     const [done, setDone]         = useState( false );
 
     const reset = () => {
+        setMode( 'password' );
+        setEmail( '' );
+        setPassword( '' );
+        setShowPw( false );
         setKey( '' );
         setError( null );
         setDone( false );
@@ -18,28 +66,44 @@ export const ConnectModal = ({ open, onClose, onSuccess }) => {
 
     const handleClose = () => { reset(); onClose(); };
 
+    const finish = ( res ) => {
+        setDone( true );
+        // Brief success pause so the user sees the confirmation.
+        setTimeout( () => {
+            reset();
+            onClose();
+            onSuccess?.( res );
+        }, 900 );
+    };
+
+    const canSubmit = mode === 'password'
+        ? email.trim() !== '' && password !== ''
+        : key.trim() !== '';
+
     const handleConnect = async () => {
-        const trimmed = key.trim();
-        if ( ! trimmed ) return;
+        if ( ! canSubmit || connecting ) return;
         setError( null );
         setConnecting( true );
         try {
-            const res = await setLicense( trimmed );
-            setDone( true );
-            // Brief success pause so the user sees the confirmation.
-            setTimeout( () => {
-                reset();
-                onClose();
-                onSuccess?.( res );
-            }, 900 );
+            const res = mode === 'password'
+                ? await loginWithPassword( email.trim(), password )
+                : await setLicense( key.trim() );
+            finish( res );
         } catch ( err ) {
-            setError( err?.message || 'Couldn\'t verify that license key. Check it and try again.' );
+            setError( err?.message || ( mode === 'password'
+                ? 'Couldn\'t sign in with those details. Check them and try again.'
+                : 'Couldn\'t verify that license key. Check it and try again.' ) );
             setConnecting( false );
         }
     };
 
     const handleKeyDown = ( e ) => {
-        if ( e.key === 'Enter' && key.trim() && ! connecting ) handleConnect();
+        if ( e.key === 'Enter' && canSubmit && ! connecting ) handleConnect();
+    };
+
+    const switchMode = ( next ) => {
+        setMode( next );
+        setError( null );
     };
 
     return (
@@ -60,7 +124,7 @@ export const ConnectModal = ({ open, onClose, onSuccess }) => {
                         </div>
                         <div>
                             <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.015em', lineHeight: 1.2 }}>
-                                Connect your license
+                                {mode === 'password' ? 'Sign in to BeepBeep' : 'Connect your license'}
                             </div>
                             <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
                                 BeepBeep Titles
@@ -82,55 +146,86 @@ export const ConnectModal = ({ open, onClose, onSuccess }) => {
                 ) : (
                     <>
                         <p style={{ fontSize: 13.5, color: 'var(--text-2)', lineHeight: 1.6, margin: '0 0 20px' }}>
-                            Enter your BeepBeep license key to activate AI title &amp; meta generation.
-                            Your key is in your <strong style={{ color: 'var(--text)', fontWeight: 600 }}>BeepBeep account dashboard</strong>.
+                            {mode === 'password' ? (
+                                <>Sign in with your <strong style={{ color: 'var(--text)', fontWeight: 600 }}>BeepBeep account</strong> and
+                                we&rsquo;ll pull in your license automatically — no key to copy.</>
+                            ) : (
+                                <>Enter your BeepBeep license key to activate AI title &amp; meta generation.
+                                Your key is in your <strong style={{ color: 'var(--text)', fontWeight: 600 }}>BeepBeep account dashboard</strong>.</>
+                            )}
                         </p>
 
-                        {/* Key input */}
-                        <label style={{ display: 'block', marginBottom: 16 }}>
-                            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', marginBottom: 6, letterSpacing: '0.02em' }}>
-                                License key
-                            </div>
-                            <input
-                                value={key}
-                                onChange={e => { setKey( e.target.value ); setError( null ); }}
-                                onKeyDown={handleKeyDown}
-                                placeholder="BBT-XXXX-XXXX-XXXX"
-                                autoComplete="off"
-                                spellCheck={false}
-                                autoFocus
-                                disabled={connecting}
-                                style={{
-                                    display: 'block', width: '100%', boxSizing: 'border-box',
-                                    padding: '11px 14px',
-                                    border: `1.5px solid ${ error ? 'var(--danger)' : 'var(--border)' }`,
-                                    borderRadius: 'var(--r-md)',
-                                    fontSize: 14, fontFamily: 'var(--font-mono)',
-                                    color: 'var(--text)', background: error ? 'var(--danger-soft)' : 'var(--surface)',
-                                    outline: 0,
-                                    transition: 'border-color .15s ease, box-shadow .15s ease, background .15s ease',
-                                    letterSpacing: '0.04em',
-                                }}
-                                onFocus={e => {
-                                    if ( ! error ) {
-                                        e.target.style.borderColor = 'var(--primary)';
-                                        e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.16)';
-                                    }
-                                }}
-                                onBlur={e => {
-                                    if ( ! error ) {
-                                        e.target.style.borderColor = 'var(--border)';
-                                        e.target.style.boxShadow = 'none';
-                                    }
-                                }}
-                            />
-                            {error && (
-                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginTop: 7, fontSize: 12, color: 'var(--danger-ink)', lineHeight: 1.45 }}>
-                                    <Icon name="alert" size={13} style={{ flexShrink: 0, marginTop: 1 }}/>
-                                    {error}
-                                </div>
-                            )}
-                        </label>
+                        {mode === 'password' ? (
+                            <>
+                                {/* Email */}
+                                <label style={{ display: 'block', marginBottom: 12 }}>
+                                    <FieldLabel>Email</FieldLabel>
+                                    <input
+                                        type="email"
+                                        value={email}
+                                        onChange={e => { setEmail( e.target.value ); setError( null ); }}
+                                        onKeyDown={handleKeyDown}
+                                        placeholder="you@yoursite.com"
+                                        autoComplete="username"
+                                        spellCheck={false}
+                                        autoFocus
+                                        disabled={connecting}
+                                        style={inputStyle( error )}
+                                        {...focusHandlers( error )}
+                                    />
+                                </label>
+
+                                {/* Password */}
+                                <label style={{ display: 'block', marginBottom: 16 }}>
+                                    <FieldLabel>Password</FieldLabel>
+                                    <div style={{ position: 'relative' }}>
+                                        <input
+                                            type={showPw ? 'text' : 'password'}
+                                            value={password}
+                                            onChange={e => { setPassword( e.target.value ); setError( null ); }}
+                                            onKeyDown={handleKeyDown}
+                                            placeholder="••••••••"
+                                            autoComplete="current-password"
+                                            disabled={connecting}
+                                            style={{ ...inputStyle( error ), paddingRight: 42 }}
+                                            {...focusHandlers( error )}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPw( v => ! v )}
+                                            aria-label={showPw ? 'Hide password' : 'Show password'}
+                                            tabIndex={-1}
+                                            style={{
+                                                position: 'absolute', top: '50%', right: 10, transform: 'translateY(-50%)',
+                                                background: 'none', border: 'none', cursor: 'pointer',
+                                                color: 'var(--text-3)', padding: 4, lineHeight: 0,
+                                            }}
+                                        >
+                                            <Icon name="eye" size={15}/>
+                                        </button>
+                                    </div>
+                                    {error && <FieldError>{error}</FieldError>}
+                                </label>
+                            </>
+                        ) : (
+                            /* License key */
+                            <label style={{ display: 'block', marginBottom: 16 }}>
+                                <FieldLabel>License key</FieldLabel>
+                                <input
+                                    value={key}
+                                    onChange={e => { setKey( e.target.value ); setError( null ); }}
+                                    onKeyDown={handleKeyDown}
+                                    placeholder="BBT-XXXX-XXXX-XXXX"
+                                    autoComplete="off"
+                                    spellCheck={false}
+                                    autoFocus
+                                    disabled={connecting}
+                                    style={inputStyle( error, true )}
+                                    {...focusHandlers( error )}
+                                />
+                                {error && <FieldError>{error}</FieldError>}
+                            </label>
+                        )}
 
                         {/* Primary CTA */}
                         <Button
@@ -138,14 +233,30 @@ export const ConnectModal = ({ open, onClose, onSuccess }) => {
                             size="lg"
                             icon={connecting ? 'refresh' : 'check'}
                             onClick={handleConnect}
-                            disabled={connecting || ! key.trim()}
+                            disabled={connecting || ! canSubmit}
                             full
                         >
-                            {connecting ? 'Connecting…' : 'Connect license'}
+                            {connecting
+                                ? ( mode === 'password' ? 'Signing in…' : 'Connecting…' )
+                                : ( mode === 'password' ? 'Sign in & connect' : 'Connect license' )}
                         </Button>
 
+                        {/* Mode switch */}
+                        <div style={{ textAlign: 'center', marginTop: 14 }}>
+                            <button
+                                type="button"
+                                onClick={() => switchMode( mode === 'password' ? 'license' : 'password' )}
+                                disabled={connecting}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12.5, color: 'var(--text-2)', fontWeight: 600, padding: '4px 8px', borderRadius: 6 }}
+                                onMouseEnter={e => e.target.style.color = 'var(--text)'}
+                                onMouseLeave={e => e.target.style.color = 'var(--text-2)'}
+                            >
+                                {mode === 'password' ? 'Use a license key instead' : 'Sign in with email instead'}
+                            </button>
+                        </div>
+
                         {/* Divider + footnote */}
-                        <div style={{ marginTop: 20, paddingTop: 18, borderTop: '1px solid var(--hairline)' }}>
+                        <div style={{ marginTop: 16, paddingTop: 18, borderTop: '1px solid var(--hairline)' }}>
                             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 10 }}>
                                 <Icon name="info" size={13} style={{ color: 'var(--text-3)', flexShrink: 0, marginTop: 1 }}/>
                                 <span style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.5 }}>

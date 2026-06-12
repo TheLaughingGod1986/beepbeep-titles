@@ -68,6 +68,10 @@ export default function App() {
             params.delete( 'bbt_billing' );
             const qs = params.toString();
             window.history.replaceState( {}, '', window.location.pathname + ( qs ? '?' + qs : '' ) );
+        } else if ( initial.licenseAdopted ) {
+            // Another BeepBeep plugin on this site already had a license in
+            // the database — we connected with it automatically.
+            setToast( { message: 'License connected automatically', sub: 'We found your BeepBeep license from another BeepBeep plugin on this site.', icon: 'check', tone: 'ok' } );
         } else if ( ! initial.connected ) {
             // No license yet — nudge the user toward the connect modal.
             setToast( { message: 'Connect your BeepBeep license', sub: 'Click "Connect license" to activate AI title & meta generation.', icon: 'info', tone: 'warn' } );

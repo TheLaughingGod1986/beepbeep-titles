@@ -152,6 +152,10 @@ export async function setLicense( key ) {
     return request( 'POST', '/license', { license_key: key } );
 }
 
+export async function loginWithPassword( email, password ) {
+    return request( 'POST', '/auth/login', { email, password } );
+}
+
 export async function clearLicense() {
     return request( 'DELETE', '/license' );
 }
@@ -194,6 +198,7 @@ export function getInitialData() {
         user:         data.user         ?? { id: 0, name: 'Admin', email: '' },
         accountEmail: data.accountEmail ?? '',
         connected: data.connected ?? false,
+        licenseAdopted: data.licenseAdopted ?? false,
         seoPlugin: data.seoPlugin ?? 'fallback',
         settings:  data.settings  ?? {},
         // Quota is fetched on mount; this is just a neutral placeholder so the

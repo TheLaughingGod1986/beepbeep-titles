@@ -15,6 +15,7 @@ export const PagesLibrary = ({ plan, quota, connected = true, onConnect, onGener
     const [loading, setLoading]   = useState( true );
     const [page, setPage]         = useState( 1 );
     const [total, setTotal]       = useState( 0 );
+    const [libStats, setLibStats] = useState( null );
     const [scanning, setScanning] = useState( false );
     const sentinelRef = useRef( null );
 
@@ -38,6 +39,7 @@ export const PagesLibrary = ({ plan, quota, connected = true, onConnect, onGener
             const res = await fetchPages( { filter: filter === 'all' ? '' : filter, search, page, perPage: 30 } );
             setPages( res.pages || res || [] );
             setTotal( res.total || ( res.pages || res || [] ).length );
+            if ( res.stats ) setLibStats( res.stats );
         } catch ( e ) {
             setPages( [] );
         } finally {
@@ -71,8 +73,9 @@ export const PagesLibrary = ({ plan, quota, connected = true, onConnect, onGener
         'missing-meta':  pages.filter( p => p.status === 'missing-meta'  || p.status === 'missing-both' ).length,
         ok:             pages.filter( p => p.status === 'ok'  ).length,
         new:            pages.filter( p => p.is_new ).length,
+        drafts:         libStats?.drafts ?? 0,
         all:            total,
-    } ), [pages, total] );
+    } ), [pages, total, libStats] );
 
     const toggle    = ( id ) => { const s = new Set( selected ); s.has( id ) ? s.delete( id ) : s.add( id ); setSelected( s ); };
     const toggleAll = () => selected.size === pages.length && pages.length > 0 ? setSelected( new Set() ) : setSelected( new Set( pages.map( p => p.id ) ) );
@@ -106,6 +109,7 @@ export const PagesLibrary = ({ plan, quota, connected = true, onConnect, onGener
         { id: 'missing-meta',  label: 'Missing meta',    count: counts['missing-meta'] },
         { id: 'new',           label: 'New pages',       count: counts.new },
         { id: 'ok',            label: 'Optimised',       count: counts.ok },
+        { id: 'drafts',        label: 'Drafts',          count: counts.drafts },
         { id: 'all',           label: 'All pages',       count: counts.all },
     ];
 
@@ -262,6 +266,9 @@ const PageRow = ({ pg, selected, onToggle, onGenerate, onEdit, justSaved, locked
             <div style={{ minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span className="mono" style={{ fontSize: 12.5, color: 'var(--text)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pg.url}</span>
+                    {pg.post_status && pg.post_status !== 'publish' && (
+                        <Pill tone="neutral" style={{ padding: '1px 7px', fontSize: 10 }}>{pg.post_status === 'future' ? 'SCHEDULED' : 'DRAFT'}</Pill>
+                    )}
                     {pg.is_new && <Pill tone="primary" style={{ padding: '1px 7px', fontSize: 10 }}>NEW</Pill>}
                 </div>
                 <div style={{ fontSize: 11.5, color: 'var(--text-3)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 8 }}>

@@ -20,6 +20,13 @@ class Scanner {
 
     private const POST_TYPES = [ 'page', 'post', 'product' ];
 
+    /**
+     * Unpublished statuses surfaced by the Library's Drafts tab so titles &
+     * meta can be generated before a page goes live. Coverage stats stay
+     * publish-only — drafts aren't crawlable, so they don't count against SEO.
+     */
+    private const DRAFT_STATUSES = [ 'draft', 'pending', 'future' ];
+
     // ----------------------------------------------------------------
     // Paginated page list
     // ----------------------------------------------------------------
@@ -27,7 +34,7 @@ class Scanner {
     public function get_pages( string $filter, string $search, int $page, int $per_page ): array {
         $args = [
             'post_type'      => self::POST_TYPES,
-            'post_status'    => 'publish',
+            'post_status'    => $filter === 'drafts' ? self::DRAFT_STATUSES : 'publish',
             'posts_per_page' => $per_page,
             'paged'          => max( 1, $page ),
             'orderby'        => 'modified',
@@ -41,7 +48,7 @@ class Scanner {
 
         if ( $filter === 'new' ) {
             $args['date_query'] = [ [ 'after' => '-7 days', 'column' => 'post_date' ] ];
-        } else {
+        } elseif ( $filter !== 'drafts' ) {
             $meta_query = $this->filter_to_meta_query( $filter );
             if ( $meta_query ) {
                 $args['meta_query'] = $meta_query;
@@ -101,17 +108,18 @@ class Scanner {
         $hue = ( (int) $post->ID * 47 ) % 360;
 
         return [
-            'id'        => $post->ID,
-            'url'       => PostPresenter::permalink_path( $post ),
-            'title'     => $post->post_title,
-            'seo_title' => $seo_title,
-            'meta_desc' => $meta_desc,
-            'section'   => PostPresenter::section_for( $post ),
-            'status'    => $status,
-            'hue'       => $hue,
-            'traffic'   => (int) get_post_meta( $post->ID, '_bbt_monthly_traffic', true ),
-            'type'      => $post->post_type,
-            'is_new'    => strtotime( $post->post_date ) > strtotime( '-7 days' ),
+            'id'          => $post->ID,
+            'url'         => PostPresenter::permalink_path( $post ),
+            'title'       => $post->post_title,
+            'seo_title'   => $seo_title,
+            'meta_desc'   => $meta_desc,
+            'section'     => PostPresenter::section_for( $post ),
+            'status'      => $status,
+            'post_status' => $post->post_status,
+            'hue'         => $hue,
+            'traffic'     => (int) get_post_meta( $post->ID, '_bbt_monthly_traffic', true ),
+            'type'        => $post->post_type,
+            'is_new'      => strtotime( $post->post_date ) > strtotime( '-7 days' ),
         ];
     }
 
@@ -173,7 +181,15 @@ class Scanner {
         $remaining = max( 0, $total - $optimised );
         $coverage  = $total > 0 ? (int) round( ( $optimised / $total ) * 100 ) : 0;
 
-        return compact( 'total', 'with_title', 'with_meta', 'coverage', 'optimised', 'remaining' );
+        // Unpublished pages the Drafts tab can pre-optimise (excluded from coverage).
+        $draft_statuses_in = "'" . implode( "','", array_map( 'esc_sql', self::DRAFT_STATUSES ) ) . "'";
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
+        $drafts = (int) $wpdb->get_var(
+            "SELECT COUNT(*) FROM {$wpdb->posts}
+             WHERE post_status IN ({$draft_statuses_in}) AND post_type IN ({$types_in})"
+        );
+
+        return compact( 'total', 'with_title', 'with_meta', 'coverage', 'optimised', 'remaining', 'drafts' );
     }
 
     /**

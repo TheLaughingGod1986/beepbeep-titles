@@ -22,7 +22,18 @@ class PostPresenter {
 
     /** Site-relative permalink path with a single leading slash. */
     public static function permalink_path( \WP_Post $post ): string {
-        return '/' . ltrim( (string) wp_parse_url( (string) get_permalink( $post->ID ), PHP_URL_PATH ), '/' );
+        $path = '/' . ltrim( (string) wp_parse_url( (string) get_permalink( $post->ID ), PHP_URL_PATH ), '/' );
+
+        // Drafts have no pretty permalink yet (?page_id=N parses to "/") —
+        // show the slug the page will get when published instead.
+        if ( '/' === $path && 'publish' !== $post->post_status ) {
+            $slug = $post->post_name !== '' ? $post->post_name : sanitize_title( $post->post_title );
+            if ( $slug !== '' ) {
+                return '/' . $slug . '/';
+            }
+        }
+
+        return $path;
     }
 
     /** Display section: Pages / Shop / first category / Blog. */

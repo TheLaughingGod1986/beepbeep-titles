@@ -200,30 +200,32 @@ export default function App() {
         }
     };
 
-    // ── Billing: redirect to Stripe checkout / portal (shared account) ──
-    const goToCheckout = async ( plan ) => {
+    // Open a URL produced by an async call in a new tab without tripping popup
+    // blockers: synchronously open a blank tab on the user gesture, then point
+    // it at the resolved URL (or close it and fall back if the call failed).
+    const openInNewTab = async ( getUrl ) => {
+        const win = window.open( '', '_blank', 'noopener,noreferrer' );
         try {
-            const res = await createCheckout( { plan } );
+            const res = await getUrl();
             if ( res?.url ) {
-                window.location.href = res.url;
+                if ( win ) { win.opener = null; win.location = res.url; }
+                else { window.location.href = res.url; } // popup blocked — same-tab fallback
             } else {
+                if ( win ) win.close();
                 setToast( errorToast( {} ) );
             }
         } catch ( e ) {
+            if ( win ) win.close();
             handleApiError( e );
         }
     };
 
+    // ── Billing: open Stripe checkout / portal in a new tab (shared account) ──
+    const goToCheckout = ( plan ) => openInNewTab( () => createCheckout( { plan } ) );
+
     const handleUpgrade      = () => goToCheckout( 'pro' );
     const handleBuyCredits   = () => goToCheckout( 'credits' );
-    const handleManageBilling = async () => {
-        try {
-            const res = await createBillingPortal();
-            if ( res?.url ) window.location.href = res.url;
-        } catch ( e ) {
-            handleApiError( e );
-        }
-    };
+    const handleManageBilling = () => openInNewTab( () => createBillingPortal() );
 
     const handleScan = async () => {
         try {

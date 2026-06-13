@@ -38,7 +38,7 @@ const countdownToReset = ( entitlement, trigger ) => {
     return null;
 };
 
-export const Paywall = ({ open, onClose, trigger, entitlement, onUpgrade, onBuyCredits }) => {
+export const Paywall = ({ open, onClose, trigger, entitlement, onCheckout, onUpgrade, onBuyCredits }) => {
     const [plans, setPlans] = useState( null );
 
     // Pull live Stripe-backed pricing from the backend so the modal can never
@@ -54,12 +54,22 @@ export const Paywall = ({ open, onClose, trigger, entitlement, onUpgrade, onBuyC
 
     if ( !open ) return null;
 
+    const starterPlan = ( plans || [] ).find( p => p.id === 'starter' );
     const proPlan     = ( plans || [] ).find( p => p.id === 'pro' );
     const creditsPlan = ( plans || [] ).find( p => p.id === 'credits' );
+    const starterPrice = starterPlan ? fmtPrice( starterPlan.price, starterPlan.currency ) : null;
+    const starterQuota = starterPlan?.quota || 100;
     const proPrice    = proPlan ? fmtPrice( proPlan.price, proPlan.currency ) : null;
     const proQuota    = proPlan?.quota || 1000;
     const creditsPrice = creditsPlan ? fmtPrice( creditsPlan.price, creditsPlan.currency ) : null;
     const creditsQuota = creditsPlan?.quota || 100;
+
+    // Plan-aware checkout (falls back to the legacy pro/credits handlers).
+    const checkout = ( planId ) => {
+        if ( typeof onCheckout === 'function' ) { onCheckout( planId ); return; }
+        if ( planId === 'credits' && onBuyCredits ) { onBuyCredits(); return; }
+        if ( onUpgrade ) onUpgrade();
+    };
 
     const dynamicUrgency = countdownToReset( entitlement, trigger );
     const triggers = {
@@ -97,32 +107,46 @@ export const Paywall = ({ open, onClose, trigger, entitlement, onUpgrade, onBuyC
                 </div>
 
                 <div style={{ padding: '24px 32px 8px' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: starterPlan ? '1fr 1fr 1fr' : '1fr 1fr', gap: 10 }}>
                         <PlanColumn title="Free" subtitle="What you have today" features={[
-                            { ok: true,  text: '5 AI generations per day' },
-                            { ok: true,  text: 'Up to 50 AI generations per month' },
+                            { ok: true,  text: '5 generations per day' },
+                            { ok: true,  text: 'Up to 50 per month' },
                             { ok: true,  text: 'Site crawling' },
                             { ok: false, text: 'Auto-generate on publish' },
                             { ok: false, text: 'Bulk site optimisation' },
-                            { ok: false, text: 'Background monitoring' },
                         ]}/>
+                        {starterPlan && (
+                            <PlanColumn title="Starter" subtitle={starterPrice ? `${starterPrice} / month` : '—'} features={[
+                                { ok: true,  text: `${starterQuota.toLocaleString()} generations per month`, strong: true },
+                                { ok: true,  text: 'No daily cap within your allowance', strong: true },
+                                { ok: true,  text: 'Great for small sites' },
+                                { ok: false, text: 'Auto-generate on publish' },
+                                { ok: false, text: 'Bulk site optimisation' },
+                            ]}/>
+                        )}
                         <PlanColumn title="Pro" subtitle={proPrice ? `${proPrice} / month` : '—'} features={[
-                            { ok: true, text: `${proQuota.toLocaleString()} AI generations per month`, strong: true },
+                            { ok: true, text: `${proQuota.toLocaleString()} generations per month`, strong: true },
                             { ok: true, text: 'No daily cap within your allowance',  strong: true },
                             { ok: true, text: 'Auto-generate on publish',            strong: true },
                             { ok: true, text: 'Bulk-optimise your entire site',      strong: true },
-                            { ok: true, text: 'See your site improving weekly' },
                             { ok: true, text: 'Shared across your BeepBeep plugins' },
                         ]} highlight/>
                     </div>
                 </div>
 
                 <div style={{ padding: '16px 32px 28px' }}>
-                    <Button variant="pro" size="lg" full icon="crown" onClick={onUpgrade}>
+                    <Button variant="pro" size="lg" full icon="crown" onClick={() => checkout( 'pro' )}>
                         {proPrice ? `Upgrade to Pro · ${proPrice}/mo` : 'Upgrade to Pro'}
                     </Button>
+                    {starterPlan && (
+                        <button onClick={() => checkout( 'starter' )} style={{ width: '100%', marginTop: 10, background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', padding: '10px 14px', fontSize: 13, fontWeight: 600, color: 'var(--text)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                            onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--border-strong)'}
+                            onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}>
+                            {starterPrice ? `Or start with Starter · ${starterPrice}/mo for ${starterQuota} generations` : 'Or start with Starter'}
+                        </button>
+                    )}
                     {onBuyCredits && creditsPlan && (
-                        <button onClick={onBuyCredits} style={{ width: '100%', marginTop: 10, background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', padding: '10px 14px', fontSize: 13, fontWeight: 600, color: 'var(--text)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                        <button onClick={() => checkout( 'credits' )} style={{ width: '100%', marginTop: 10, background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', padding: '10px 14px', fontSize: 13, fontWeight: 600, color: 'var(--text)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
                             onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--border-strong)'}
                             onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}>
                             <Icon name="zap" size={14}/> {creditsPrice ? `Or buy a one-time credit pack · ${creditsPrice} for ${creditsQuota} credits` : 'Or buy a one-time credit pack'}

@@ -9,6 +9,7 @@ import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal, ConnectModal }
 import { SignOutConfirm } from './auth';
 import { getInitialData, fetchQuota, fetchPages, runScan, normalizeQuota, createCheckout, createBillingPortal, clearLicense, saveSettings } from './api';
 import { paywallTrigger, errorToast } from './errors';
+import { hasDailyCap } from './quota';
 import { usePaywallGate } from './hooks/usePaywallGate';
 
 export default function App() {
@@ -143,10 +144,14 @@ export default function App() {
         setToast( errorToast( err ) );
     };
 
+    // The shared wallet may have no daily sub-cap (daily_limit: null) — then
+    // exhaustion means the MONTHLY credits are gone, not today's allowance.
+    const exhaustedTrigger = hasDailyCap( quota ) ? 'daily-limit' : 'monthly-limit';
+
     // ── Open generation drawer ──
     const openGen = () => {
         if ( isDailyExhausted() ) {
-            setPaywall( { open: true, trigger: 'daily-limit', entitlement: quota } );
+            setPaywall( { open: true, trigger: exhaustedTrigger, entitlement: quota } );
             return;
         }
         const count = Math.min( heroCap(), queuePages.length );
@@ -156,7 +161,7 @@ export default function App() {
 
     const openGenSingle = ( pg ) => {
         if ( isDailyExhausted() ) {
-            setPaywall( { open: true, trigger: 'daily-limit', entitlement: quota } );
+            setPaywall( { open: true, trigger: exhaustedTrigger, entitlement: quota } );
             return;
         }
         setDrawer( { open: true, pages: [ { ...pg, hue: pg.hue ?? 220 } ] } );
@@ -365,6 +370,7 @@ export default function App() {
                 trigger={paywall.trigger}
                 entitlement={paywall.entitlement}
                 onClose={() => setPaywall( { open: false, trigger: 'default', entitlement: null } )}
+                onCheckout={goToCheckout}
                 onUpgrade={handleUpgrade}
                 onBuyCredits={handleBuyCredits}
             />

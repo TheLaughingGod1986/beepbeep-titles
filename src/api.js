@@ -130,8 +130,12 @@ export function normalizeQuota( ent ) {
             reset_date: null,
         };
     }
-    const dailyLimit     = ent.daily_limit ?? QUOTA_DEFAULTS.daily_limit;
-    const dailyRemaining = ent.daily_remaining ?? dailyLimit;
+    // The shared wallet has no daily sub-cap — the backend signals that with
+    // daily_* = null. Preserve the null (don't fabricate a 5/day allowance the
+    // alt-text plugin doesn't see) so the UI shows monthly credits instead.
+    const hasDaily       = ( ent.daily_limit ?? null ) !== null;
+    const dailyLimit     = hasDaily ? ent.daily_limit : null;
+    const dailyRemaining = hasDaily ? ( ent.daily_remaining ?? dailyLimit ) : null;
     const monthlyLimit   = ent.total_limit ?? ent.monthly_limit ?? QUOTA_DEFAULTS.monthly_limit;
     const monthlyUsed    = ent.credits_used ?? ( monthlyLimit - ( ent.credits_remaining ?? monthlyLimit ) );
     return {
@@ -140,9 +144,10 @@ export function normalizeQuota( ent ) {
         plan:            ent.plan ?? 'free',
         daily_limit:     dailyLimit,
         daily_remaining: dailyRemaining,
-        daily_used:      Math.max( 0, dailyLimit - dailyRemaining ),
+        daily_used:      hasDaily ? Math.max( 0, dailyLimit - dailyRemaining ) : 0,
         monthly_limit:   monthlyLimit,
         monthly_used:    monthlyUsed,
+        credits_remaining: ent.credits_remaining ?? Math.max( 0, monthlyLimit - monthlyUsed ),
         reset_date:      ent.reset_date ?? null,
     };
 }
@@ -176,6 +181,20 @@ export async function createCheckout( { plan, priceId } = {} ) {
 /** Open the Stripe billing portal for managing an existing plan. Resolves to { url }. */
 export async function createBillingPortal() {
     return request( 'POST', '/billing/portal', {} );
+}
+
+// ── Analytics ───────────────────────────────────────────────────────
+/**
+ * Fire a PostHog event when the library is present on the page; no-op
+ * otherwise (the plugin doesn't bundle PostHog — it piggybacks on a host
+ * `window.posthog` if the site has one). Never throws.
+ */
+export function track( event, props = {} ) {
+    try {
+        if ( typeof window !== 'undefined' && window.posthog && typeof window.posthog.capture === 'function' ) {
+            window.posthog.capture( event, props );
+        }
+    } catch ( e ) { /* analytics must never break the UI */ }
 }
 
 // ── Scan ────────────────────────────────────────────────────────────

@@ -371,6 +371,7 @@ export default function App() {
                 open={paywall.open}
                 trigger={paywall.trigger}
                 entitlement={paywall.entitlement}
+                stats={stats}
                 onClose={() => setPaywall( { open: false, trigger: 'default', entitlement: null } )}
                 onCheckout={goToCheckout}
                 onUpgrade={handleUpgrade}

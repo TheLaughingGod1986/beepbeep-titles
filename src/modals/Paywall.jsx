@@ -1,5 +1,21 @@
+import { useState, useEffect } from 'react';
 import { Icon, Pill, Button } from '../components';
 import { Modal } from './Modal';
+import { fetchPlans } from '../api';
+
+/* Format a plan amount in its own currency (e.g. gbp 12.99 -> "£12.99"). */
+const fmtPrice = ( amount, currency = 'gbp' ) => {
+    if ( typeof amount !== 'number' ) return null;
+    try {
+        return new Intl.NumberFormat( undefined, {
+            style: 'currency',
+            currency: currency.toUpperCase(),
+            minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
+        } ).format( amount );
+    } catch ( e ) {
+        return `${ amount } ${ currency.toUpperCase() }`;
+    }
+};
 
 /* ── Paywall ───────────────────────────────────────────────────────── */
 const countdownToReset = ( entitlement, trigger ) => {
@@ -23,7 +39,28 @@ const countdownToReset = ( entitlement, trigger ) => {
 };
 
 export const Paywall = ({ open, onClose, trigger, entitlement, onUpgrade, onBuyCredits }) => {
+    const [plans, setPlans] = useState( null );
+
+    // Pull live Stripe-backed pricing from the backend so the modal can never
+    // drift from what the customer is actually charged.
+    useEffect( () => {
+        if ( !open || plans ) return;
+        let alive = true;
+        fetchPlans()
+            .then( res => { if ( alive ) setPlans( res?.plans || [] ); } )
+            .catch( () => { if ( alive ) setPlans( [] ); } );
+        return () => { alive = false; };
+    }, [open, plans] );
+
     if ( !open ) return null;
+
+    const proPlan     = ( plans || [] ).find( p => p.id === 'pro' );
+    const creditsPlan = ( plans || [] ).find( p => p.id === 'credits' );
+    const proPrice    = proPlan ? fmtPrice( proPlan.price, proPlan.currency ) : null;
+    const proQuota    = proPlan?.quota || 1000;
+    const creditsPrice = creditsPlan ? fmtPrice( creditsPlan.price, creditsPlan.currency ) : null;
+    const creditsQuota = creditsPlan?.quota || 100;
+
     const dynamicUrgency = countdownToReset( entitlement, trigger );
     const triggers = {
         'daily-limit':   { icon: 'clock',   title: "You've used today's free generations",     subtitle: "Pro lifts the daily allowance so you never have to wait — keep optimising every day.",     urgency: dynamicUrgency || 'Your free generations reset overnight.' },
@@ -69,24 +106,26 @@ export const Paywall = ({ open, onClose, trigger, entitlement, onUpgrade, onBuyC
                             { ok: false, text: 'Bulk site optimisation' },
                             { ok: false, text: 'Background monitoring' },
                         ]}/>
-                        <PlanColumn title="Pro" subtitle="$14.99 / month" features={[
-                            { ok: true, text: 'Unlimited AI generations',         strong: true },
-                            { ok: true, text: 'Never worry about missing meta',   strong: true },
-                            { ok: true, text: 'Optimise your entire site',        strong: true },
-                            { ok: true, text: 'Automatic monitoring',             strong: true },
+                        <PlanColumn title="Pro" subtitle={proPrice ? `${proPrice} / month` : '—'} features={[
+                            { ok: true, text: `${proQuota.toLocaleString()} AI generations per month`, strong: true },
+                            { ok: true, text: 'No daily cap within your allowance',  strong: true },
+                            { ok: true, text: 'Auto-generate on publish',            strong: true },
+                            { ok: true, text: 'Bulk-optimise your entire site',      strong: true },
                             { ok: true, text: 'See your site improving weekly' },
-                            { ok: true, text: 'Works across multiple sites' },
+                            { ok: true, text: 'Shared across your BeepBeep plugins' },
                         ]} highlight/>
                     </div>
                 </div>
 
                 <div style={{ padding: '16px 32px 28px' }}>
-                    <Button variant="pro" size="lg" full icon="crown" onClick={onUpgrade}>Upgrade to Pro · $14.99/mo</Button>
-                    {onBuyCredits && (
+                    <Button variant="pro" size="lg" full icon="crown" onClick={onUpgrade}>
+                        {proPrice ? `Upgrade to Pro · ${proPrice}/mo` : 'Upgrade to Pro'}
+                    </Button>
+                    {onBuyCredits && creditsPlan && (
                         <button onClick={onBuyCredits} style={{ width: '100%', marginTop: 10, background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', padding: '10px 14px', fontSize: 13, fontWeight: 600, color: 'var(--text)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
                             onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--border-strong)'}
                             onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}>
-                            <Icon name="zap" size={14}/> Or buy a one-time credit pack · $11.99 for 100 credits
+                            <Icon name="zap" size={14}/> {creditsPrice ? `Or buy a one-time credit pack · ${creditsPrice} for ${creditsQuota} credits` : 'Or buy a one-time credit pack'}
                         </button>
                     )}
                     <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 12, fontSize: 11, color: 'var(--text-3)' }}>

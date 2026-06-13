@@ -28,8 +28,15 @@ describe( 'paywall gate helpers', () => {
 		expect( dailyRemainingForGate( { daily_limit: 5, daily_used: 2 }, 'free' ) ).toBe( 3 );
 	} );
 
-	test( 'dailyRemainingForLibrary defaults missing remaining to daily limit', () => {
-		expect( dailyRemainingForLibrary( {}, 'free' ) ).toBe( 5 );
+	test( 'dailyRemainingForLibrary uses the daily cap when one is present', () => {
+		expect( dailyRemainingForLibrary( { daily_limit: 5 }, 'free' ) ).toBe( 5 );
+	} );
+
+	test( 'dailyRemainingForLibrary falls back to monthly credits when no daily cap (shared wallet)', () => {
+		// Shared wallet sends daily_limit: null — gate on monthly credits instead.
+		expect( dailyRemainingForLibrary( { daily_limit: null, monthly_limit: 50, monthly_used: 10 }, 'free' ) ).toBe( 40 );
+		// Empty quota defaults to the 50-credit monthly allowance.
+		expect( dailyRemainingForLibrary( {}, 'free' ) ).toBe( 50 );
 	} );
 
 	test( 'pro plan never exhausts daily quota', () => {

@@ -71,6 +71,12 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
     // Free allowance comes from the live entitlement (currently 15), never hard-coded.
     const freeLimit    = Number.isFinite( entitlement?.token_limit ) ? entitlement.token_limit : 15;
 
+    // Pro-vs-Starter value framing, derived from live prices/quotas.
+    const monthlyExtra = ( proPlan && starterPlan && proPlan.price > starterPlan.price )
+        ? fmtPrice( Math.round( ( proPlan.price - starterPlan.price ) * 100 ) / 100, proPlan.currency )
+        : '£8';
+    const capacityMult = ( proQuota && starterQuota ) ? Math.max( 2, Math.round( proQuota / starterQuota ) ) : 10;
+
     const checkout = ( planId ) => {
         if ( typeof onCheckout === 'function' ) { onCheckout( planId ); return; }
         if ( planId === 'credits' && onBuyCredits ) { onBuyCredits(); return; }
@@ -98,10 +104,13 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
                     .bbt-pw__plan { border-radius:${R}px; padding:18px 18px 20px; display:flex; flex-direction:column; }
                     .bbt-pw__plan--pro { transform: scale(1.02); }
                     @media (max-width: 640px) {
-                        .bbt-pw__plans { display:flex; flex-direction:column; gap:12px; }
+                        .bbt-pw__section { padding-left:20px !important; padding-right:20px !important; }
+                        .bbt-pw__plans { display:flex; flex-direction:column; gap:16px; }
                         .bbt-pw__plan--pro { order:1; transform:none; }
-                        .bbt-pw__plan--free { order:2; }
-                        .bbt-pw__plan--starter { order:3; }
+                        .bbt-pw__plan--starter { order:2; }
+                        /* Free (current plan) is contextual only and has no CTA — hide it on
+                           mobile so the Pro CTA stays reachable without excess scrolling. */
+                        .bbt-pw__plan--free { display:none; }
                     }
                 `}</style>
 
@@ -110,7 +119,7 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
                 </button>
 
                 {/* ── Section 1: Problem first ── */}
-                <div style={{ padding: '40px 40px 8px' }}>
+                <div className="bbt-pw__section" style={{ padding: '40px 40px 8px' }}>
                     <h2 style={{ fontSize: 26, fontWeight: 600, letterSpacing: '-0.025em', lineHeight: 1.15, margin: '0 0 10px', maxWidth: 520 }}>
                         Fix missing SEO metadata in minutes
                     </h2>
@@ -155,7 +164,7 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
                 </div>
 
                 {/* ── Section 2: Pricing (Pro dominant) ── */}
-                <div style={{ padding: '22px 40px 4px' }}>
+                <div className="bbt-pw__section" style={{ padding: '22px 40px 4px' }}>
                     <div className="bbt-pw__plans">
                         {/* Free — current plan, muted */}
                         <div className="bbt-pw__plan bbt-pw__plan--free" style={{ border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
@@ -168,14 +177,15 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
                             </div>
                         </div>
 
-                        {/* Starter — secondary, neutral */}
-                        <div className="bbt-pw__plan bbt-pw__plan--starter" style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}>
-                            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 8 }}>Starter</div>
+                        {/* Starter — legitimate lower-friction entry point */}
+                        <div className="bbt-pw__plan bbt-pw__plan--starter" style={{ border: '1px solid var(--primary-border)', background: 'var(--surface)', position: 'relative' }}>
+                            <div style={{ position: 'absolute', top: -10, left: 16, background: 'var(--primary-soft)', color: 'var(--primary-ink)', border: '1px solid var(--primary-border)', fontSize: 9.5, fontWeight: 700, padding: '3px 8px', borderRadius: 999, letterSpacing: '0.04em' }}>MOST POPULAR FOR SMALL SITES</div>
+                            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 8, marginTop: 4 }}>Starter</div>
                             <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.02em' }}>{starterPrice}<span style={{ fontSize: 12.5, color: 'var(--text-3)', fontWeight: 400 }}> /mo</span></div>
                             <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                {[ `${ fmtCount( starterQuota ) } generations per month`, 'No daily limits', 'Great for small websites' ].map( ( f, i ) => (
-                                    <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12.5, color: 'var(--text-2)' }}>
-                                        <Icon name="check" size={12} strokeWidth={2.4} style={{ color: 'var(--text-3)', flexShrink: 0 }}/> {f}
+                                {[ `${ fmtCount( starterQuota ) } SEO generations every month`, 'No daily limits', 'Perfect for blogs and small business websites', 'Try BeepBeep before upgrading' ].map( ( f, i ) => (
+                                    <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.4 }}>
+                                        <Icon name="check" size={12} strokeWidth={2.4} style={{ color: 'var(--text-3)', flexShrink: 0, marginTop: 2 }}/> {f}
                                     </div>
                                 ) )}
                             </div>
@@ -186,6 +196,10 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
                             <div style={{ position: 'absolute', top: -11, left: 18, background: 'var(--primary)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 999, letterSpacing: '0.05em' }}>BEST VALUE</div>
                             <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--primary-ink)', marginBottom: 8 }}>Pro</div>
                             <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em' }}>{proPrice}<span style={{ fontSize: 13, color: 'var(--text-3)', fontWeight: 400 }}> /mo</span></div>
+                            <div style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start', background: 'var(--primary)', color: '#fff', borderRadius: 8, padding: '5px 9px', fontSize: 11, fontWeight: 600, lineHeight: 1.25 }}>
+                                <Icon name="trend" size={12} strokeWidth={2.4}/>
+                                {capacityMult}× more generations for only {monthlyExtra} extra / month
+                            </div>
                             <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 9 }}>
                                 <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)' }}>{fmtCount( proQuota )} SEO generations every month</div>
                                 {[ 'Auto-generate on publish', 'Bulk optimise your entire website', 'Fix hundreds of pages in minutes', 'Shared across all BeepBeep plugins', 'Priority processing' ].map( ( f, i ) => (
@@ -198,50 +212,54 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
                     </div>
                 </div>
 
-                {/* ── Section 3: ROI ── */}
-                <div style={{ padding: '20px 40px 4px' }}>
-                    <div style={{ borderRadius: R, background: 'var(--primary-soft)', border: '1px solid var(--primary-border)', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 11, flex: 1, minWidth: 200 }}>
-                            <Icon name="clock" size={18} style={{ color: 'var(--text-3)', flexShrink: 0 }}/>
-                            <div>
-                                <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Manual optimisation</div>
-                                <div style={{ fontSize: 14, color: 'var(--text-2)', fontWeight: 500 }}>3–5 minutes per page</div>
-                            </div>
+                {/* ── Section 3: Starter → Pro comparison banner ── */}
+                <div className="bbt-pw__section" style={{ padding: '20px 40px 4px' }}>
+                    <div style={{ borderRadius: R, background: 'var(--primary-soft)', border: '1px solid var(--primary-border)', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 18, flexWrap: 'wrap' }}>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Starter</div>
+                            <div style={{ fontSize: 14, color: 'var(--text-2)', fontWeight: 600 }}>{fmtCount( starterQuota )} generations · {starterPrice}/mo</div>
                         </div>
-                        <Icon name="arrow-right" size={16} style={{ color: 'var(--primary-ink)' }}/>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 11, flex: 1, minWidth: 200 }}>
-                            <Icon name="zap" size={18} style={{ color: 'var(--primary-ink)', flexShrink: 0 }}/>
-                            <div>
-                                <div style={{ fontSize: 11, color: 'var(--primary-ink)', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>With BeepBeep Titles Pro</div>
-                                <div style={{ fontSize: 14, color: 'var(--text)', fontWeight: 600 }}>Optimise hundreds of pages in minutes</div>
-                            </div>
+                        <Icon name="arrow-right" size={18} style={{ color: 'var(--primary-ink)' }}/>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: 11, color: 'var(--primary-ink)', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Pro</div>
+                            <div style={{ fontSize: 14, color: 'var(--text)', fontWeight: 600 }}>{fmtCount( proQuota )} generations · {proPrice}/mo</div>
                         </div>
+                        <div style={{ fontSize: 12.5, fontWeight: 700, color: '#fff', background: 'var(--primary)', borderRadius: 999, padding: '4px 12px' }}>{capacityMult}× more optimisation capacity</div>
                     </div>
                 </div>
 
-                {/* ── Section 4: Primary CTA ── */}
-                <div style={{ padding: '20px 40px 0' }}>
+                {/* ── Section 4 + 5: Dual CTAs (Pro primary, Starter real secondary) ── */}
+                <div className="bbt-pw__section" style={{ padding: '20px 40px 0' }}>
                     <Button variant="pro" size="lg" full icon="crown" onClick={onPro} style={{ paddingTop: 14, paddingBottom: 14, fontSize: 15 }}>
                         Start Optimising My Site · {proPrice}/month
                     </Button>
 
-                    {/* ── Section 5: Secondary options (text links) ── */}
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginTop: 14 }}>
-                        {starterPlan && (
-                            <button onClick={onStarter} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 12.5, color: 'var(--text-2)' }}>
-                                Need fewer generations? <span style={{ color: 'var(--primary-ink)', fontWeight: 600 }}>Start with Starter ({starterPrice}/month)</span>
+                    {starterPlan && (
+                        <>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '12px 0', color: 'var(--text-3)' }}>
+                                <span style={{ flex: 1, height: 1, background: 'var(--hairline)' }}/>
+                                <span style={{ fontSize: 11.5, fontWeight: 500 }}>or</span>
+                                <span style={{ flex: 1, height: 1, background: 'var(--hairline)' }}/>
+                            </div>
+                            <Button variant="secondary" size="md" full onClick={onStarter} style={{ background: 'var(--surface)', color: 'var(--primary-ink)', border: '1.5px solid var(--primary)', fontSize: 14 }}>
+                                Start Small with Starter · {starterPrice}/month
+                            </Button>
+                        </>
+                    )}
+
+                    {/* Credit pack — never competes with subscriptions */}
+                    {creditsPlan && (
+                        <div style={{ textAlign: 'center', marginTop: 16, fontSize: 12.5, color: 'var(--text-3)', lineHeight: 1.5 }}>
+                            Need a one-off top-up?{' '}
+                            <button onClick={onCredits} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 12.5, color: 'var(--primary-ink)', fontWeight: 600 }}>
+                                Buy {fmtCount( creditsQuota )} credits for {creditsPrice}
                             </button>
-                        )}
-                        {creditsPlan && (
-                            <button onClick={onCredits} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 12.5, color: 'var(--text-3)' }}>
-                                Or buy a one-time credit pack — <span style={{ color: 'var(--text-2)', fontWeight: 500 }}>{fmtCount( creditsQuota )} credits for {creditsPrice}</span>
-                            </button>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* ── Section 6: Social proof ── */}
-                <div style={{ padding: '20px 40px 32px', marginTop: 16, borderTop: '1px solid var(--hairline)', textAlign: 'center' }}>
+                <div className="bbt-pw__section" style={{ padding: '20px 40px 32px', marginTop: 16, borderTop: '1px solid var(--hairline)', textAlign: 'center' }}>
                     <div aria-hidden="true" style={{ fontSize: 14, letterSpacing: 2, color: '#F59E0B', marginBottom: 6 }}>★★★★★</div>
                     <div style={{ fontSize: 12.5, color: 'var(--text-3)', lineHeight: 1.5, maxWidth: 460, margin: '0 auto' }}>
                         Trusted by WordPress site owners, bloggers, agencies and WooCommerce stores.

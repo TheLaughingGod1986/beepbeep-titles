@@ -43,6 +43,9 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
     const siteSize      = Number.isFinite( stats?.total ) ? stats.total : null;
     const currentPlan   = entitlement?.plan || 'free';
 
+    const siteUrl   = ( typeof window !== 'undefined' && ( window.bbtData?.siteUrl || window.location?.origin ) ) || '';
+    const userState = entitlement ? currentPlan : 'signed_out';
+
     const eventProps = {
         missing_titles_count: missingTitles,
         missing_meta_count:   missingMeta,
@@ -51,11 +54,29 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
         plugin_name:          PLUGIN,
     };
 
-    // One "viewed" event per open.
+    // Properties for the pricing_* funnel events.
+    const pricingProps = ( planSelected = null ) => ( {
+        plan_selected: planSelected,
+        plugin_name:   PLUGIN,
+        site_url:      siteUrl,
+        pages_scanned: siteSize,
+        user_state:    userState,
+    } );
+
+    // One "opened" event per open (plus the comparison strip is in view).
     useEffect( () => {
-        if ( open ) track( 'titles_upgrade_modal_viewed', eventProps );
+        if ( open ) {
+            track( 'titles_upgrade_modal_viewed', eventProps );
+            track( 'pricing_modal_opened', pricingProps() );
+            track( 'pricing_comparison_viewed', pricingProps() );
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open] );
+
+    const handleClose = () => {
+        track( 'pricing_modal_closed', pricingProps() );
+        onClose?.();
+    };
 
     if ( !open ) return null;
 
@@ -86,8 +107,8 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
         if ( planId === 'credits' && onBuyCredits ) { onBuyCredits(); return; }
         if ( onUpgrade ) onUpgrade();
     };
-    const onPro     = () => { track( 'titles_pro_cta_clicked', eventProps ); checkout( 'pro' ); };
-    const onStarter = () => { track( 'titles_starter_link_clicked', eventProps ); checkout( 'starter' ); };
+    const onPro     = () => { track( 'titles_pro_cta_clicked', eventProps ); track( 'pro_cta_clicked', pricingProps( 'pro' ) ); checkout( 'pro' ); };
+    const onStarter = () => { track( 'titles_starter_link_clicked', eventProps ); track( 'starter_cta_clicked', pricingProps( 'starter' ) ); checkout( 'starter' ); };
     const onCredits = () => { track( 'titles_credit_pack_clicked', eventProps ); checkout( 'credits' ); };
 
     const showScanGaps = ( missingTitles !== null || missingMeta !== null )
@@ -101,7 +122,7 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
     ];
 
     return (
-        <Modal open={open} onClose={onClose} width={760}>
+        <Modal open={open} onClose={handleClose} width={760}>
             <div className="bbt-pw" style={{ position: 'relative' }}>
                 <style>{`
                     .bbt-pw__plans { display:grid; grid-template-columns: 1fr 1fr 1.18fr; gap:14px; align-items:stretch; }
@@ -118,7 +139,7 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
                     }
                 `}</style>
 
-                <button onClick={onClose} aria-label="Close" style={{ position: 'absolute', top: 18, right: 18, background: 'var(--bg-sunken)', border: '1px solid var(--border)', borderRadius: 999, width: 32, height: 32, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-2)', zIndex: 2 }}>
+                <button onClick={handleClose} aria-label="Close" style={{ position: 'absolute', top: 18, right: 18, background: 'var(--bg-sunken)', border: '1px solid var(--border)', borderRadius: 999, width: 32, height: 32, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-2)', zIndex: 2 }}>
                     <Icon name="x" size={14}/>
                 </button>
 
@@ -170,10 +191,10 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
                 {/* ── Section 2: Pricing (Pro dominant) ── */}
                 <div className="bbt-pw__section" style={{ padding: '22px 40px 4px' }}>
                     <div className="bbt-pw__plans">
-                        {/* Free — current plan, muted */}
-                        <div className="bbt-pw__plan bbt-pw__plan--free" style={{ border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+                        {/* Free — current plan, intentionally quietest (trial tier) */}
+                        <div className="bbt-pw__plan bbt-pw__plan--free" style={{ border: '1px solid var(--hairline)', background: 'var(--bg-sunken)', opacity: 0.85 }}>
                             <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 8 }}>Current plan</div>
-                            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-2)' }}>Free</div>
+                            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-3)' }}>Free</div>
                             <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
                                 {[ `${ fmtCount( freeLimit ) } generations per month`, 'Manual generation', 'Basic optimisation' ].map( ( f, i ) => (
                                     <div key={i} style={{ fontSize: 12.5, color: 'var(--text-3)', lineHeight: 1.4 }}>{f}</div>
@@ -183,11 +204,12 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
 
                         {/* Starter — legitimate lower-friction entry point */}
                         <div className="bbt-pw__plan bbt-pw__plan--starter" style={{ border: '1px solid var(--primary-border)', background: 'var(--surface)', position: 'relative' }}>
-                            <div style={{ position: 'absolute', top: -10, left: 16, background: 'var(--primary-soft)', color: 'var(--primary-ink)', border: '1px solid var(--primary-border)', fontSize: 9.5, fontWeight: 700, padding: '3px 8px', borderRadius: 999, letterSpacing: '0.04em' }}>MOST POPULAR FOR SMALL SITES</div>
+                            <div style={{ position: 'absolute', top: -10, left: 16, background: 'var(--primary-soft)', color: 'var(--primary-ink)', border: '1px solid var(--primary-border)', fontSize: 9.5, fontWeight: 700, padding: '3px 8px', borderRadius: 999, letterSpacing: '0.04em' }}>MOST POPULAR</div>
                             <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 8, marginTop: 4 }}>Starter</div>
                             <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.02em' }}>{starterPrice}<span style={{ fontSize: 12.5, color: 'var(--text-3)', fontWeight: 400 }}> /mo</span></div>
+                            <div style={{ fontSize: 11.5, color: 'var(--primary-ink)', fontWeight: 600, marginTop: 4 }}>Best balance of value and affordability</div>
                             <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                {[ `${ fmtCount( starterQuota ) } SEO generations every month`, 'No daily limits', 'Perfect for blogs and small business websites', 'Try BeepBeep before upgrading' ].map( ( f, i ) => (
+                                {[ `${ fmtCount( starterQuota ) } SEO generations every month`, 'No daily limits', 'Perfect for bloggers, freelancers and small business websites' ].map( ( f, i ) => (
                                     <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.4 }}>
                                         <Icon name="check" size={12} strokeWidth={2.4} style={{ color: 'var(--text-3)', flexShrink: 0, marginTop: 2 }}/> {f}
                                     </div>
@@ -204,6 +226,7 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
                                 <Icon name="trend" size={12} strokeWidth={2.4}/>
                                 {capacityMult}× more generations for only {monthlyExtra} extra / month
                             </div>
+                            <div style={{ fontSize: 11.5, color: 'var(--text-2)', fontWeight: 500, marginTop: 8, lineHeight: 1.4 }}>Ideal for agencies, growing websites and content-heavy sites</div>
                             <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 9 }}>
                                 <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)' }}>{fmtCount( proQuota )} SEO generations every month</div>
                                 {[ 'Auto-generate on publish', 'Bulk optimise your entire website', 'Fix hundreds of pages in minutes', 'Shared across all BeepBeep plugins', 'Priority processing' ].map( ( f, i ) => (
@@ -228,14 +251,31 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
                             <div style={{ fontSize: 11, color: 'var(--primary-ink)', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Pro</div>
                             <div style={{ fontSize: 14, color: 'var(--text)', fontWeight: 600 }}>{fmtCount( proQuota )} generations · {proPrice}/mo</div>
                         </div>
-                        <div style={{ fontSize: 12.5, fontWeight: 700, color: '#fff', background: 'var(--primary)', borderRadius: 999, padding: '4px 12px' }}>{capacityMult}× more optimisation capacity</div>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: 12.5, fontWeight: 700, color: '#fff', background: 'var(--primary)', borderRadius: 999, padding: '4px 12px' }}>{capacityMult}× more optimisation capacity</div>
+                            <div style={{ fontSize: 11.5, color: 'var(--primary-ink)', fontWeight: 600, marginTop: 6 }}>Only {monthlyExtra} more per month</div>
+                        </div>
                     </div>
                 </div>
 
                 {/* ── Section 4 + 5: Dual CTAs (Pro primary, Starter real secondary) ── */}
                 <div className="bbt-pw__section" style={{ padding: '20px 40px 0' }}>
+                    {/* Closing value statement */}
+                    <p style={{ textAlign: 'center', fontSize: 13.5, color: 'var(--text-2)', margin: '0 0 12px', lineHeight: 1.5 }}>
+                        Generate SEO titles and meta descriptions in minutes instead of hours.
+                    </p>
+
+                    {/* Risk reduction */}
+                    <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '6px 16px', marginBottom: 14, fontSize: 11.5, color: 'var(--text-3)' }}>
+                        {['Secure Stripe checkout', 'Cancel anytime', 'No long-term contracts'].map( ( t, i ) => (
+                            <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                                <Icon name="check" size={12} strokeWidth={2.6} style={{ color: 'var(--ok-ink)' }}/> {t}
+                            </span>
+                        ) )}
+                    </div>
+
                     <Button variant="pro" size="lg" full icon="crown" onClick={onPro} style={{ paddingTop: 14, paddingBottom: 14, fontSize: 15 }}>
-                        Start Optimising My Site · {proPrice}/month
+                        Get Pro · {proPrice}/month
                     </Button>
 
                     {starterPlan && (
@@ -246,7 +286,7 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
                                 <span style={{ flex: 1, height: 1, background: 'var(--hairline)' }}/>
                             </div>
                             <Button variant="secondary" size="md" full onClick={onStarter} style={{ background: 'var(--surface)', color: 'var(--primary-ink)', border: '1.5px solid var(--primary)', fontSize: 14 }}>
-                                Start Small with Starter · {starterPrice}/month
+                                Start with Starter · {starterPrice}/month
                             </Button>
                         </>
                     )}
@@ -266,11 +306,7 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
                 <div className="bbt-pw__section" style={{ padding: '20px 40px 32px', marginTop: 16, borderTop: '1px solid var(--hairline)', textAlign: 'center' }}>
                     <div aria-hidden="true" style={{ fontSize: 14, letterSpacing: 2, color: '#F59E0B', marginBottom: 6 }}>★★★★★</div>
                     <div style={{ fontSize: 12.5, color: 'var(--text-3)', lineHeight: 1.5, maxWidth: 460, margin: '0 auto' }}>
-                        Trusted by WordPress site owners, bloggers, agencies and WooCommerce stores.
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 12, fontSize: 11, color: 'var(--text-3)' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name="check" size={11}/> Secure Stripe checkout</span>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name="check" size={11}/> Cancel anytime</span>
+                        Built specifically for WordPress SEO workflows. Used by bloggers, agencies and WooCommerce stores.
                     </div>
                 </div>
             </div>

@@ -1,4 +1,21 @@
-import { Icon, Card, Button, Progress, Ring } from '../components';
+import { useEffect, useState } from 'react';
+import { Icon, Card, Button } from '../components';
+import { track, fetchPlans } from '../api';
+import { QUOTA_DEFAULTS } from '../quota';
+
+/* Format a plan amount in its own currency (e.g. gbp 12.99 -> "£12.99"). */
+const fmtPrice = ( amount, currency = 'gbp' ) => {
+    if ( typeof amount !== 'number' ) return null;
+    try {
+        return new Intl.NumberFormat( undefined, {
+            style: 'currency',
+            currency: currency.toUpperCase(),
+            minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
+        } ).format( amount );
+    } catch ( e ) {
+        return `${ amount } ${ currency.toUpperCase() }`;
+    }
+};
 
 /* BeepBeep Titles — signed-out "Title & Meta Description Audit".
    A conversion surface shown in place of the dashboard when no license is
@@ -12,24 +29,38 @@ import { Icon, Card, Button, Progress, Ring } from '../components';
 
 const EST_GAIN = '12–18%';
 
-export const AuditSignedOutScreen = ({ stats, onConnect, onHelp }) => {
+const trackingProps = ( stats = {} ) => ( {
+    site_url: window.bbtData?.siteUrl || window.location.origin,
+    pages_scanned: Math.max( 0, stats?.total ?? 0 ),
+    plugin_version: window.bbtData?.version || '',
+    authenticated_state: 'signed_out',
+} );
+
+export const AuditSignedOutScreen = ({ stats, onConnect, onHelp, onUpgrade }) => {
     const total        = Math.max( 0, stats?.total ?? 0 );
-    const optimised    = Math.max( 0, stats?.optimised ?? 0 );
     const missingTitle = Math.max( 0, stats?.missing_title ?? 0 );
     const missingMeta  = Math.max( 0, stats?.missing_meta ?? 0 );
     const fixCount     = Math.max( 0, stats?.needs_attention ?? 0 );
-    const coverage     = Math.max( 0, Math.min( 100, stats?.coverage ?? ( total > 0 ? Math.round( ( optimised / total ) * 100 ) : 0 ) ) );
+    const eventProps   = trackingProps( stats );
 
-    const ctrRisk  = coverage >= 95 ? 'Low' : ( coverage >= 50 ? 'Medium' : 'High' );
-    const ringTone = coverage >= 95 ? 'ok' : ( coverage >= 50 ? 'warn' : 'danger' );
+    useEffect( () => {
+        track( 'logged_out_dashboard_viewed', eventProps );
+        track( 'before_after_viewed', eventProps );
+    }, [] );
 
-    // Manual effort estimate: ~2 minutes to research + write a title/meta pair.
-    const manualMinutes = Math.ceil( fixCount * 2 );
-    const savedMinutes  = Math.max( 0, manualMinutes - 1 );
+    const connectFromHero = () => {
+        track( 'hero_connect_clicked', eventProps );
+        onConnect();
+    };
+
+    const openQuickSetup = () => {
+        track( 'quick_setup_clicked', eventProps );
+        onHelp();
+    };
 
     return (
-        <div style={{ background: 'var(--bg)', minHeight: 'calc(100vh - 32px - 52px)' }}>
-            <div style={{ maxWidth: 1080, margin: '0 auto', padding: '20px 32px 72px' }}>
+        <div style={{ background: 'var(--bg)', minHeight: 'calc(100vh - 32px - 52px)', overflowX: 'hidden' }}>
+            <div style={{ maxWidth: 1080, width: '100%', margin: '0 auto', padding: '20px 32px 72px' }}>
 
                 {/* Header row — brand + signed-out badge */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
@@ -57,119 +88,165 @@ export const AuditSignedOutScreen = ({ stats, onConnect, onHelp }) => {
                 }}>
                     <Card padding={0} style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                         <div style={{ padding: '32px 32px 30px' }}>
-                            {fixCount > 0 ? (
-                                <span style={{
-                                    display: 'inline-flex', alignItems: 'center', gap: 7,
-                                    padding: '4px 11px', marginBottom: 16,
-                                    background: 'var(--warn-soft)', border: '1px solid var(--warn-border)',
-                                    borderRadius: 999, fontSize: 11.5, color: 'var(--warn-ink)', fontWeight: 600,
-                                }}>
-                                    <Icon name="alert" size={12}/> Audit complete · action needed
-                                </span>
-                            ) : (
-                                <span style={{
-                                    display: 'inline-flex', alignItems: 'center', gap: 7,
-                                    padding: '4px 11px', marginBottom: 16,
-                                    background: 'var(--ok-soft)', border: '1px solid var(--ok-border)',
-                                    borderRadius: 999, fontSize: 11.5, color: 'var(--ok-ink)', fontWeight: 600,
-                                }}>
-                                    <Icon name="check" size={12} strokeWidth={2.6}/> Audit complete
-                                </span>
-                            )}
+                            <span style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 7,
+                                padding: '4px 11px', marginBottom: 16,
+                                background: 'var(--primary-soft)', border: '1px solid var(--primary-border)',
+                                borderRadius: 999, fontSize: 11.5, color: 'var(--primary-ink)', fontWeight: 600,
+                            }}>
+                                <Icon name="search" size={12}/> Preview Report
+                            </span>
                             <h1 style={{ fontSize: 30, fontWeight: 600, letterSpacing: '-0.025em', lineHeight: 1.15, margin: '0 0 10px' }}>
-                                {fixCount > 0
-                                    ? 'Your website has pages that need attention'
-                                    : 'See your full title & meta description report'}
+                                Find missing SEO titles and meta descriptions across your website
                             </h1>
                             <p style={{ fontSize: 15, color: 'var(--text-2)', lineHeight: 1.55, margin: '0 0 22px', maxWidth: 460 }}>
-                                {fixCount > 0 ? (
-                                    <>
-                                        Connect your license to see your full title & meta description report — and fix{' '}
-                                        <span style={{ color: 'var(--text)', fontWeight: 600 }}>{fixCount} page{fixCount === 1 ? '' : 's'}</span> in minutes.
-                                    </>
-                                ) : (
-                                    'Connect your license to see your full title & meta description report.'
-                                )}
+                                Connect your account to unlock AI-powered optimisation, identify missing metadata, and improve how your pages appear in search results.
                             </p>
                             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                                <Button variant="primary" size="lg" icon="arrow-right" onClick={onConnect}>Connect license</Button>
-                                <Button variant="secondary" size="lg" onClick={onHelp}>How it works</Button>
+                                <Button variant="primary" size="lg" icon="arrow-right" onClick={connectFromHero}>Connect Account</Button>
+                                <Button variant="secondary" size="lg" onClick={openQuickSetup}>Quick Setup Guide</Button>
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 18, flexWrap: 'wrap' }}>
-                                {['No credit card', 'Works with Yoast, Rank Math & AIOSEO', 'Set up in 1 minute'].map( ( t, i ) => (
-                                    <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-3)' }}>
-                                        <Icon name="check" size={12} strokeWidth={2.6} style={{ color: 'var(--ok-ink)' }}/> {t}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px 24px', marginTop: 22, flexWrap: 'wrap' }}>
+                                {['No credit card required', 'Setup in under 60 seconds', 'Works with Yoast, Rank Math & AIOSEO', 'Trusted by WordPress site owners'].map( ( t, i ) => (
+                                    <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: 'var(--text)', fontWeight: 600 }}>
+                                        <span style={{ width: 20, height: 20, borderRadius: 999, flexShrink: 0, background: 'var(--ok-soft)', border: '1px solid var(--ok-border)', color: 'var(--ok-ink)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <Icon name="check" size={12} strokeWidth={3}/>
+                                        </span>
+                                        {t}
                                     </span>
                                 ) )}
                             </div>
                         </div>
                     </Card>
 
-                    {/* Headline circular progress */}
-                    <Card padding={0} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '26px 24px' }}>
-                        <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 14 }}>SEO coverage</div>
-                        <Ring value={coverage} size={148} stroke={12} tone={ringTone}>
-                            <span className="mono tnum" style={{ fontSize: 34, fontWeight: 600, letterSpacing: '-0.03em', lineHeight: 1 }}>
-                                {coverage}<span style={{ fontSize: 18, color: 'var(--text-3)' }}>%</span>
-                            </span>
-                        </Ring>
-                        <div style={{ marginTop: 14, fontSize: 13, color: 'var(--text-2)', lineHeight: 1.45 }}>
-                            {fixCount > 0 ? (
-                                <>
-                                    <span className="mono tnum" style={{ color: 'var(--danger-ink)', fontWeight: 600 }}>{fixCount} page{fixCount === 1 ? '' : 's'}</span> need{fixCount === 1 ? 's' : ''} attention
-                                </>
-                            ) : 'All pages covered'}
+                    <LockedCoverageCard onConnect={onConnect}/>
+                </div>
+
+                <BeforeAfterCard/>
+
+                <SearchOpportunityCard/>
+
+                <SectionLabel>SEO coverage & website health</SectionLabel>
+                <WebsiteHealthCards
+                    total={total}
+                    missingTitle={missingTitle}
+                    missingMeta={missingMeta}
+                    fixCount={fixCount}
+                />
+
+                <div style={{ display: 'grid', gridTemplateColumns: '0.9fr 1.1fr', gap: 14, marginBottom: 28 }}>
+                    <TimeSavedCard/>
+                    <SerpOverviewCard missingTitle={missingTitle} missingMeta={missingMeta} fixCount={fixCount}/>
+                </div>
+
+                <AutopilotCard onUnlock={() => {
+                    track( 'autopilot_cta_clicked', eventProps );
+                    onConnect();
+                }}/>
+
+                <PricingTeaserCard onCompare={() => {
+                    track( 'pricing_teaser_clicked', eventProps );
+                    onUpgrade?.();
+                }}/>
+
+                <SocialProofCard/>
+
+                <Card padding={0} style={{
+                    overflow: 'hidden',
+                    background: 'linear-gradient(135deg, #F8FAFC 0%, #EEF4FF 100%)',
+                    borderColor: 'var(--primary-border)',
+                }}>
+                    <div style={{ padding: '28px 30px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 18, flexWrap: 'wrap' }}>
+                        <div>
+                            <div style={{ fontSize: 11, color: 'var(--primary-ink)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>Unlock your full SEO report</div>
+                            <h2 style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.02em', margin: '0 0 6px' }}>Find missing titles, discover metadata opportunities and generate optimised content automatically.</h2>
                         </div>
-                    </Card>
-                </div>
+                        <Button variant="primary" size="lg" icon="arrow-right" onClick={() => {
+                            track( 'footer_connect_clicked', eventProps );
+                            onConnect();
+                        }}>Connect Account</Button>
+                    </div>
+                </Card>
 
-                {/* KPI ROW */}
-                <SectionLabel>Website health overview</SectionLabel>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 28 }}>
-                    <KPICard label="SEO coverage" value={`${ coverage }%`} tone="warn" icon="shield" foot="Goal: 95%+"/>
-                    <KPICard label="Pages optimised" value={String( optimised )} tone="ok" icon="check" foot={`of ${ total } total`}/>
-                    <KPICard label="Missing meta descriptions" value={String( missingMeta )} tone="danger" icon="alert" foot="Google improvises a snippet"/>
-                    <KPICard label="Missing SEO titles" value={String( missingTitle )} tone="primary" icon="trend" foot={`+${ EST_GAIN } CTR potential`}/>
-                </div>
+            </div>
+        </div>
+    );
+};
 
-                {/* AUDIT CARDS — search appearance + CTR */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 28 }}>
-                    <AuditCard
-                        eyebrow="Search appearance"
-                        title="SERP Overview"
-                        icon="shield"
-                        tone="danger"
-                        callout={`${ missingMeta } page${ missingMeta === 1 ? '' : 's' } can't control how they appear in Google search results.`}
-                        metrics={[
-                            { label: 'Pages missing meta description', value: String( missingMeta ), tone: 'danger' },
-                            { label: 'Pages missing SEO title', value: String( missingTitle ), tone: 'warn' },
-                            { label: 'SEO coverage score', value: `${ coverage }%`, tone: 'warn' },
-                            { label: 'CTR risk level', value: ctrRisk, tone: 'warn' },
-                        ]}
-                    />
-                    <AuditCard
-                        eyebrow="Organic traffic"
-                        title="Click-Through Opportunity"
-                        icon="trend"
-                        tone="primary"
-                        callout="AI-written titles and meta descriptions could improve click-through rates and how search engines understand your pages."
-                        metrics={[
-                            { label: 'Missing meta descriptions', value: String( missingMeta ), tone: 'danger' },
-                            { label: 'Pages not optimised', value: String( fixCount ), tone: 'warn' },
-                            { label: 'SERP readiness score', value: `${ coverage }%`, tone: 'primary' },
-                            { label: 'Estimated improvement', value: EST_GAIN, tone: 'ok' },
-                        ]}
-                    />
-                </div>
+const LockedCoverageCard = ({ onConnect }) => (
+    <Card padding={0} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '26px 24px' }}>
+        <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 14 }}>SEO coverage</div>
+        <div style={{ position: 'relative', width: 148, height: 148, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', filter: 'blur(0.15px)' }}>
+            <svg width={148} height={148} style={{ transform: 'rotate(-90deg)' }}>
+                <circle cx={74} cy={74} r={62} fill="none" stroke="var(--bg-sunken)" strokeWidth={12}/>
+                <circle cx={74} cy={74} r={62} fill="none" stroke="var(--border-strong)" strokeWidth={12} strokeLinecap="round" strokeDasharray="250 390" opacity="0.55"/>
+            </svg>
+            <span style={{
+                position: 'absolute', width: 58, height: 58, borderRadius: 999,
+                background: 'rgba(255,255,255,0.72)', border: '1px solid var(--border)',
+                color: 'var(--text-3)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 10px 30px rgba(15,23,42,0.08)',
+                backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
+            }}>
+                <Icon name="lock" size={24}/>
+            </span>
+        </div>
+        <h2 style={{ margin: '14px 0 5px', fontSize: 16, fontWeight: 600, letterSpacing: '-0.015em' }}>Coverage Report Locked</h2>
+        <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--text-2)', lineHeight: 1.45 }}>Connect your account to analyse your website.</p>
+        <Button variant="secondary" size="sm" icon="lock" onClick={onConnect}>Connect Account</Button>
+    </Card>
+);
 
-                {/* TIME SAVED + BEFORE/AFTER */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.05fr', gap: 14, marginBottom: 28 }}>
-                    <TimeSavedCard fixCount={fixCount} manualMinutes={manualMinutes} savedMinutes={savedMinutes}/>
-                    <BeforeAfterCard/>
+const SearchOpportunityCard = () => (
+    <Card padding={0} style={{ marginBottom: 28, overflow: 'hidden', borderColor: 'var(--primary-border)' }}>
+        <div style={{ padding: '22px 24px', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', gap: 20, background: 'linear-gradient(135deg,#F8FAFF 0%,#EEF4FF 100%)' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+                <span style={{
+                    width: 40, height: 40, borderRadius: 10,
+                    background: 'var(--primary-soft)', color: 'var(--primary-ink)', border: '1px solid var(--primary-border)',
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                }}><Icon name="trend" size={19}/></span>
+                <div>
+                    <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>Search opportunity</div>
+                    <h2 style={{ margin: 0, fontSize: 19, fontWeight: 600, letterSpacing: '-0.018em' }}>Potential CTR Improvement</h2>
+                    <p style={{ margin: '7px 0 0', fontSize: 13.5, lineHeight: 1.55, color: 'var(--text-2)', maxWidth: 560 }}>
+                        Improve how pages appear in search results with optimised titles and meta descriptions.
+                        Websites with stronger metadata often achieve higher click-through rates and improved search visibility.
+                    </p>
                 </div>
+            </div>
+            <div className="mono tnum" style={{ fontSize: 34, fontWeight: 700, color: 'var(--primary-ink)', letterSpacing: '-0.035em', whiteSpace: 'nowrap' }}>+12% to +18%</div>
+        </div>
+    </Card>
+);
 
-                {/* AUTOPILOT */}
-                <Card padding={0} style={{ marginBottom: 28, overflow: 'hidden' }}>
+const WebsiteHealthCards = ({ total, missingTitle, missingMeta, fixCount }) => (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 28 }}>
+        <KPICard label="Coverage report" value="Locked" tone="neutral" icon="lock" foot="Connect to analyse"/>
+        <KPICard label="Pages scanned" value={total > 0 ? String( total ) : 'Locked'} tone="primary" icon="search" foot="Connect account to analyse"/>
+        <KPICard label="Missing meta descriptions" value={missingMeta > 0 ? String( missingMeta ) : 'Locked'} tone="danger" icon="alert" foot="Connect account to analyse"/>
+        <KPICard label="Missing SEO titles" value={missingTitle > 0 ? String( missingTitle ) : ( fixCount > 0 ? String( fixCount ) : 'Locked' )} tone="warn" icon="trend" foot="Connect account to analyse"/>
+    </div>
+);
+
+const SerpOverviewCard = ({ missingTitle, missingMeta, fixCount }) => (
+    <AuditCard
+        eyebrow="Search appearance"
+        title="SERP Overview"
+        icon="shield"
+        tone="danger"
+        callout="Missing titles and meta descriptions let search engines improvise how your pages appear in results."
+        metrics={[
+            { label: 'Pages missing meta description', value: missingMeta > 0 ? String( missingMeta ) : 'Check needed', tone: 'danger' },
+            { label: 'Pages missing SEO title', value: missingTitle > 0 ? String( missingTitle ) : 'Check needed', tone: 'warn' },
+            { label: 'Pages needing review', value: fixCount > 0 ? String( fixCount ) : 'After scan', tone: 'primary' },
+            { label: 'Estimated improvement', value: EST_GAIN, tone: 'ok' },
+        ]}
+    />
+);
+
+const AutopilotCard = ({ onUnlock }) => (
+    <Card padding={0} style={{ marginBottom: 28, overflow: 'hidden' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr' }}>
                         <div style={{ padding: '26px 28px' }}>
                             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, marginBottom: 12 }}>
@@ -181,16 +258,22 @@ export const AuditSignedOutScreen = ({ stats, onConnect, onHelp }) => {
                                 <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Autopilot</span>
                             </div>
                             <h2 style={{ fontSize: 21, fontWeight: 600, letterSpacing: '-0.02em', margin: '0 0 16px', lineHeight: 1.2 }}>
-                                Never write a title tag manually again
+                                Never write SEO titles manually again
                             </h2>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 12, padding: '4px 9px', borderRadius: 999, background: 'var(--primary-soft)', border: '1px solid var(--primary-border)', color: 'var(--primary-ink)', fontSize: 11.5, fontWeight: 700 }}>
+                                Available on Starter & Pro
+                            </div>
+                            <p style={{ fontSize: 13.5, color: 'var(--text-2)', lineHeight: 1.55, margin: '0 0 16px', maxWidth: 520 }}>
+                                Automatically generate optimised titles and meta descriptions whenever new content is published.
+                            </p>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 18px' }}>
                                 {[
-                                    'Write titles & meta automatically',
+                                    'Generate metadata automatically',
                                     'Improve click-through rates',
-                                    'Match your brand voice',
-                                    'Works on publish',
-                                    'Review and approve changes',
-                                    'Bulk generate existing pages',
+                                    'Match your preferred writing style',
+                                    'Review before publishing',
+                                    'Bulk optimise existing content',
+                                    'Works with WordPress SEO plugins',
                                 ].map( ( t, i ) => (
                                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, color: 'var(--text)' }}>
                                         <span style={{
@@ -203,56 +286,100 @@ export const AuditSignedOutScreen = ({ stats, onConnect, onHelp }) => {
                                     </div>
                                 ) )}
                             </div>
+                            <div style={{ marginTop: 20 }}>
+                                <Button variant="pro" size="md" icon="zap" onClick={onUnlock}>Unlock Autopilot</Button>
+                            </div>
                         </div>
-                        {/* Progress visualization */}
                         <div style={{
                             borderLeft: '1px solid var(--hairline)',
                             background: 'var(--surface-2)',
                             padding: '26px 28px',
                             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center',
                         }}>
-                            <Ring value={coverage} size={120} stroke={10} tone={ringTone}>
-                                <span className="mono tnum" style={{ fontSize: 26, fontWeight: 600, letterSpacing: '-0.02em' }}>{coverage}%</span>
-                            </Ring>
-                            <div style={{ marginTop: 14, fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>SEO coverage</div>
-                            <div style={{ fontSize: 12.5, color: 'var(--text-3)', marginTop: 2 }}>{fixCount} page{fixCount === 1 ? '' : 's'} need{fixCount === 1 ? 's' : ''} attention</div>
-                            <div style={{ width: '100%', marginTop: 16 }}>
-                                <Progress value={optimised} max={Math.max( 1, total )} tone="ok" height={8}/>
-                                <div className="mono" style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 6, display: 'flex', justifyContent: 'space-between' }}>
-                                    <span>{optimised} optimised</span>
-                                    <span>{fixCount} remaining</span>
-                                </div>
+                            <div style={{ width: 118, height: 118, borderRadius: 999, background: 'var(--primary-soft)', border: '1px solid var(--primary-border)', color: 'var(--primary-ink)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
+                                <Icon name="zap" size={42} strokeWidth={1.9}/>
                             </div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Always-on metadata</div>
+                            <div style={{ fontSize: 12.5, color: 'var(--text-3)', marginTop: 4, lineHeight: 1.45, maxWidth: 230 }}>New pages can get search-ready titles and meta descriptions automatically.</div>
                         </div>
                     </div>
                 </Card>
+);
 
-                {/* FINAL CTA */}
-                <Card padding={0} style={{
-                    overflow: 'hidden',
-                    background: 'linear-gradient(135deg, #F3F7FE 0%, #EEF0FE 100%)',
-                    borderColor: 'var(--primary-border)',
-                }}>
-                    <div style={{ padding: '34px 32px', textAlign: 'center' }}>
-                        <h2 style={{ fontSize: 26, fontWeight: 600, letterSpacing: '-0.025em', margin: '0 0 8px' }}>
-                            {fixCount > 0
-                                ? <>Fix <span className="tnum">{fixCount}</span> page{fixCount === 1 ? '' : 's'} in minutes</>
-                                : 'Put your titles & meta on Autopilot'}
-                        </h2>
-                        <p style={{ fontSize: 14.5, color: 'var(--text-2)', lineHeight: 1.55, margin: '0 auto 22px', maxWidth: 520 }}>
-                            Connect your license to generate titles & meta descriptions and unlock higher click-through rates.
-                        </p>
-                        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-                            <Button variant="primary" size="lg" icon="arrow-right" onClick={onConnect}>Connect license</Button>
-                            <Button variant="secondary" size="lg" onClick={onHelp}>How it works</Button>
-                        </div>
-                    </div>
-                </Card>
-
+const SocialProofCard = () => (
+    <Card padding={0} style={{ marginBottom: 28 }}>
+        <div style={{ padding: '22px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 18, flexWrap: 'wrap' }}>
+            <div>
+                <div style={{ color: '#F59E0B', fontSize: 18, letterSpacing: '0.08em', marginBottom: 6 }}>★★★★★</div>
+                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, letterSpacing: '-0.015em' }}>Growing community of WordPress site owners</h2>
+                <p style={{ margin: '5px 0 0', fontSize: 13, color: 'var(--text-2)' }}>Built specifically for WordPress SEO workflows.</p>
+            </div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <TrustPill>Metadata workflows for WordPress</TrustPill>
+                <TrustPill>Built for SEO plugins</TrustPill>
             </div>
         </div>
+    </Card>
+);
+
+const PricingTeaserCard = ({ onCompare }) => {
+    // Pull live Stripe-backed prices so the teaser always matches checkout.
+    const [plans, setPlans] = useState( null );
+    useEffect( () => {
+        let alive = true;
+        fetchPlans()
+            .then( res => { if ( alive ) setPlans( res?.plans || [] ); } )
+            .catch( () => { if ( alive ) setPlans( [] ); } );
+        return () => { alive = false; };
+    }, [] );
+
+    const starter      = ( plans || [] ).find( p => p.id === 'starter' );
+    const pro          = ( plans || [] ).find( p => p.id === 'pro' );
+    const freeQuota    = QUOTA_DEFAULTS.monthly_limit;
+    const starterQuota = starter?.quota || 100;
+    const starterPrice = starter ? fmtPrice( starter.price, starter.currency ) : '£4.99';
+    const proQuota     = pro?.quota || 1000;
+    const proPrice     = pro ? fmtPrice( pro.price, pro.currency ) : '£12.99';
+
+    return (
+        <Card padding={0} style={{ marginBottom: 28, overflow: 'hidden' }}>
+            <div style={{ padding: '22px 24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 16 }}>
+                    <div>
+                        <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>Pricing</div>
+                        <h2 style={{ margin: 0, fontSize: 19, fontWeight: 600, letterSpacing: '-0.018em' }}>Plans for every website size</h2>
+                    </div>
+                    <Button variant="secondary" size="sm" icon="external" onClick={onCompare}>Compare Plans</Button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
+                    <PlanTeaser name="Free" allowance={`${ freeQuota } generations/month`}/>
+                    <PlanTeaser name="Starter" allowance={`${ starterQuota } generations/month`} price={`${ starterPrice }/month`} note="Most popular for small websites"/>
+                    <PlanTeaser name="Pro" allowance={`${ proQuota } generations/month`} price={`${ proPrice }/month`} note="Best value"/>
+                </div>
+            </div>
+        </Card>
     );
 };
+
+const PlanTeaser = ({ name, allowance, price, note }) => (
+    <div style={{ padding: 14, border: '1px solid var(--border)', borderRadius: 'var(--r-md)', background: 'var(--surface-2)', minWidth: 0 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>{name}</div>
+        <div style={{ fontSize: 12.5, color: 'var(--text-2)', fontWeight: 600 }}>{allowance}</div>
+        {price && <div style={{ fontSize: 13, color: 'var(--text)', fontWeight: 700, marginTop: 8 }}>{price}</div>}
+        {note && <div style={{ fontSize: 11.5, color: 'var(--text-3)', marginTop: 4, lineHeight: 1.35 }}>{note}</div>}
+    </div>
+);
+
+const TrustPill = ({ children }) => (
+    <span style={{
+        display: 'inline-flex', alignItems: 'center', gap: 7,
+        padding: '7px 10px', background: 'var(--bg-sunken)', border: '1px solid var(--border)',
+        borderRadius: 999, fontSize: 12, color: 'var(--text-2)', fontWeight: 600,
+    }}>
+        <Icon name="check" size={12} strokeWidth={2.6} style={{ color: 'var(--ok-ink)' }}/>
+        {children}
+    </span>
+);
 
 /* ── Section label ────────────────────────────────────────────────── */
 const SectionLabel = ({ children }) => (
@@ -263,6 +390,7 @@ const SectionLabel = ({ children }) => (
 const KPICard = ({ label, value, tone, icon, foot }) => {
     const tones = {
         ok:      { soft: 'var(--ok-soft)',      ink: 'var(--ok-ink)',      bd: 'var(--ok-border)' },
+        neutral: { soft: 'var(--bg-sunken)',    ink: 'var(--text-3)',      bd: 'var(--border)' },
         warn:    { soft: 'var(--warn-soft)',    ink: 'var(--warn-ink)',    bd: 'var(--warn-border)' },
         danger:  { soft: 'var(--danger-soft)',  ink: 'var(--danger-ink)',  bd: 'var(--danger-border)' },
         primary: { soft: 'var(--primary-soft)', ink: 'var(--primary-ink)', bd: 'var(--primary-border)' },
@@ -347,26 +475,24 @@ const MetricValue = ({ value, tone }) => {
 };
 
 /* ── Time saved comparison ────────────────────────────────────────── */
-const TimeSavedCard = ({ fixCount, manualMinutes, savedMinutes }) => (
+const TimeSavedCard = () => (
     <Card padding={0} style={{ display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '18px 20px 6px' }}>
             <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>Time saved</div>
-            <h3 style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.015em', margin: 0 }}>
-                <span className="mono tnum">{fixCount}</span> page{fixCount === 1 ? '' : 's'}, handled for you
-            </h3>
+            <h3 style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.015em', margin: 0 }}>Manual SEO Optimisation</h3>
         </div>
         <div style={{ padding: '12px 20px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <CompareBar label="Manual process" value={`${ manualMinutes } minute${ manualMinutes === 1 ? '' : 's' }`} pct={100} tone="danger"/>
+            <CompareBar label="Manual SEO optimisation" value="3–5 minutes per page" pct={100} tone="danger"/>
             <CompareBar label="With BeepBeep Titles" value="30 seconds" pct={6} tone="ok"/>
             <div style={{
                 marginTop: 4, padding: '12px 14px',
                 background: 'var(--ok-soft)', border: '1px solid var(--ok-border)', borderRadius: 'var(--r-md)',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
             }}>
                 <span style={{ fontSize: 12.5, color: 'var(--ok-ink)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 7 }}>
-                    <Icon name="clock" size={14}/> Time saved
+                    <Icon name="clock" size={14}/> Save hours across larger websites.
                 </span>
-                <span className="mono tnum" style={{ fontSize: 18, fontWeight: 600, color: 'var(--ok-ink)' }}>{savedMinutes} min</span>
+                <span className="mono tnum" style={{ fontSize: 16, fontWeight: 600, color: 'var(--ok-ink)', whiteSpace: 'nowrap' }}>10x faster</span>
             </div>
         </div>
     </Card>
@@ -389,17 +515,18 @@ const CompareBar = ({ label, value, pct, tone }) => {
 
 /* ── Before / After example ───────────────────────────────────────── */
 const BeforeAfterCard = () => (
-    <Card padding={0} style={{ display: 'flex', flexDirection: 'column' }}>
+    <Card padding={0} style={{ display: 'flex', flexDirection: 'column', marginBottom: 28 }}>
         <div style={{ padding: '18px 20px 14px' }}>
             <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>AI generated title & meta example</div>
-            <h3 style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.015em', margin: 0 }}>Before / After</h3>
+            <h3 style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.015em', margin: 0 }}>See how AI improves your search appearance</h3>
+            <p style={{ fontSize: 13, color: 'var(--text-2)', margin: '5px 0 0' }}>Generate SEO-friendly titles and meta descriptions automatically.</p>
         </div>
         <div style={{ padding: '0 20px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
             {/* Before */}
             <div style={{ padding: '10px 12px', background: 'var(--danger-soft)', border: '1px solid var(--danger-border)', borderRadius: 'var(--r-md)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                     <Icon name="x" size={12} strokeWidth={2.6} style={{ color: 'var(--danger-ink)' }}/>
-                    <span style={{ fontSize: 10.5, color: 'var(--danger-ink)', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Before</span>
+                    <span style={{ fontSize: 10.5, color: 'var(--danger-ink)', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Before Optimisation</span>
                 </div>
                 <div className="mono" style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.5 }}>Sample Page – mysite.com</div>
                 <div className="mono" style={{ fontSize: 12, color: 'var(--text-3)', fontStyle: 'italic', lineHeight: 1.5 }}>meta description: (empty)</div>
@@ -408,7 +535,7 @@ const BeforeAfterCard = () => (
             <div style={{ padding: '10px 12px', background: 'var(--ok-soft)', border: '1px solid var(--ok-border)', borderRadius: 'var(--r-md)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                     <Icon name="check" size={12} strokeWidth={2.6} style={{ color: 'var(--ok-ink)' }}/>
-                    <span style={{ fontSize: 10.5, color: 'var(--ok-ink)', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>After</span>
+                    <span style={{ fontSize: 10.5, color: 'var(--ok-ink)', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>After Optimisation</span>
                 </div>
                 <div className="mono" style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.5 }}>Handcrafted Oak Furniture, Made to Order | MySite</div>
                 <div className="mono" style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.5 }}>"Browse made-to-order oak tables, benches and shelving. Free UK delivery and a 10-year guarantee on every piece."</div>

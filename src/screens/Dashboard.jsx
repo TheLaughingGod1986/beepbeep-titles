@@ -31,9 +31,10 @@ export const Dashboard = ({ quota, stats, queuePages, autoOptimise, onAutoToggle
     const dailyLimit = quota?.daily_limit || QUOTA_DEFAULTS.daily_limit;
     const monthlyUsed = quota?.monthly_used || 0;
     const monthlyLimit = quota?.monthly_limit || QUOTA_DEFAULTS.monthly_limit;
-    const dailyRemaining = quota?.daily_remaining ?? ( dailyLimit - dailyUsed );
     const hasDailyLimit  = ( quota?.daily_limit ?? null ) !== null; // backend has no daily cap on the shared wallet
     const monthlyRemaining = Math.max( 0, monthlyLimit - monthlyUsed );
+    // Without a daily cap, what's "left today" is simply the monthly credits.
+    const dailyRemaining = hasDailyLimit ? ( quota?.daily_remaining ?? ( dailyLimit - dailyUsed ) ) : monthlyRemaining;
     const streak = stats?.streak || 0;
 
     const total      = stats?.total      || 0;

@@ -78,7 +78,11 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
     const capacityMult = ( proQuota && starterQuota ) ? Math.max( 2, Math.round( proQuota / starterQuota ) ) : 10;
 
     const checkout = ( planId ) => {
-        if ( typeof onCheckout === 'function' ) { onCheckout( planId ); return; }
+        const plan = ( plans || [] ).find( p => p.id === planId );
+        const checkoutArgs = plan?.priceId
+            ? { plan: planId, priceId: plan.priceId }
+            : { plan: planId };
+        if ( typeof onCheckout === 'function' ) { onCheckout( checkoutArgs ); return; }
         if ( planId === 'credits' && onBuyCredits ) { onBuyCredits(); return; }
         if ( onUpgrade ) onUpgrade();
     };

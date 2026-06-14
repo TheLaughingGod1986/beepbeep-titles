@@ -161,6 +161,10 @@ export async function loginWithPassword( email, password ) {
     return request( 'POST', '/auth/login', { email, password } );
 }
 
+export async function registerAccount( email, password ) {
+    return request( 'POST', '/auth/register', { email, password } );
+}
+
 export async function clearLicense() {
     return request( 'DELETE', '/license' );
 }
@@ -170,7 +174,7 @@ export async function fetchPlans() {
     return request( 'GET', '/billing/plans' );
 }
 
-/** Start a Stripe Checkout. `plan` is 'pro' | 'agency' | 'credits'. Resolves to { url }. */
+/** Start a Stripe Checkout. `plan` is 'starter' | 'pro' | 'agency' | 'credits'. Resolves to { url }. */
 export async function createCheckout( { plan, priceId } = {} ) {
     const body = {};
     if ( plan ) body.plan = plan;

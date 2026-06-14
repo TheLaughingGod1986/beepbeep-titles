@@ -94,10 +94,14 @@
   font-feature-settings: "ss01","cv11";
   -webkit-font-smoothing: antialiased;
   line-height: 1.5;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 #bbt-root button { font: inherit; color: inherit; }
 #bbt-root a      { color: var(--primary-ink); text-decoration: none; }
+#bbt-root pre,
+#bbt-root .mono { overflow-wrap: anywhere; }
 
 /* Premium placeholders */
 #bbt-root input::placeholder,

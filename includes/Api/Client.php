@@ -107,7 +107,7 @@ class Client {
     // so credits/Pro are available to every BeepBeep plugin on this site.
     // ----------------------------------------------------------------
 
-    /** Available plans + Stripe price ids ({ pro, agency, credits }). */
+    /** Available plans + Stripe price ids ({ starter, pro, agency, credits }). */
     public function billing_plans(): array|\WP_Error {
         return $this->request( 'GET', '/billing/plans', null, 30 );
     }
@@ -145,11 +145,13 @@ class Client {
     }
 
     /** Create a Stripe Checkout session; returns { url } to redirect to. */
-    public function create_checkout( string $price_id, string $success_url, string $cancel_url ): array|\WP_Error {
+    public function create_checkout( string $price_id, string $success_url, string $cancel_url, string $plan = '' ): array|\WP_Error {
         return $this->request( 'POST', '/billing/checkout', [
-            'priceId'    => $price_id,
-            'successUrl' => $success_url,
-            'cancelUrl'  => $cancel_url,
+            'priceId'     => $price_id,
+            'successUrl'  => $success_url,
+            'cancelUrl'   => $cancel_url,
+            'target_plan' => $plan,
+            'source_page' => 'beepbeep_titles_admin',
         ], 45 );
     }
 
@@ -244,29 +246,34 @@ class Client {
             return $result;
         }
 
-        // Backend wraps the payload as { success, data: { token, user } } but
-        // older deployments return { token, user } at the top level.
-        $user = $result['data']['user'] ?? $result['user'] ?? null;
-        $key  = is_array( $user ) && isset( $user['license_key'] ) && is_string( $user['license_key'] )
-            ? trim( $user['license_key'] )
-            : '';
+        return $this->store_account_license_from_auth_result( $result, $email, 'login' );
+    }
 
-        if ( $key === '' ) {
-            return new \WP_Error(
-                'bbt_no_account_license',
-                __( 'Signed in, but no license key is attached to this account yet. Visit your BeepBeep dashboard to claim one.', 'beepbeep-titles' ),
-                [ 'status' => 422, 'code' => 'NO_ACCOUNT_LICENSE' ]
-            );
+    /**
+     * Create a BeepBeep account and store its returned license key.
+     *
+     * @return array|\WP_Error Backend user payload on success (license stored).
+     */
+    public function register( string $email, string $password ): array|\WP_Error {
+        $result = $this->do_request( 'POST', '/auth/register', [
+            'email'             => $email,
+            'password'          => $password,
+            'site_id'           => $this->site_hash(),
+            'install_uuid'      => $this->install_hash(),
+            'site_url'          => get_site_url(),
+            'site_fingerprint'  => $this->fingerprint(),
+            'plugin_version'    => BBT_VERSION,
+            'wordpress_version' => get_bloginfo( 'version' ),
+            'blog_id'           => function_exists( 'get_current_blog_id' ) ? absint( get_current_blog_id() ) : 0,
+            'network_id'        => function_exists( 'get_current_network_id' ) ? absint( get_current_network_id() ) : 0,
+            'is_multisite'      => is_multisite(),
+        ], 45 );
+
+        if ( is_wp_error( $result ) ) {
+            return $result;
         }
 
-        $this->set_license_key( $key );
-
-        $account_email = isset( $user['email'] ) && is_string( $user['email'] ) ? sanitize_email( $user['email'] ) : sanitize_email( $email );
-        if ( $account_email !== '' ) {
-            update_option( self::OPT_ACCOUNT_EMAIL, $account_email, false );
-        }
-
-        return is_array( $user ) ? $user : [];
+        return $this->store_account_license_from_auth_result( $result, $email, 'register' );
     }
 
     // ----------------------------------------------------------------
@@ -465,6 +472,34 @@ class Client {
         }
 
         return new \WP_Error( 'bbt_api_error', $message, $error_data );
+    }
+
+    private function store_account_license_from_auth_result( array $result, string $email, string $action ): array|\WP_Error {
+        // Backend wraps the payload as { success, data: { token, user } } but
+        // older deployments return { token, user } at the top level.
+        $user = $result['data']['user'] ?? $result['user'] ?? null;
+        $key  = is_array( $user ) && isset( $user['license_key'] ) && is_string( $user['license_key'] )
+            ? trim( $user['license_key'] )
+            : '';
+
+        if ( $key === '' ) {
+            return new \WP_Error(
+                'bbt_no_account_license',
+                $action === 'register'
+                    ? __( 'Account created, but no license key was returned. Visit your BeepBeep dashboard to claim one.', 'beepbeep-titles' )
+                    : __( 'Signed in, but no license key is attached to this account yet. Visit your BeepBeep dashboard to claim one.', 'beepbeep-titles' ),
+                [ 'status' => 422, 'code' => 'NO_ACCOUNT_LICENSE' ]
+            );
+        }
+
+        $this->set_license_key( $key );
+
+        $account_email = isset( $user['email'] ) && is_string( $user['email'] ) ? sanitize_email( $user['email'] ) : sanitize_email( $email );
+        if ( $account_email !== '' ) {
+            update_option( self::OPT_ACCOUNT_EMAIL, $account_email, false );
+        }
+
+        return is_array( $user ) ? $user : [];
     }
 
     private function code_for_status( int $status ): string {

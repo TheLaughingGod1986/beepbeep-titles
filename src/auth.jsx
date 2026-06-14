@@ -72,7 +72,7 @@ export const UserMenu = ({ user, plan, onSignOut, onAccount, onHelp }) => {
                     </div>
 
                     <MenuItem icon="settings" label="Account settings" onClick={() => { setOpen( false ); onAccount(); }}/>
-                    <MenuItem icon="info"     label="Help & docs"       onClick={() => { setOpen( false ); onHelp(); }}/>
+                    <MenuItem icon="info"     label="Quick Setup Guide" onClick={() => { setOpen( false ); onHelp(); }}/>
                     <div style={{ borderTop: '1px solid var(--hairline)' }}/>
                     <MenuItem icon="logout"   label="Sign out"          tone="danger" onClick={() => { setOpen( false ); onSignOut(); }}/>
                 </div>
@@ -126,7 +126,7 @@ export const SignOutConfirm = ({ open, onCancel, onConfirm }) => (
             </div>
             <h2 style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.015em', margin: '0 0 6px' }}>Sign out of BeepBeep Titles?</h2>
             <p style={{ fontSize: 13, color: 'var(--text-2)', margin: 0, lineHeight: 1.55 }}>
-                Autopilot will pause and no new pages will be optimised until you reconnect your license.
+                Autopilot will pause and no new pages will be optimised until you reconnect your account.
                 All previously generated titles & meta descriptions stay on your site.
             </p>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
@@ -136,4 +136,3 @@ export const SignOutConfirm = ({ open, onCancel, onConfirm }) => (
         </div>
     </Modal>
 );
-

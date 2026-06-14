@@ -21,7 +21,7 @@ class Admin {
     public function register_menus(): void {
         add_menu_page(
             __( 'BeepBeep Titles', 'beepbeep-titles' ),
-            __( 'BB Title & Meta Description', 'beepbeep-titles' ),
+            __( 'BB Titles', 'beepbeep-titles' ),
             'edit_posts',
             BBT_SLUG,
             [ $this, 'render_page' ],
@@ -120,8 +120,9 @@ class Admin {
         <style>
             /* Let our app control its own background + spacing */
             #wpwrap, #wpcontent { background: #F6F8FB; }
+            #wpbody-content, #wpbody-content .wrap { overflow-x: hidden; }
             #wpbody-content .wrap { margin: 0; padding: 0; }
-            #bbt-root { font-family: "Geist", "Helvetica Neue", system-ui, sans-serif; }
+            #bbt-root { font-family: "Geist", "Helvetica Neue", system-ui, sans-serif; max-width: 100%; overflow-x: hidden; }
             /* Keep WP admin bar + sidebar unchanged */
         </style>
         <?php

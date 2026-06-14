@@ -19,7 +19,10 @@ export const SettingsScreen = ({ plan, quota, user, settings, connected, onUpgra
         setConnecting( true );
         try {
             const res = await setLicense( key );
-            onToast?.( { message: 'License connected', sub: `Plan: ${ res.plan || 'free' } · ${ res.daily_remaining ?? 0 } left today`, icon: 'check', tone: 'ok' } );
+            const remainingNote = ( res.daily_remaining ?? null ) !== null
+                ? `${ res.daily_remaining } left today`
+                : `${ res.credits_remaining ?? 0 } credits available`;
+            onToast?.( { message: 'License connected', sub: `Plan: ${ res.plan || 'free' } · ${ remainingNote }`, icon: 'check', tone: 'ok' } );
             setLicenseInput( '' );
             onConnect?.();
         } catch ( err ) {

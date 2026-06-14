@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Icon, Card, Pill, Button, KBD, PageAvatar, SerpPreview } from '../components';
 import { fetchPages, updatePage } from '../api';
-import { QUOTA_DEFAULTS, dailyRemainingForLibrary, isBulkOverLimit, isGenerationLocked } from '../quota';
+import { dailyRemainingForLibrary, hasDailyCap, isBulkOverLimit, isGenerationLocked } from '../quota';
 
 export const PagesLibrary = ({ plan, quota, connected = true, onConnect, onGenerate, onBulkGenerate, onUpgrade }) => {
     const [filter, setFilter]     = useState( 'needs' );
@@ -20,8 +20,6 @@ export const PagesLibrary = ({ plan, quota, connected = true, onConnect, onGener
     const sentinelRef = useRef( null );
 
     const dailyRemaining = dailyRemainingForLibrary( quota, plan );
-    const dailyUsed  = quota?.daily_used || 0;
-    const dailyLimit = quota?.daily_limit || QUOTA_DEFAULTS.daily_limit;
 
     // Locked-out state: generation CTAs render as locks but stay clickable —
     // they route to connect/upgrade. Review and manual editing stay available.
@@ -126,7 +124,7 @@ export const PagesLibrary = ({ plan, quota, connected = true, onConnect, onGener
                 </Button>
             </div>
 
-            {genLocked && <LockedNotice signedOut={signedOut} onUnlock={onUnlock}/>}
+            {genLocked && <LockedNotice signedOut={signedOut} hasDaily={hasDailyCap( quota )} onUnlock={onUnlock}/>}
 
             <div ref={sentinelRef} style={{ height: 1, marginBottom: -1 }}/>
 
@@ -405,7 +403,7 @@ const EditPageSEOModal = ({ page, onClose, onSave }) => {
     );
 };
 
-const LockedNotice = ({ signedOut, onUnlock }) => (
+const LockedNotice = ({ signedOut, hasDaily = true, onUnlock }) => (
     <Card padding={0} style={{ marginBottom: 16 }}>
         <div style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)', color: 'var(--text-3)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -413,12 +411,14 @@ const LockedNotice = ({ signedOut, onUnlock }) => (
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                    {signedOut ? 'License not connected' : 'Daily allowance used'}
+                    {signedOut ? 'License not connected' : hasDaily ? 'Daily allowance used' : 'Monthly credits used'}
                 </div>
                 <p style={{ margin: '4px 0 0', fontSize: 13, lineHeight: 1.45, color: 'var(--text-2)' }}>
                     {signedOut
                         ? 'You can still review and edit titles & meta descriptions. Connect your BeepBeep license to generate with AI.'
-                        : "You can still review and edit titles & meta descriptions. Upgrade to keep generating today — your free allowance resets overnight."}
+                        : hasDaily
+                            ? "You can still review and edit titles & meta descriptions. Upgrade to keep generating today — your free allowance resets overnight."
+                            : "You can still review and edit titles & meta descriptions. Upgrade to keep generating — your free credits reset next month."}
                 </p>
             </div>
             <Button variant={signedOut ? 'primary' : 'pro'} size="sm" icon={signedOut ? 'arrow-right' : 'crown'} onClick={onUnlock}>
@@ -435,7 +435,7 @@ const BulkActionBar = ({ count, allowed = 0, overLimit, locked, lockedLabel = 'U
             <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.92)' }}>{count === 1 ? 'page selected' : 'pages selected'}</span>
             {locked
                 ? <span style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.7)', display: 'inline-flex', alignItems: 'center', gap: 5 }}><Icon name="lock" size={12}/>Generation locked</span>
-                : overLimit && <span style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.7)', display: 'inline-flex', alignItems: 'center', gap: 5 }}><Icon name="alert" size={12}/>Over today's free limit</span>}
+                : overLimit && <span style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.7)', display: 'inline-flex', alignItems: 'center', gap: 5 }}><Icon name="alert" size={12}/>Over your free limit</span>}
         </div>
         <button onClick={onClear} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.7)', padding: '6px 10px', fontSize: 12.5, fontWeight: 500, cursor: 'pointer' }}
             onMouseEnter={e => e.currentTarget.style.color = '#fff'}

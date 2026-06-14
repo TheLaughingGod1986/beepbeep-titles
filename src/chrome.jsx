@@ -14,7 +14,7 @@ export const WPChrome = ({ children, activeTab, onTab, plan, onUpgrade, user, co
                 padding: '0 28px',
                 display: 'flex', alignItems: 'center', gap: 0,
                 height: 52,
-                position: 'sticky', top: 32, zIndex: 20,
+                position: 'sticky', top: 32, zIndex: 50,
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', marginRight: 22 }}>
                     <span style={{ fontWeight: 700, fontSize: 14.5, letterSpacing: '-0.015em', color: 'var(--text)' }}>BeepBeep Titles</span>

@@ -59,29 +59,11 @@ export const AuditSignedOutScreen = ({ stats, onConnect, onHelp, onUpgrade }) =>
     };
 
     return (
-        <div style={{ background: 'var(--bg)', minHeight: 'calc(100vh - 32px - 52px)', overflowX: 'hidden' }}>
+        <div className="bbt-audit" style={{ background: 'var(--bg)', minHeight: 'calc(100vh - 32px - 52px)', overflowX: 'hidden' }}>
             <div style={{ maxWidth: 1080, width: '100%', margin: '0 auto', padding: '32px 32px 72px' }}>
 
-                {/* Header row — brand + signed-out badge */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <Icon name="logo" size={24} style={{ color: 'var(--primary-strong)' }}/>
-                        <span style={{ fontWeight: 700, fontSize: 15.5, letterSpacing: '-0.015em' }}>BeepBeep Titles</span>
-                        <span aria-hidden="true" style={{ width: 1, height: 12, background: 'var(--border-strong)', opacity: 0.7 }}/>
-                        <span style={{ fontSize: 11.5, color: 'var(--text-3)', letterSpacing: '0.04em', fontWeight: 500 }}>Titles & Meta</span>
-                    </div>
-                    <span style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 7,
-                        padding: '4px 11px',
-                        background: 'var(--surface)', border: '1px solid var(--border)',
-                        borderRadius: 999, fontSize: 11.5, color: 'var(--text-3)', fontWeight: 600,
-                    }}>
-                        <span style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--text-3)', opacity: 0.55 }}/>
-                        Signed Out
-                    </span>
-                </div>
-
-                {/* HERO — headline + CTAs, paired with the headline circular progress */}
+                {/* HERO — headline + CTAs, paired with the headline circular progress.
+                   (Branding lives in the sticky nav above, so no duplicate header here.) */}
                 <div style={{
                     display: 'grid', gridTemplateColumns: '1.35fr 0.9fr', gap: 20, alignItems: 'stretch',
                     marginBottom: 16,
@@ -97,10 +79,10 @@ export const AuditSignedOutScreen = ({ stats, onConnect, onHelp, onUpgrade }) =>
                                 <Icon name="search" size={12}/> Preview Report
                             </span>
                             <h1 style={{ fontSize: 30, fontWeight: 600, letterSpacing: '-0.025em', lineHeight: 1.15, margin: '0 0 10px' }}>
-                                Find missing SEO titles and meta descriptions across your website
+                                Scan your site for missing SEO titles &amp; meta descriptions
                             </h1>
                             <p style={{ fontSize: 15, color: 'var(--text-2)', lineHeight: 1.55, margin: '0 0 22px', maxWidth: 460 }}>
-                                Connect your account to unlock AI-powered optimisation, identify missing metadata, and improve how your pages appear in search results.
+                                Discover metadata issues, improve search visibility and generate optimised titles automatically.
                             </p>
                             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                                 <Button variant="primary" size="lg" icon="arrow-right" onClick={connectFromHero}>Connect Account</Button>
@@ -174,7 +156,7 @@ export const AuditSignedOutScreen = ({ stats, onConnect, onHelp, onUpgrade }) =>
 };
 
 const LockedCoverageCard = ({ onConnect }) => (
-    <Card padding={0} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '26px 24px' }}>
+    <Card padding={0} className="bbt-card--locked" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '26px 24px' }}>
         <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 14 }}>SEO coverage</div>
         <div style={{ position: 'relative', width: 148, height: 148, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', filter: 'blur(0.15px)' }}>
             <svg width={148} height={148} style={{ transform: 'rotate(-90deg)' }}>
@@ -188,11 +170,11 @@ const LockedCoverageCard = ({ onConnect }) => (
                 boxShadow: '0 10px 30px rgba(15,23,42,0.08)',
                 backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
             }}>
-                <Icon name="lock" size={24}/>
+                <Icon name="lock" size={28}/>
             </span>
         </div>
-        <h2 style={{ margin: '14px 0 5px', fontSize: 16, fontWeight: 600, letterSpacing: '-0.015em' }}>Coverage Report</h2>
-        <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--text-2)', lineHeight: 1.45 }}>Locked until account connection.</p>
+        <h2 style={{ margin: '14px 0 5px', fontSize: 16.5, fontWeight: 700, letterSpacing: '-0.015em', color: 'var(--text)' }}>Coverage Report Locked</h2>
+        <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--text-2)', lineHeight: 1.45 }}>Unlock your full metadata audit.</p>
         <Button variant="secondary" size="sm" icon="lock" onClick={onConnect}>Connect Account</Button>
     </Card>
 );
@@ -210,8 +192,7 @@ const SearchOpportunityCard = () => (
                     <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>Search opportunity</div>
                     <h2 style={{ margin: 0, fontSize: 19, fontWeight: 600, letterSpacing: '-0.018em' }}>Potential CTR Improvement</h2>
                     <p style={{ margin: '7px 0 0', fontSize: 13.5, lineHeight: 1.55, color: 'var(--text-2)', maxWidth: 560 }}>
-                        Improve how pages appear in search results with optimised titles and meta descriptions.
-                        Websites with stronger metadata often achieve higher click-through rates and improved search visibility.
+                        Well-optimised metadata often leads to higher search visibility and click-through rates.
                     </p>
                 </div>
             </div>
@@ -224,8 +205,8 @@ const WebsiteHealthCards = ({ total, missingTitle, missingMeta, fixCount }) => (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 28 }}>
         <KPICard label="Coverage report" value="Locked" tone="neutral" icon="lock" foot="Locked until account connection"/>
         <KPICard label="Pages scanned" value={total > 0 ? String( total ) : 'Locked'} tone="primary" icon="search" foot="Connect account to reveal opportunities"/>
-        <KPICard label="Missing meta descriptions" value={missingMeta > 0 ? String( missingMeta ) : 'Locked'} tone="danger" icon="alert" foot="Connect account to reveal opportunities"/>
-        <KPICard label="Missing SEO titles" value={missingTitle > 0 ? String( missingTitle ) : ( fixCount > 0 ? String( fixCount ) : 'Locked' )} tone="warn" icon="trend" foot="Connect account to reveal opportunities"/>
+        <KPICard label="Missing meta descriptions" value="Locked" tone="danger" icon="alert" foot="Connect account to reveal opportunities"/>
+        <KPICard label="Missing SEO titles" value="Locked" tone="warn" icon="trend" foot="Connect account to reveal opportunities"/>
     </div>
 );
 
@@ -237,8 +218,8 @@ const SerpOverviewCard = ({ missingTitle, missingMeta, fixCount }) => (
         tone="danger"
         callout="Missing titles and meta descriptions let search engines improvise how your pages appear in results."
         metrics={[
-            { label: 'Pages missing meta description', value: missingMeta > 0 ? String( missingMeta ) : 'Check needed', tone: 'danger' },
-            { label: 'Pages missing SEO title', value: missingTitle > 0 ? String( missingTitle ) : 'Check needed', tone: 'warn' },
+            { label: 'Pages missing meta description', value: 'Opportunity detected', tone: 'warn' },
+            { label: 'Pages missing SEO title', value: 'Opportunity detected', tone: 'warn' },
             { label: 'Pages needing review', value: fixCount > 0 ? String( fixCount ) : 'After scan', tone: 'primary' },
             { label: 'Estimated improvement', value: EST_GAIN, tone: 'ok' },
         ]}
@@ -266,23 +247,25 @@ const AutopilotCard = ({ onUnlock }) => (
                             <p style={{ fontSize: 13.5, color: 'var(--text-2)', lineHeight: 1.55, margin: '0 0 16px', maxWidth: 520 }}>
                                 Automatically generate optimised titles and meta descriptions whenever new content is published.
                             </p>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 18px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px 18px' }}>
                                 {[
-                                    'Generate metadata automatically',
-                                    'Improve click-through rates',
-                                    'Match your preferred writing style',
-                                    'Review before publishing',
-                                    'Bulk optimise existing content',
-                                    'Works with WordPress SEO plugins',
-                                ].map( ( t, i ) => (
-                                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, color: 'var(--text)' }}>
-                                        <span style={{
-                                            width: 18, height: 18, borderRadius: 999, flexShrink: 0,
-                                            background: 'var(--ok-soft)', border: '1px solid var(--ok-border)',
-                                            color: 'var(--ok-ink)',
-                                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                                        }}><Icon name="check" size={11} strokeWidth={3}/></span>
-                                        {t}
+                                    { group: 'Automation', items: [ 'Generate metadata automatically', 'Optimise existing content' ] },
+                                    { group: 'Performance', items: [ 'Improve click-through rates', 'Match your writing style' ] },
+                                    { group: 'Workflow', items: [ 'Review before publishing', 'Works with WordPress SEO plugins' ] },
+                                ].map( ( col, ci ) => (
+                                    <div key={ci}>
+                                        <div style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>{col.group}</div>
+                                        {col.items.map( ( t, i ) => (
+                                            <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12.5, color: 'var(--text)', marginBottom: 8, lineHeight: 1.35 }}>
+                                                <span style={{
+                                                    width: 17, height: 17, borderRadius: 999, flexShrink: 0, marginTop: 1,
+                                                    background: 'var(--ok-soft)', border: '1px solid var(--ok-border)',
+                                                    color: 'var(--ok-ink)',
+                                                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                                }}><Icon name="check" size={10} strokeWidth={3}/></span>
+                                                {t}
+                                            </div>
+                                        ) )}
                                     </div>
                                 ) )}
                             </div>
@@ -312,7 +295,7 @@ const SocialProofCard = () => (
             <div>
                 <div style={{ color: '#F59E0B', fontSize: 18, letterSpacing: '0.08em', marginBottom: 6 }}>★★★★★</div>
                 <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, letterSpacing: '-0.015em' }}>Built specifically for WordPress SEO workflows</h2>
-                <p style={{ margin: '5px 0 0', fontSize: 13, color: 'var(--text-2)' }}>Trusted by bloggers, agencies and WooCommerce stores.</p>
+                <p style={{ margin: '5px 0 0', fontSize: 13, color: 'var(--text-2)' }}>Used by bloggers, agencies and WooCommerce store owners.</p>
             </div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 <TrustPill>Metadata workflows for WordPress</TrustPill>
@@ -355,7 +338,7 @@ const PricingTeaserCard = ({ onCompare }) => {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
                     <PlanTeaser name="Free" allowance={`${ freeQuota } generations/month`}/>
                     <PlanTeaser name="Starter" allowance={`${ starterQuota } generations/month`} price={`${ starterPrice }/month`} note="Perfect for small websites" badge="MOST POPULAR"/>
-                    <PlanTeaser name="Pro" allowance={`${ proQuota } generations/month`} price={`${ proPrice }/month`} note="For growing websites and agencies" badge="BEST VALUE" highlight/>
+                    <PlanTeaser name="Pro" allowance={`${ proQuota } generations/month`} price={`${ proPrice }/month`} note="For growing websites and agencies" badge="BEST VALUE" benefit="10× more optimisation capacity" highlight/>
                 </div>
             </div>
         </Card>
@@ -372,15 +355,15 @@ const PricingTrustRow = () => (
     </div>
 );
 
-const PlanTeaser = ({ name, allowance, price, note, badge, highlight }) => (
+const PlanTeaser = ({ name, allowance, price, note, badge, benefit, highlight }) => (
     <div style={{
-        padding: 14, borderRadius: 'var(--r-md)', minWidth: 0, position: 'relative',
-        border: `1px solid ${ highlight ? 'var(--primary)' : 'var(--border)' }`,
-        background: highlight ? 'var(--surface)' : 'var(--surface-2)',
-        boxShadow: highlight ? '0 4px 12px rgba(37,99,235,0.10)' : 'none',
+        padding: highlight ? '18px 16px' : 14, borderRadius: 'var(--r-md)', minWidth: 0, position: 'relative',
+        border: `${ highlight ? '2px' : '1px' } solid ${ highlight ? 'var(--primary)' : 'var(--border)' }`,
+        background: highlight ? 'var(--primary-soft)' : 'var(--surface-2)',
+        boxShadow: highlight ? '0 10px 30px rgba(37,99,235,0.12)' : 'none',
     }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{name}</span>
+            <span style={{ fontSize: highlight ? 15 : 14, fontWeight: 700, color: 'var(--text)' }}>{name}</span>
             {badge && (
                 <span style={{
                     fontSize: 9.5, fontWeight: 700, letterSpacing: '0.04em', padding: '2px 7px', borderRadius: 999,
@@ -391,7 +374,8 @@ const PlanTeaser = ({ name, allowance, price, note, badge, highlight }) => (
             )}
         </div>
         <div style={{ fontSize: 12.5, color: 'var(--text-2)', fontWeight: 600 }}>{allowance}</div>
-        {price && <div style={{ fontSize: 13, color: 'var(--text)', fontWeight: 700, marginTop: 8 }}>{price}</div>}
+        {price && <div style={{ fontSize: highlight ? 15 : 13, color: 'var(--text)', fontWeight: 700, marginTop: 8 }}>{price}</div>}
+        {benefit && <div style={{ fontSize: 11.5, color: 'var(--primary-ink)', fontWeight: 700, marginTop: 6 }}>{benefit}</div>}
         {note && <div style={{ fontSize: 11.5, color: 'var(--text-3)', marginTop: 4, lineHeight: 1.35 }}>{note}</div>}
     </div>
 );
@@ -518,7 +502,7 @@ const TimeSavedCard = () => (
                 <span style={{ fontSize: 12.5, color: 'var(--ok-ink)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 7 }}>
                     <Icon name="clock" size={14}/> Save hours across larger websites.
                 </span>
-                <span className="mono tnum" style={{ fontSize: 16, fontWeight: 600, color: 'var(--ok-ink)', whiteSpace: 'nowrap' }}>10x faster</span>
+                <span className="mono tnum" style={{ fontSize: 16, fontWeight: 600, color: 'var(--ok-ink)', whiteSpace: 'nowrap' }}>Up to 10x faster</span>
             </div>
         </div>
     </Card>
@@ -543,7 +527,7 @@ const CompareBar = ({ label, value, pct, tone }) => {
 const BeforeAfterCard = () => (
     <Card padding={0} style={{ display: 'flex', flexDirection: 'column', marginBottom: 28 }}>
         <div style={{ padding: '18px 20px 14px' }}>
-            <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>AI generated title & meta example</div>
+            <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>Example AI-generated optimisation</div>
             <h3 style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.015em', margin: 0 }}>See how AI improves your search appearance</h3>
             <p style={{ fontSize: 13, color: 'var(--text-2)', margin: '5px 0 0' }}>Generate SEO-friendly titles and meta descriptions automatically.</p>
         </div>

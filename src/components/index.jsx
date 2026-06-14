@@ -59,7 +59,7 @@ export const Icon = ({ name, size = 16, strokeWidth = 1.75, className = '', styl
 export const Card = ({ children, className = '', style = {}, padding = 24, onClick }) => (
     <div
         onClick={onClick}
-        className={className}
+        className={`bbt-card${ className ? ' ' + className : '' }`}
         style={{
             background: 'var(--surface)',
             border: '1px solid var(--border)',

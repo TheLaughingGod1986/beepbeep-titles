@@ -31,9 +31,11 @@ class Admin {
     }
 
     public function render_page(): void {
-        // The React app mounts here. Negative margin compensates for WP's
-        // default .wrap padding so our full-bleed chrome looks correct.
-        echo '<div id="bbt-root" style="margin:-8px -20px 0;min-height:calc(100vh - 32px);"></div>';
+        // The React app mounts here. Negative horizontal margin makes the
+        // chrome full-bleed against WP's .wrap padding. We intentionally do
+        // NOT pull up vertically (no negative top margin) so the sticky tab
+        // bar can never tuck under the WP admin bar / overlap page content.
+        echo '<div id="bbt-root" style="margin:0 -20px 0;min-height:calc(100vh - 32px);"></div>';
     }
 
     // ----------------------------------------------------------------

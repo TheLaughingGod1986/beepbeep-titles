@@ -121,6 +121,17 @@
 .tnum { font-variant-numeric: tabular-nums; }
 
 /* ----------------------------------------------------------------
+   Logged-out dashboard micro-interactions (scoped to .bbt-audit so
+   dense connected screens are unaffected). Subtle, premium-SaaS only.
+   ---------------------------------------------------------------- */
+.bbt-audit .bbt-card { transition: transform .16s ease, box-shadow .16s ease, border-color .15s ease; }
+.bbt-audit .bbt-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.bbt-audit .bbt-card--locked:hover { box-shadow: 0 0 0 3px rgba(37,99,235,0.10), var(--shadow-md); border-color: var(--primary-border); }
+@media (prefers-reduced-motion: reduce) {
+  .bbt-audit .bbt-card:hover { transform: none; }
+}
+
+/* ----------------------------------------------------------------
    Pulse dot — ambient "active" indicator
    ---------------------------------------------------------------- */
 .pulse-dot {

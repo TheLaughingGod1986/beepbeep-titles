@@ -36,7 +36,7 @@ class Admin {
         // left) so the sticky tab bar sits flush under the WP admin bar with
         // no white gap. The earlier content-overlap issue was a duplicate
         // in-page header (since removed), not this offset.
-        echo '<div id="bbt-root" style="margin:-10px -20px 0;min-height:calc(100vh - 32px);"></div>';
+        echo '<div id="bbt-root" style="margin:0 -20px 0;min-height:calc(100vh - 32px);"></div>';
     }
 
     // ----------------------------------------------------------------
@@ -124,7 +124,13 @@ class Admin {
             /* Let our app control its own background + spacing */
             #wpwrap, #wpcontent { background: #F6F8FB; }
             #wpbody-content, #wpbody-content .wrap { overflow-x: hidden; }
-            #wpbody-content .wrap { margin: 0; padding: 0; }
+            /* Zero WP's default top content spacing so the sticky tab bar sits
+               flush under the admin bar with no white gap. (Horizontal full-bleed
+               is handled by #bbt-root's -20px side margins, so leave #wpcontent
+               padding-left intact.) */
+            #wpbody { padding-top: 0 !important; }
+            #wpbody-content { padding-top: 0 !important; padding-bottom: 0 !important; }
+            #wpbody-content .wrap { margin: 0 !important; padding: 0 !important; }
             #bbt-root { font-family: "Geist", "Helvetica Neue", system-ui, sans-serif; max-width: 100%; overflow-x: hidden; }
             /* Keep WP admin bar + sidebar unchanged */
         </style>

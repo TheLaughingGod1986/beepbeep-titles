@@ -31,11 +31,12 @@ class Admin {
     }
 
     public function render_page(): void {
-        // The React app mounts here. Negative horizontal margin makes the
-        // chrome full-bleed against WP's .wrap padding. We intentionally do
-        // NOT pull up vertically (no negative top margin) so the sticky tab
-        // bar can never tuck under the WP admin bar / overlap page content.
-        echo '<div id="bbt-root" style="margin:0 -20px 0;min-height:calc(100vh - 32px);"></div>';
+        // The React app mounts here. Negative margin makes the chrome
+        // full-bleed against WP's #wpcontent/.wrap padding (≈10px top, 20px
+        // left) so the sticky tab bar sits flush under the WP admin bar with
+        // no white gap. The earlier content-overlap issue was a duplicate
+        // in-page header (since removed), not this offset.
+        echo '<div id="bbt-root" style="margin:-10px -20px 0;min-height:calc(100vh - 32px);"></div>';
     }
 
     // ----------------------------------------------------------------

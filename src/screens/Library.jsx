@@ -415,14 +415,14 @@ const LockedNotice = ({ signedOut, hasDaily = true, onUnlock }) => (
                 </div>
                 <p style={{ margin: '4px 0 0', fontSize: 13, lineHeight: 1.45, color: 'var(--text-2)' }}>
                     {signedOut
-                        ? 'You can still review and edit titles & meta descriptions. Connect your BeepBeep license to generate with AI.'
+                        ? 'You can still review and edit titles & meta descriptions. Connect your BeepBeep account to generate with AI.'
                         : hasDaily
                             ? "You can still review and edit titles & meta descriptions. Upgrade to keep generating today — your free allowance resets overnight."
                             : "You can still review and edit titles & meta descriptions. Upgrade to keep generating — your free credits reset next month."}
                 </p>
             </div>
             <Button variant={signedOut ? 'primary' : 'pro'} size="sm" icon={signedOut ? 'arrow-right' : 'crown'} onClick={onUnlock}>
-                {signedOut ? 'Connect license' : 'Upgrade'}
+                {signedOut ? 'Connect account' : 'Upgrade'}
             </Button>
         </div>
     </Card>

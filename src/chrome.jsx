@@ -64,7 +64,7 @@ export const WPChrome = ({ children, activeTab, onTab, plan, onUpgrade, user, co
                     </Tooltip>
                     {plan === 'free' ? (
                         <Button variant="pro" size="sm" icon={connected ? 'crown' : 'arrow-right'} onClick={connected ? onUpgrade : onConnect}>
-                            {connected ? 'Upgrade to Pro' : 'Get Started'}
+                            {connected ? 'Upgrade to Pro' : 'Create Account'}
                         </Button>
                     ) : (
                         <span style={{

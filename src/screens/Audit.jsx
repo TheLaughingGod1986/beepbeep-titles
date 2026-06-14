@@ -60,7 +60,7 @@ export const AuditSignedOutScreen = ({ stats, onConnect, onHelp, onUpgrade }) =>
 
     return (
         <div style={{ background: 'var(--bg)', minHeight: 'calc(100vh - 32px - 52px)', overflowX: 'hidden' }}>
-            <div style={{ maxWidth: 1080, width: '100%', margin: '0 auto', padding: '20px 32px 72px' }}>
+            <div style={{ maxWidth: 1080, width: '100%', margin: '0 auto', padding: '32px 32px 72px' }}>
 
                 {/* Header row — brand + signed-out badge */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
@@ -158,8 +158,8 @@ export const AuditSignedOutScreen = ({ stats, onConnect, onHelp, onUpgrade }) =>
                 }}>
                     <div style={{ padding: '28px 30px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 18, flexWrap: 'wrap' }}>
                         <div>
-                            <div style={{ fontSize: 11, color: 'var(--primary-ink)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>Unlock your full SEO report</div>
-                            <h2 style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.02em', margin: '0 0 6px' }}>Find missing titles, discover metadata opportunities and generate optimised content automatically.</h2>
+                            <h2 style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.02em', margin: '0 0 6px' }}>Unlock your full SEO report</h2>
+                            <p style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.5, margin: 0, maxWidth: 460 }}>Find missing metadata and improve your search visibility in minutes.</p>
                         </div>
                         <Button variant="primary" size="lg" icon="arrow-right" onClick={() => {
                             track( 'footer_connect_clicked', eventProps );
@@ -191,8 +191,8 @@ const LockedCoverageCard = ({ onConnect }) => (
                 <Icon name="lock" size={24}/>
             </span>
         </div>
-        <h2 style={{ margin: '14px 0 5px', fontSize: 16, fontWeight: 600, letterSpacing: '-0.015em' }}>Coverage Report Locked</h2>
-        <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--text-2)', lineHeight: 1.45 }}>Connect your account to analyse your website.</p>
+        <h2 style={{ margin: '14px 0 5px', fontSize: 16, fontWeight: 600, letterSpacing: '-0.015em' }}>Coverage Report</h2>
+        <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--text-2)', lineHeight: 1.45 }}>Locked until account connection.</p>
         <Button variant="secondary" size="sm" icon="lock" onClick={onConnect}>Connect Account</Button>
     </Card>
 );
@@ -222,10 +222,10 @@ const SearchOpportunityCard = () => (
 
 const WebsiteHealthCards = ({ total, missingTitle, missingMeta, fixCount }) => (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 28 }}>
-        <KPICard label="Coverage report" value="Locked" tone="neutral" icon="lock" foot="Connect to analyse"/>
-        <KPICard label="Pages scanned" value={total > 0 ? String( total ) : 'Locked'} tone="primary" icon="search" foot="Connect account to analyse"/>
-        <KPICard label="Missing meta descriptions" value={missingMeta > 0 ? String( missingMeta ) : 'Locked'} tone="danger" icon="alert" foot="Connect account to analyse"/>
-        <KPICard label="Missing SEO titles" value={missingTitle > 0 ? String( missingTitle ) : ( fixCount > 0 ? String( fixCount ) : 'Locked' )} tone="warn" icon="trend" foot="Connect account to analyse"/>
+        <KPICard label="Coverage report" value="Locked" tone="neutral" icon="lock" foot="Locked until account connection"/>
+        <KPICard label="Pages scanned" value={total > 0 ? String( total ) : 'Locked'} tone="primary" icon="search" foot="Connect account to reveal opportunities"/>
+        <KPICard label="Missing meta descriptions" value={missingMeta > 0 ? String( missingMeta ) : 'Locked'} tone="danger" icon="alert" foot="Connect account to reveal opportunities"/>
+        <KPICard label="Missing SEO titles" value={missingTitle > 0 ? String( missingTitle ) : ( fixCount > 0 ? String( fixCount ) : 'Locked' )} tone="warn" icon="trend" foot="Connect account to reveal opportunities"/>
     </div>
 );
 
@@ -311,8 +311,8 @@ const SocialProofCard = () => (
         <div style={{ padding: '22px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 18, flexWrap: 'wrap' }}>
             <div>
                 <div style={{ color: '#F59E0B', fontSize: 18, letterSpacing: '0.08em', marginBottom: 6 }}>★★★★★</div>
-                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, letterSpacing: '-0.015em' }}>Growing community of WordPress site owners</h2>
-                <p style={{ margin: '5px 0 0', fontSize: 13, color: 'var(--text-2)' }}>Built specifically for WordPress SEO workflows.</p>
+                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, letterSpacing: '-0.015em' }}>Built specifically for WordPress SEO workflows</h2>
+                <p style={{ margin: '5px 0 0', fontSize: 13, color: 'var(--text-2)' }}>Trusted by bloggers, agencies and WooCommerce stores.</p>
             </div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 <TrustPill>Metadata workflows for WordPress</TrustPill>
@@ -349,21 +349,47 @@ const PricingTeaserCard = ({ onCompare }) => {
                         <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>Pricing</div>
                         <h2 style={{ margin: 0, fontSize: 19, fontWeight: 600, letterSpacing: '-0.018em' }}>Plans for every website size</h2>
                     </div>
-                    <Button variant="secondary" size="sm" icon="external" onClick={onCompare}>Compare Plans</Button>
+                    <Button variant="secondary" size="md" icon="trend" onClick={onCompare} style={{ borderColor: 'var(--border-strong)', fontWeight: 600 }}>Compare Plans</Button>
                 </div>
+                <PricingTrustRow/>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
                     <PlanTeaser name="Free" allowance={`${ freeQuota } generations/month`}/>
-                    <PlanTeaser name="Starter" allowance={`${ starterQuota } generations/month`} price={`${ starterPrice }/month`} note="Most popular for small websites"/>
-                    <PlanTeaser name="Pro" allowance={`${ proQuota } generations/month`} price={`${ proPrice }/month`} note="Best value"/>
+                    <PlanTeaser name="Starter" allowance={`${ starterQuota } generations/month`} price={`${ starterPrice }/month`} note="Perfect for small websites" badge="MOST POPULAR"/>
+                    <PlanTeaser name="Pro" allowance={`${ proQuota } generations/month`} price={`${ proPrice }/month`} note="For growing websites and agencies" badge="BEST VALUE" highlight/>
                 </div>
             </div>
         </Card>
     );
 };
 
-const PlanTeaser = ({ name, allowance, price, note }) => (
-    <div style={{ padding: 14, border: '1px solid var(--border)', borderRadius: 'var(--r-md)', background: 'var(--surface-2)', minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>{name}</div>
+const PricingTrustRow = () => (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 18px', marginBottom: 14 }}>
+        {['Built for WordPress', 'Works with Yoast & Rank Math', 'Setup in under 60 seconds', 'No credit card required'].map( ( t, i ) => (
+            <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-2)', fontWeight: 600 }}>
+                <Icon name="check" size={12} strokeWidth={2.6} style={{ color: 'var(--ok-ink)' }}/> {t}
+            </span>
+        ) )}
+    </div>
+);
+
+const PlanTeaser = ({ name, allowance, price, note, badge, highlight }) => (
+    <div style={{
+        padding: 14, borderRadius: 'var(--r-md)', minWidth: 0, position: 'relative',
+        border: `1px solid ${ highlight ? 'var(--primary)' : 'var(--border)' }`,
+        background: highlight ? 'var(--surface)' : 'var(--surface-2)',
+        boxShadow: highlight ? '0 4px 12px rgba(37,99,235,0.10)' : 'none',
+    }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{name}</span>
+            {badge && (
+                <span style={{
+                    fontSize: 9.5, fontWeight: 700, letterSpacing: '0.04em', padding: '2px 7px', borderRadius: 999,
+                    background: highlight ? 'var(--primary)' : 'var(--primary-soft)',
+                    color: highlight ? '#fff' : 'var(--primary-ink)',
+                    border: highlight ? '1px solid var(--primary)' : '1px solid var(--primary-border)',
+                }}>{badge}</span>
+            )}
+        </div>
         <div style={{ fontSize: 12.5, color: 'var(--text-2)', fontWeight: 600 }}>{allowance}</div>
         {price && <div style={{ fontSize: 13, color: 'var(--text)', fontWeight: 700, marginTop: 8 }}>{price}</div>}
         {note && <div style={{ fontSize: 11.5, color: 'var(--text-3)', marginTop: 4, lineHeight: 1.35 }}>{note}</div>}

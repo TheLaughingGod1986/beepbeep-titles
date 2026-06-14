@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Modal } from './Modal';
 import { Icon, Button } from '../components';
-import { setLicense, loginWithPassword } from '../api';
+import { loginWithPassword, registerAccount } from '../api';
 
 const inputStyle = ( error, mono = false ) => ( {
     display: 'block', width: '100%', boxSizing: 'border-box',
@@ -43,22 +43,31 @@ const FieldError = ({ children }) => (
     </div>
 );
 
-export const ConnectModal = ({ open, onClose, onSuccess }) => {
-    const [mode, setMode]         = useState( 'password' ); // 'password' | 'license'
+export const ConnectModal = ({ open, onClose, onSuccess, initialMode = 'register' }) => {
+    const [mode, setMode]         = useState( initialMode ); // 'register' | 'password'
     const [email, setEmail]       = useState( '' );
     const [password, setPassword] = useState( '' );
+    const [confirmPassword, setConfirmPassword] = useState( '' );
     const [showPw, setShowPw]     = useState( false );
-    const [key, setKey]           = useState( '' );
     const [connecting, setConnecting] = useState( false );
     const [error, setError]       = useState( null );
     const [done, setDone]         = useState( false );
 
+    // Open on the requested tab (e.g. "Sign in" vs "Create account") each time
+    // the modal is shown, so the entry point controls which form appears.
+    useEffect( () => {
+        if ( open ) {
+            setMode( initialMode );
+            setError( null );
+        }
+    }, [open, initialMode] );
+
     const reset = () => {
-        setMode( 'password' );
+        setMode( initialMode );
         setEmail( '' );
         setPassword( '' );
+        setConfirmPassword( '' );
         setShowPw( false );
-        setKey( '' );
         setError( null );
         setDone( false );
         setConnecting( false );
@@ -76,23 +85,32 @@ export const ConnectModal = ({ open, onClose, onSuccess }) => {
         }, 900 );
     };
 
-    const canSubmit = mode === 'password'
-        ? email.trim() !== '' && password !== ''
-        : key.trim() !== '';
+    const canSubmit = email.trim() !== '' && password !== '' && ( mode !== 'register' || confirmPassword !== '' );
 
     const handleConnect = async () => {
         if ( ! canSubmit || connecting ) return;
         setError( null );
+
+        if ( mode === 'register' && password !== confirmPassword ) {
+            setError( 'Passwords do not match.' );
+            return;
+        }
+
         setConnecting( true );
         try {
-            const res = mode === 'password'
-                ? await loginWithPassword( email.trim(), password )
-                : await setLicense( key.trim() );
+            const res = mode === 'register'
+                ? await registerAccount( email.trim(), password )
+                : await loginWithPassword( email.trim(), password );
             finish( res );
         } catch ( err ) {
-            setError( err?.message || ( mode === 'password'
-                ? 'Couldn\'t sign in with those details. Check them and try again.'
-                : 'Couldn\'t verify that license key. Check it and try again.' ) );
+            const fallback = mode === 'register'
+                ? 'Couldn\'t create that account. Check the details and try again.'
+                : 'Couldn\'t sign in with those details. Check them and try again.';
+            setError( err?.message || fallback );
+            const code = String( err?.code || '' ).toLowerCase();
+            if ( mode === 'register' && ( err?.status === 409 || ['user_exists', 'site_has_license'].includes( code ) ) ) {
+                setMode( 'password' );
+            }
             setConnecting( false );
         }
     };
@@ -124,7 +142,9 @@ export const ConnectModal = ({ open, onClose, onSuccess }) => {
                         </div>
                         <div>
                             <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.015em', lineHeight: 1.2 }}>
-                                {mode === 'password' ? 'Sign in to BeepBeep' : 'Connect your license'}
+                                {mode === 'register'
+                                    ? 'Create your BeepBeep account'
+                                    : 'Sign in to BeepBeep'}
                             </div>
                             <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
                                 BeepBeep Titles
@@ -146,17 +166,46 @@ export const ConnectModal = ({ open, onClose, onSuccess }) => {
                 ) : (
                     <>
                         <p style={{ fontSize: 13.5, color: 'var(--text-2)', lineHeight: 1.6, margin: '0 0 20px' }}>
-                            {mode === 'password' ? (
-                                <>Sign in with your <strong style={{ color: 'var(--text)', fontWeight: 600 }}>BeepBeep account</strong> and
-                                we&rsquo;ll pull in your license automatically — no key to copy.</>
+                            {mode === 'register' ? (
+                                <>Create a <strong style={{ color: 'var(--text)', fontWeight: 600 }}>BeepBeep account</strong> to connect this site,
+                                unlock SEO title and meta generation, and start improving your search appearance.</>
                             ) : (
-                                <>Enter your BeepBeep license key to activate AI title &amp; meta generation.
-                                Your key is in your <strong style={{ color: 'var(--text)', fontWeight: 600 }}>BeepBeep account dashboard</strong>.</>
+                                <>Sign in with your <strong style={{ color: 'var(--text)', fontWeight: 600 }}>BeepBeep account</strong> and
+                                we&rsquo;ll connect this site automatically.</>
                             )}
                         </p>
 
-                        {mode === 'password' ? (
-                            <>
+                        <>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, padding: 4, background: 'var(--bg-sunken)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', marginBottom: 16 }}>
+                                {[
+                                    { id: 'register', label: 'Create account' },
+                                    { id: 'password', label: 'Sign in' },
+                                ].map( option => {
+                                    const active = mode === option.id;
+                                    return (
+                                        <button
+                                            key={option.id}
+                                            type="button"
+                                            onClick={() => switchMode( option.id )}
+                                            disabled={connecting}
+                                            style={{
+                                                border: '1px solid transparent',
+                                                background: active ? 'var(--surface)' : 'transparent',
+                                                color: active ? 'var(--text)' : 'var(--text-2)',
+                                                boxShadow: active ? '0 1px 2px rgba(15,23,42,0.08)' : 'none',
+                                                borderRadius: 8,
+                                                padding: '8px 10px',
+                                                fontSize: 12.5,
+                                                fontWeight: 700,
+                                                cursor: connecting ? 'default' : 'pointer',
+                                            }}
+                                        >
+                                            {option.label}
+                                        </button>
+                                    );
+                                } )}
+                            </div>
+
                                 {/* Email */}
                                 <label style={{ display: 'block', marginBottom: 12 }}>
                                     <FieldLabel>Email</FieldLabel>
@@ -166,7 +215,7 @@ export const ConnectModal = ({ open, onClose, onSuccess }) => {
                                         onChange={e => { setEmail( e.target.value ); setError( null ); }}
                                         onKeyDown={handleKeyDown}
                                         placeholder="you@yoursite.com"
-                                        autoComplete="username"
+                                        autoComplete={mode === 'register' ? 'email' : 'username'}
                                         spellCheck={false}
                                         autoFocus
                                         disabled={connecting}
@@ -185,7 +234,7 @@ export const ConnectModal = ({ open, onClose, onSuccess }) => {
                                             onChange={e => { setPassword( e.target.value ); setError( null ); }}
                                             onKeyDown={handleKeyDown}
                                             placeholder="••••••••"
-                                            autoComplete="current-password"
+                                            autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
                                             disabled={connecting}
                                             style={{ ...inputStyle( error ), paddingRight: 42 }}
                                             {...focusHandlers( error )}
@@ -204,28 +253,27 @@ export const ConnectModal = ({ open, onClose, onSuccess }) => {
                                             <Icon name="eye" size={15}/>
                                         </button>
                                     </div>
-                                    {error && <FieldError>{error}</FieldError>}
                                 </label>
-                            </>
-                        ) : (
-                            /* License key */
-                            <label style={{ display: 'block', marginBottom: 16 }}>
-                                <FieldLabel>License key</FieldLabel>
-                                <input
-                                    value={key}
-                                    onChange={e => { setKey( e.target.value ); setError( null ); }}
-                                    onKeyDown={handleKeyDown}
-                                    placeholder="BBT-XXXX-XXXX-XXXX"
-                                    autoComplete="off"
-                                    spellCheck={false}
-                                    autoFocus
-                                    disabled={connecting}
-                                    style={inputStyle( error, true )}
-                                    {...focusHandlers( error )}
-                                />
-                                {error && <FieldError>{error}</FieldError>}
-                            </label>
-                        )}
+
+                                {mode === 'register' && (
+                                    <label style={{ display: 'block', marginBottom: 16 }}>
+                                        <FieldLabel>Confirm password</FieldLabel>
+                                        <input
+                                            type={showPw ? 'text' : 'password'}
+                                            value={confirmPassword}
+                                            onChange={e => { setConfirmPassword( e.target.value ); setError( null ); }}
+                                            onKeyDown={handleKeyDown}
+                                            placeholder="••••••••"
+                                            autoComplete="new-password"
+                                            disabled={connecting}
+                                            style={inputStyle( error )}
+                                            {...focusHandlers( error )}
+                                        />
+                                    </label>
+                                )}
+
+                            {error && <FieldError>{error}</FieldError>}
+                        </>
 
                         {/* Primary CTA */}
                         <Button
@@ -237,47 +285,9 @@ export const ConnectModal = ({ open, onClose, onSuccess }) => {
                             full
                         >
                             {connecting
-                                ? ( mode === 'password' ? 'Signing in…' : 'Connecting…' )
-                                : ( mode === 'password' ? 'Sign in & connect' : 'Connect license' )}
+                                ? ( mode === 'register' ? 'Creating account…' : 'Signing in…' )
+                                : ( mode === 'register' ? 'Create account & connect' : 'Sign in & connect' )}
                         </Button>
-
-                        {/* Mode switch */}
-                        <div style={{ textAlign: 'center', marginTop: 14 }}>
-                            <button
-                                type="button"
-                                onClick={() => switchMode( mode === 'password' ? 'license' : 'password' )}
-                                disabled={connecting}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12.5, color: 'var(--text-2)', fontWeight: 600, padding: '4px 8px', borderRadius: 6 }}
-                                onMouseEnter={e => e.target.style.color = 'var(--text)'}
-                                onMouseLeave={e => e.target.style.color = 'var(--text-2)'}
-                            >
-                                {mode === 'password' ? 'Use a license key instead' : 'Sign in with email instead'}
-                            </button>
-                        </div>
-
-                        {/* Divider + footnote */}
-                        <div style={{ marginTop: 16, paddingTop: 18, borderTop: '1px solid var(--hairline)' }}>
-                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 10 }}>
-                                <Icon name="info" size={13} style={{ color: 'var(--text-3)', flexShrink: 0, marginTop: 1 }}/>
-                                <span style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.5 }}>
-                                    Already using BeepBeep AI Alt Text or another BeepBeep plugin?
-                                    The same license key works across all of them — your credits and plan are shared.
-                                </span>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <Icon name="external" size={12} style={{ color: 'var(--primary)' }}/>
-                                <a
-                                    href="https://beepbeep.ai/account"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 600, textDecoration: 'none', lineHeight: 1 }}
-                                    onMouseEnter={e => e.target.style.textDecoration = 'underline'}
-                                    onMouseLeave={e => e.target.style.textDecoration = 'none'}
-                                >
-                                    Get your license key at beepbeep.ai
-                                </a>
-                            </div>
-                        </div>
                     </>
                 )}
             </div>
@@ -296,7 +306,7 @@ const SuccessState = () => (
             <Icon name="check" size={24} style={{ color: 'var(--ok-ink)', strokeWidth: 2.5 }}/>
         </div>
         <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.015em', marginBottom: 6 }}>
-            License connected
+            Account connected
         </div>
         <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.55 }}>
             Your BeepBeep account is live. Heading to your dashboard…

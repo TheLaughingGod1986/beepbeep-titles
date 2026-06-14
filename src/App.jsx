@@ -11,6 +11,7 @@ import { getInitialData, fetchQuota, fetchPages, runScan, normalizeQuota, create
 import { paywallTrigger, errorToast } from './errors';
 import { hasDailyCap } from './quota';
 import { usePaywallGate } from './hooks/usePaywallGate';
+import { resolveAllowedTab } from './navigation';
 
 export default function App() {
     const initial = getInitialData();
@@ -31,6 +32,18 @@ export default function App() {
     const [helpOpen, setHelpOpen]     = useState( false );
     const [signOutOpen, setSignOutOpen] = useState( false );
     const [connectOpen, setConnectOpen] = useState( false );
+    const [connectMode, setConnectMode] = useState( 'register' ); // 'register' | 'password'
+
+    // Open the connect modal on a specific tab ('register' = create account,
+    // 'password' = sign in) so each entry point lands on the right form.
+    const openConnect = ( mode = 'register' ) => {
+        setConnectMode( mode );
+        setConnectOpen( true );
+    };
+
+    const selectTab = ( nextTab ) => {
+        setTab( resolveAllowedTab( nextTab, connected ) );
+    };
 
     const handleSignOut = async () => {
         try { await clearLicense(); } catch ( e ) {}
@@ -39,7 +52,7 @@ export default function App() {
         // Land on the signed-out audit report (Home) rather than Settings —
         // it carries the reconnect CTA and shows what's at stake.
         setTab( 'dashboard' );
-        setToast( { message: 'Signed out', sub: 'Reconnect your license key in Settings to resume.', icon: 'check', tone: 'ok' } );
+        setToast( { message: 'Signed out', sub: 'Connect your account to resume generation.', icon: 'check', tone: 'ok' } );
     };
 
     const plan = quota?.plan || 'free';
@@ -72,10 +85,10 @@ export default function App() {
         } else if ( initial.licenseAdopted ) {
             // Another BeepBeep plugin on this site already had a license in
             // the database — we connected with it automatically.
-            setToast( { message: 'License connected automatically', sub: 'We found your BeepBeep license from another BeepBeep plugin on this site.', icon: 'check', tone: 'ok' } );
+            setToast( { message: 'Account connected automatically', sub: 'We found an existing BeepBeep account connection on this site.', icon: 'check', tone: 'ok' } );
         } else if ( ! initial.connected ) {
-            // No license yet — nudge the user toward the connect modal.
-            setToast( { message: 'Connect your BeepBeep license', sub: 'Click "Connect license" to activate AI title & meta generation.', icon: 'info', tone: 'warn' } );
+            // No account yet — nudge the user toward the connect modal.
+            setToast( { message: 'Connect your BeepBeep account', sub: 'Create an account or sign in to activate AI title & meta generation.', icon: 'info', tone: 'warn' } );
         }
     }, [] );
 
@@ -85,6 +98,12 @@ export default function App() {
             setOnboardingOpen( true );
         }
     }, [connected, settings?.onboarding_complete] );
+
+    // Signed-out users can only view Home. This also catches any stale tab
+    // state after sign-out or failed entitlement refreshes.
+    useEffect( () => {
+        setTab( current => resolveAllowedTab( current, connected ) );
+    }, [connected] );
 
     const refreshQuota = async () => {
         try {
@@ -139,7 +158,9 @@ export default function App() {
             return;
         }
         if ( err?.code === 'INVALID_LICENSE' ) {
-            setTab( 'settings' );
+            setConnected( false );
+            setTab( 'dashboard' );
+            setConnectOpen( true );
         }
         setToast( errorToast( err ) );
     };
@@ -221,7 +242,10 @@ export default function App() {
     };
 
     // ── Billing: open Stripe checkout / portal in a new tab (shared account) ──
-    const goToCheckout = ( plan ) => openInNewTab( () => createCheckout( { plan } ) );
+    const goToCheckout = ( checkout = 'pro' ) => {
+        const args = typeof checkout === 'string' ? { plan: checkout } : checkout;
+        openInNewTab( () => createCheckout( args ) );
+    };
 
     const handleUpgrade      = () => goToCheckout( 'pro' );
     const handleBuyCredits   = () => goToCheckout( 'credits' );
@@ -253,13 +277,14 @@ export default function App() {
                     onAutoToggle={handleAutoToggle}
                     onGenerate={openGen}
                     onUpgrade={() => setPaywall( { open: true, trigger: 'default', entitlement: null } )}
-                    onView={setTab}
+                    onView={selectTab}
                 />
             ) : (
                 <AuditSignedOutScreen
                     stats={stats}
                     onConnect={() => setConnectOpen( true )}
                     onHelp={() => setHelpOpen( true )}
+                    onUpgrade={() => setPaywall( { open: true, trigger: 'default', entitlement: null } )}
                 />
             );
             break;
@@ -310,13 +335,14 @@ export default function App() {
         <>
             <WPChrome
                 activeTab={tab}
-                onTab={setTab}
+                onTab={selectTab}
                 plan={plan}
                 user={menuUser}
                 connected={connected}
                 onSignOut={() => setSignOutOpen( true )}
                 onHelp={() => setHelpOpen( true )}
-                onConnect={() => setConnectOpen( true )}
+                onConnect={() => openConnect( 'register' )}
+                onSignIn={() => openConnect( 'password' )}
                 onUpgrade={() => setPaywall( { open: true, trigger: 'default', entitlement: null } )}
             >
                 {body}
@@ -338,14 +364,19 @@ export default function App() {
                 }}
             />
 
-            <HelpModal open={helpOpen} onClose={() => setHelpOpen( false )}/>
+            <HelpModal
+                open={helpOpen}
+                onClose={() => setHelpOpen( false )}
+                onStartScan={handleScan}
+            />
 
             <ConnectModal
                 open={connectOpen}
+                initialMode={connectMode}
                 onClose={() => setConnectOpen( false )}
                 onSuccess={( res ) => {
                     refreshQuota();
-                    setToast( { message: 'License connected', sub: `Plan: ${ res?.plan || 'free' } · generations ready.`, icon: 'check', tone: 'ok' } );
+                    setToast( { message: 'Account connected', sub: `Plan: ${ res?.plan || 'free' } · generations ready.`, icon: 'check', tone: 'ok' } );
                 }}
             />
 

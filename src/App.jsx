@@ -8,7 +8,7 @@ import { AuditSignedOutScreen } from './screens/Audit';
 import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal, ConnectModal } from './modals/index';
 import { SignOutConfirm } from './auth';
 import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, createCheckout, createBillingPortal, clearLicense, saveSettings } from './api';
-import { paywallTrigger, errorToast } from './errors';
+import { paywallTrigger, errorToast, checkoutErrorToast } from './errors';
 import { hasDailyCap } from './quota';
 import { usePaywallGate } from './hooks/usePaywallGate';
 import { resolveAllowedTab } from './navigation';
@@ -255,12 +255,19 @@ export default function App() {
                 if ( win ) { win.location = res.url; }
                 else { window.location.href = res.url; } // popup blocked — same-tab fallback
             } else {
+                // 200 with no url — surface whatever the backend said (e.g. a
+                // bad/archived Stripe price) instead of a generic message.
                 if ( win ) win.close();
-                setToast( errorToast( {} ) );
+                setToast( checkoutErrorToast( res ) );
             }
         } catch ( e ) {
             if ( win ) win.close();
-            handleApiError( e );
+            if ( e?.name === 'AbortError' ) return;
+            // License / quota errors still route to the connect modal or paywall.
+            if ( e?.code === 'INVALID_LICENSE' || paywallTrigger( e ) ) { handleApiError( e ); return; }
+            // Everything else: show the real checkout/Stripe error so a
+            // misconfigured plan is diagnosable, not hidden behind "try again".
+            setToast( checkoutErrorToast( e ) );
         }
     };
 

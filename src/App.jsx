@@ -7,11 +7,32 @@ import { SettingsScreen } from './screens/Settings';
 import { AuditSignedOutScreen } from './screens/Audit';
 import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal, ConnectModal } from './modals/index';
 import { SignOutConfirm } from './auth';
-import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, createCheckout, createBillingPortal, clearLicense, saveSettings } from './api';
-import { paywallTrigger, errorToast, checkoutErrorToast } from './errors';
+import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, createCheckout, createBillingPortal, clearLicense, saveSettings, track } from './api';
+import { paywallTrigger, errorToast, checkoutErrorToast, classifyCheckoutError } from './errors';
 import { hasDailyCap } from './quota';
 import { usePaywallGate } from './hooks/usePaywallGate';
 import { resolveAllowedTab } from './navigation';
+
+// Checkout opens Stripe in a new tab, so the success return is a fresh page
+// load that doesn't know which plan was bought. We stash the intent in
+// localStorage (shared across tabs, same origin) at redirect time and read it
+// back on return so checkout_completed can name the plan/price. 1h freshness
+// guards against a stale entry from an abandoned attempt.
+const PENDING_CHECKOUT_KEY = 'bbt_pending_checkout';
+const PENDING_CHECKOUT_TTL = 60 * 60 * 1000;
+const persistPendingCheckout = ( plan, priceId ) => {
+    try { localStorage.setItem( PENDING_CHECKOUT_KEY, JSON.stringify( { plan, price_id: priceId, ts: Date.now() } ) ); } catch ( e ) {}
+};
+const readPendingCheckout = () => {
+    try {
+        const raw = localStorage.getItem( PENDING_CHECKOUT_KEY );
+        if ( ! raw ) return null;
+        const v = JSON.parse( raw );
+        if ( ! v || ( Date.now() - ( v.ts || 0 ) ) > PENDING_CHECKOUT_TTL ) return null;
+        return v;
+    } catch ( e ) { return null; }
+};
+const clearPendingCheckout = () => { try { localStorage.removeItem( PENDING_CHECKOUT_KEY ); } catch ( e ) {} };
 
 export default function App() {
     const initial = getInitialData();
@@ -76,9 +97,24 @@ export default function App() {
         const billing = params.get( 'bbt_billing' );
         if ( billing === 'success' ) {
             setToast( { message: 'Purchase complete 🎉', sub: 'Your credits/plan are now active across every BeepBeep plugin.', icon: 'crown', tone: 'ok' } );
-            refreshQuota();
+            // checkout_completed: only once the entitlement refresh confirms the
+            // new state. Plan comes from the stashed intent (falls back to the
+            // refreshed plan); price_id from the same stash.
+            const pending = readPendingCheckout();
+            refreshQuota().then( ( q ) => {
+                if ( q ) {
+                    track( 'checkout_completed', {
+                        plan:          pending?.plan || q.plan || null,
+                        plan_selected: pending?.plan || q.plan || null,
+                        price_id:      pending?.price_id,
+                        source_screen: tab,
+                    } );
+                }
+                clearPendingCheckout();
+            } );
         } else if ( billing === 'cancelled' ) {
             setToast( { message: 'Checkout cancelled', sub: 'No charge was made.', icon: 'info', tone: 'warn' } );
+            clearPendingCheckout();
         }
         if ( billing ) {
             params.delete( 'bbt_billing' );
@@ -112,7 +148,8 @@ export default function App() {
             const q = await fetchQuota();
             setQuota( q );
             setConnected( !! q.connected );
-        } catch ( e ) {}
+            return q;
+        } catch ( e ) { return null; }
     };
 
     // Push fresh entitlement_state (from a /generate response) into quota.
@@ -246,23 +283,30 @@ export default function App() {
     // returns null, so we'd lose the handle and the fallback would navigate
     // the *current* WordPress tab to Stripe. We open a real handle and sever
     // window.opener manually for the same security benefit.
-    const openInNewTab = async ( getUrl ) => {
+    // Optional hooks let callers observe the resolved result without coupling
+    // this popup helper to checkout semantics. `onResolved(res)` fires once a
+    // usable URL is in hand (right before navigating); `onFailed(reason)` fires
+    // when the call throws or returns no usable URL. Both are no-ops by default.
+    const openInNewTab = async ( getUrl, { onResolved, onFailed } = {} ) => {
         const win = window.open( 'about:blank', '_blank' );
         if ( win ) { try { win.opener = null; } catch ( e ) {} }
         try {
             const res = await getUrl();
             if ( res?.url ) {
+                onResolved?.( res );
                 if ( win ) { win.location = res.url; }
                 else { window.location.href = res.url; } // popup blocked — same-tab fallback
             } else {
                 // 200 with no url — surface whatever the backend said (e.g. a
                 // bad/archived Stripe price) instead of a generic message.
                 if ( win ) win.close();
+                onFailed?.( res );
                 setToast( checkoutErrorToast( res ) );
             }
         } catch ( e ) {
             if ( win ) win.close();
             if ( e?.name === 'AbortError' ) return;
+            onFailed?.( e );
             // License / quota errors still route to the connect modal or paywall.
             if ( e?.code === 'INVALID_LICENSE' || paywallTrigger( e ) ) { handleApiError( e ); return; }
             // Everything else: show the real checkout/Stripe error so a
@@ -274,7 +318,21 @@ export default function App() {
     // ── Billing: open Stripe checkout / portal in a new tab (shared account) ──
     const goToCheckout = ( checkout = 'pro' ) => {
         const args = typeof checkout === 'string' ? { plan: checkout } : checkout;
-        openInNewTab( () => createCheckout( args ) );
+        // Canonical funnel props (plan_selected kept alongside plan for compat).
+        const funnel = { plan: args.plan, plan_selected: args.plan, price_id: args.priceId, source_screen: tab };
+        openInNewTab( () => createCheckout( args ), {
+            onResolved: () => {
+                // Session created, then the actual navigation — two distinct
+                // funnel steps so a created-but-never-navigated session is
+                // visible. Stash the intent so checkout_completed can name the
+                // plan on return (localStorage survives the new-tab round-trip).
+                track( 'checkout_started', { ...funnel, checkout_url_present: true } );
+                persistPendingCheckout( args.plan, args.priceId );
+                track( 'checkout_redirected', { ...funnel, checkout_url_present: true } );
+            },
+            // Never suppressed — license/quota failures are tracked too.
+            onFailed: ( reason ) => track( 'checkout_failed', { ...funnel, ...classifyCheckoutError( reason ) } ),
+        } );
     };
 
     const handleUpgrade      = () => goToCheckout( 'pro' );
@@ -439,6 +497,7 @@ export default function App() {
                 onCheckout={goToCheckout}
                 onUpgrade={handleUpgrade}
                 onBuyCredits={handleBuyCredits}
+                sourceScreen={tab}
             />
 
             {toast && <Toast {...toast} onDismiss={() => setToast( null )}/>}

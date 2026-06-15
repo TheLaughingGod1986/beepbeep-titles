@@ -109,6 +109,12 @@ export async function pollJob( jobId ) {
     return request( 'GET', `/jobs/${ encodeURIComponent( jobId ) }` );
 }
 
+// ── Activity (recent improvements) ──────────────────────────────────
+/** Recent optimisation events for the Dashboard strip. Resolves to { events }. */
+export async function fetchActivity( { limit = 8 } = {} ) {
+    return request( 'GET', `/activity?limit=${ encodeURIComponent( limit ) }` );
+}
+
 // ── Quota ───────────────────────────────────────────────────────────
 export async function fetchQuota() {
     return normalizeQuota( await request( 'GET', '/quota' ) );

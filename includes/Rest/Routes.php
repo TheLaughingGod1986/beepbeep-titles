@@ -172,6 +172,16 @@ class Routes {
             ],
         ] );
 
+        // ── Activity (recent improvements) ─────────────────────────
+        register_rest_route( $ns, '/activity', [
+            'methods'             => 'GET',
+            'callback'            => [ $p, 'get_activity' ],
+            'permission_callback' => [ $this, 'require_editor' ],
+            'args'                => [
+                'limit' => [ 'type' => 'integer', 'default' => 8, 'minimum' => 1, 'maximum' => 30 ],
+            ],
+        ] );
+
         // ── Scan ───────────────────────────────────────────────────
         register_rest_route( $ns, '/scan', [
             'methods'             => 'POST',

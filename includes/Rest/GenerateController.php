@@ -7,6 +7,7 @@
 
 namespace BeepBeep_Titles\Rest;
 
+use BeepBeep_Titles\ActivityLog;
 use BeepBeep_Titles\Api\Client;
 use BeepBeep_Titles\PostPresenter;
 use BeepBeep_Titles\Seo\MetaWriter;
@@ -40,6 +41,7 @@ class GenerateController {
         $title = (string) ( $result['title'] ?? '' );
         $meta  = (string) ( $result['meta'] ?? '' );
         MetaWriter::write( $post->ID, $title, $meta );
+        ActivityLog::record( $post->ID, 'generated' );
         $this->bust_stats();
 
         $result['wp_post_id'] = $post->ID;
@@ -109,6 +111,7 @@ class GenerateController {
 
                 if ( ( $item['status'] ?? '' ) === 'completed' ) {
                     MetaWriter::write( $post_id, (string) ( $item['title'] ?? '' ), (string) ( $item['meta'] ?? '' ) );
+                    ActivityLog::record( $post_id, 'generated' );
                     $wrote = true;
                 }
             }

@@ -53,6 +53,7 @@ export const AutopilotScreen = ({ plan, settings, autoOptimise, onAutoToggle, on
     const previewMeta  = trimToChars( preset.sampleMeta,  META_MAX[metaLen] );
 
     const handleSave = async () => {
+        if ( !isPro ) { onUpgrade(); return; }
         setSaving( true );
         try {
             await saveSettings( { tone: style, title_length: titleLen, meta_length: metaLen, custom_instructions: instructions } );
@@ -83,42 +84,49 @@ export const AutopilotScreen = ({ plan, settings, autoOptimise, onAutoToggle, on
 
             <AutopilotHero isPro={isPro} on={isPro && autoOptimise} onToggle={() => isPro ? onAutoToggle( !autoOptimise ) : onUpgrade()} onUpgrade={onUpgrade}/>
 
-            <SectionTitle eyebrow="Generation" title="How BeepBeep Titles writes" subtitle="These preferences apply to every page — manual and automated."/>
+            <SectionTitle eyebrow="Generation" title="How BeepBeep Titles writes" subtitle="These preferences apply to every page — manual and automated." pill={!isPro && <Pill tone="primary" icon="crown">Pro</Pill>}/>
 
-            <Card padding={0} style={{ marginBottom: 12 }}>
-                <div style={{ padding: '16px 20px' }}>
-                    <Label>Tone</Label>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginTop: 8 }}>
-                        {PRESETS.map( p => <PresetCard key={p.id} preset={p} active={style === p.id} onClick={() => setStyle( p.id )}/>)}
+            <LockedSection
+                locked={!isPro}
+                onUpgrade={onUpgrade}
+                title="Control how your titles & meta are written"
+                sub="Tone, length, and custom instructions are a Pro feature. Free plans generate with smart defaults."
+            >
+                <Card padding={0} style={{ marginBottom: 12 }}>
+                    <div style={{ padding: '16px 20px' }}>
+                        <Label>Tone</Label>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginTop: 8 }}>
+                            {PRESETS.map( p => <PresetCard key={p.id} preset={p} active={style === p.id} onClick={() => setStyle( p.id )}/>)}
+                        </div>
                     </div>
-                </div>
-                <Divider/>
-                <LengthRow label="Title length"            options={TITLE_LENGTHS} value={titleLen}  onChange={setTitleLen}/>
-                <Divider/>
-                <LengthRow label="Meta description length" options={META_LENGTHS}  value={metaLen}   onChange={setMetaLen}/>
-                <Divider/>
-                <div style={{ padding: '16px 20px' }}>
-                    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-                        <Label>Custom instructions <span style={{ color: 'var(--text-3)', fontWeight: 400, marginLeft: 6 }}>Optional</span></Label>
-                        <span className="mono" style={{ fontSize: 11, color: 'var(--text-3)' }}>{instructions.length}/280</span>
+                    <Divider/>
+                    <LengthRow label="Title length"            options={TITLE_LENGTHS} value={titleLen}  onChange={setTitleLen}/>
+                    <Divider/>
+                    <LengthRow label="Meta description length" options={META_LENGTHS}  value={metaLen}   onChange={setMetaLen}/>
+                    <Divider/>
+                    <div style={{ padding: '16px 20px' }}>
+                        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+                            <Label>Custom instructions <span style={{ color: 'var(--text-3)', fontWeight: 400, marginLeft: 6 }}>Optional</span></Label>
+                            <span className="mono" style={{ fontSize: 11, color: 'var(--text-3)' }}>{instructions.length}/280</span>
+                        </div>
+                        <textarea
+                            value={instructions}
+                            onChange={e => setInstructions( e.target.value.slice( 0, 280 ) )}
+                            placeholder='e.g. "Always include the city in the title for location pages."'
+                            rows={3}
+                            style={{ width: '100%', marginTop: 8, padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', fontSize: 13, fontFamily: 'var(--font-sans)', color: 'var(--text)', background: 'var(--surface)', resize: 'vertical', minHeight: 68, lineHeight: 1.5, outline: 0 }}/>
                     </div>
-                    <textarea
-                        value={instructions}
-                        onChange={e => setInstructions( e.target.value.slice( 0, 280 ) )}
-                        placeholder='e.g. "Always include the city in the title for location pages."'
-                        rows={3}
-                        style={{ width: '100%', marginTop: 8, padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', fontSize: 13, fontFamily: 'var(--font-sans)', color: 'var(--text)', background: 'var(--surface)', resize: 'vertical', minHeight: 68, lineHeight: 1.5, outline: 0 }}/>
+                </Card>
+
+                <SERPPreviewCard preset={preset} title={previewTitle} meta={previewMeta} instructions={instructions}/>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
+                    <Button variant="ghost" size="md" onClick={handleReset}>Reset defaults</Button>
+                    <Button variant="primary" size="md" icon="check" onClick={handleSave} disabled={saving}>
+                        {saving ? 'Saving…' : 'Save changes'}
+                    </Button>
                 </div>
-            </Card>
-
-            <SERPPreviewCard preset={preset} title={previewTitle} meta={previewMeta} instructions={instructions}/>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
-                <Button variant="ghost" size="md" onClick={handleReset}>Reset defaults</Button>
-                <Button variant="primary" size="md" icon="check" onClick={handleSave} disabled={saving}>
-                    {saving ? 'Saving…' : 'Save changes'}
-                </Button>
-            </div>
+            </LockedSection>
 
             <SectionTitle eyebrow="Run on a schedule" title="Background work" subtitle="Optional Pro extras that keep your site SEO healthy without you opening BeepBeep Titles."/>
 
@@ -229,13 +237,45 @@ const HeroStat = ({ label, value }) => (
     </div>
 );
 
-const SectionTitle = ({ eyebrow, title, subtitle }) => (
+const SectionTitle = ({ eyebrow, title, subtitle, pill }) => (
     <div style={{ margin: '20px 0 10px' }}>
         <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>{eyebrow}</div>
-        <h2 style={{ fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em', margin: 0, lineHeight: 1.25 }}>{title}</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <h2 style={{ fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em', margin: 0, lineHeight: 1.25 }}>{title}</h2>
+            {pill}
+        </div>
         {subtitle && <div style={{ fontSize: 12.5, color: 'var(--text-3)', marginTop: 2, lineHeight: 1.45 }}>{subtitle}</div>}
     </div>
 );
+
+/**
+ * Wraps Pro-only settings. When `locked`, the children render dimmed and
+ * non-interactive behind a blurred overlay with an Upgrade CTA; otherwise they
+ * render untouched.
+ */
+const LockedSection = ({ locked, onUpgrade, title, sub, children }) => {
+    if ( !locked ) return <>{children}</>;
+    return (
+        <div style={{ position: 'relative' }}>
+            <div aria-hidden="true" style={{ pointerEvents: 'none', userSelect: 'none', filter: 'blur(2px)', opacity: 0.55 }}>
+                {children}
+            </div>
+            <div style={{
+                position: 'absolute', inset: 0, zIndex: 2,
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start',
+                textAlign: 'center', padding: '64px 24px',
+                background: 'rgba(248,250,252,0.35)', backdropFilter: 'blur(1.5px)', WebkitBackdropFilter: 'blur(1.5px)',
+            }}>
+                <span style={{ width: 46, height: 46, borderRadius: 999, background: 'var(--primary)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 10px 30px rgba(15,23,42,0.14)', marginBottom: 12 }}>
+                    <Icon name="lock" size={20} strokeWidth={2}/>
+                </span>
+                <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, letterSpacing: '-0.015em', color: 'var(--text)' }}>{title}</h3>
+                <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--text-2)', lineHeight: 1.45, maxWidth: 400 }}>{sub}</p>
+                <Button variant="pro" size="md" icon="crown" onClick={onUpgrade}>Upgrade to Pro</Button>
+            </div>
+        </div>
+    );
+};
 
 const Label = ({ children }) => (
     <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{children}</div>

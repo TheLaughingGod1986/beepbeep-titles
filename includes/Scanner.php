@@ -18,8 +18,6 @@ defined( 'ABSPATH' ) || exit;
 
 class Scanner {
 
-    private const POST_TYPES = [ 'page', 'post', 'product' ];
-
     /**
      * Unpublished statuses surfaced by the Library's Drafts tab so titles &
      * meta can be generated before a page goes live. Coverage stats stay
@@ -27,13 +25,35 @@ class Scanner {
      */
     private const DRAFT_STATUSES = [ 'draft', 'pending', 'future' ];
 
+    /**
+     * Every front-facing post type SEO actually applies to — computed at
+     * runtime so custom post types (page-builder landing pages, WooCommerce,
+     * LMS courses, etc.) are covered, not just the core page/post/product.
+     * Attachments are excluded: media has no editable title/meta here.
+     *
+     * @return string[]
+     */
+    private function post_types(): array {
+        $types = get_post_types( [ 'public' => true ], 'names' );
+        unset( $types['attachment'] );
+
+        /**
+         * Filter the post types BeepBeep Titles scans for SEO coverage.
+         *
+         * @param string[] $types Public post-type names (attachment removed).
+         */
+        $types = apply_filters( 'bbt_scanned_post_types', array_values( $types ) );
+
+        return array_values( array_filter( array_map( 'strval', (array) $types ) ) );
+    }
+
     // ----------------------------------------------------------------
     // Paginated page list
     // ----------------------------------------------------------------
 
     public function get_pages( string $filter, string $search, int $page, int $per_page ): array {
         $args = [
-            'post_type'      => self::POST_TYPES,
+            'post_type'      => $this->post_types(),
             'post_status'    => $filter === 'drafts' ? self::DRAFT_STATUSES : 'publish',
             'posts_per_page' => $per_page,
             'paged'          => max( 1, $page ),
@@ -129,7 +149,7 @@ class Scanner {
 
     private function compute_stats(): array {
         global $wpdb;
-        $types_in = "'" . implode( "','", array_map( 'esc_sql', self::POST_TYPES ) ) . "'";
+        $types_in = "'" . implode( "','", array_map( 'esc_sql', $this->post_types() ) ) . "'";
 
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery
         $total = (int) $wpdb->get_var(

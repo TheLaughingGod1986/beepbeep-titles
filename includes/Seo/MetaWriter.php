@@ -65,8 +65,17 @@ class MetaWriter {
 
     /** Re-run detection and persist the result. */
     public static function refresh(): string {
-        $active = self::detect();
+        $active   = self::detect();
+        $previous = get_option( self::OPT_ACTIVE, '' );
         update_option( self::OPT_ACTIVE, $active, false );
+
+        // The cached coverage snapshot is keyed to whichever storage was
+        // active when it was computed — drop it so a plugin switch can't serve
+        // stale stats (e.g. counts read from the wrong meta keys/table).
+        if ( $previous !== $active ) {
+            delete_transient( 'bbt_stats' );
+        }
+
         return $active;
     }
 

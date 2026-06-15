@@ -7,8 +7,8 @@ import { SettingsScreen } from './screens/Settings';
 import { AuditSignedOutScreen } from './screens/Audit';
 import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal, ConnectModal } from './modals/index';
 import { SignOutConfirm } from './auth';
-import { getInitialData, fetchQuota, fetchPages, runScan, normalizeQuota, createCheckout, createBillingPortal, clearLicense, saveSettings } from './api';
-import { paywallTrigger, errorToast } from './errors';
+import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, createCheckout, createBillingPortal, clearLicense, saveSettings } from './api';
+import { paywallTrigger, errorToast, checkoutErrorToast } from './errors';
 import { hasDailyCap } from './quota';
 import { usePaywallGate } from './hooks/usePaywallGate';
 import { resolveAllowedTab } from './navigation';
@@ -21,6 +21,7 @@ export default function App() {
     const [quota, setQuota]   = useState( initial.quota );
     const [settings, setSettings] = useState( initial.settings );
     const [stats, setStats]   = useState( null );
+    const [activity, setActivity] = useState( [] );
     const [queuePages, setQueuePages] = useState( [] );
     const [autoOptimise, setAutoOptimise] = useState( initial.settings?.auto_generate ?? false );
     const [connected, setConnected] = useState( initial.connected );
@@ -68,6 +69,7 @@ export default function App() {
         refreshQuota();
         loadQueuePages();
         loadStats();
+        loadActivity();
 
         // Returning from Stripe checkout?
         const params  = new URLSearchParams( window.location.search );
@@ -145,7 +147,21 @@ export default function App() {
                 streak:              0,
             } );
         } catch ( e ) {
-            setStats( { total: 0, optimised: 0, needs_attention: 0, missing_title: 0, missing_meta: 0, coverage: 0, new_since_last_visit: 0, streak: 0 } );
+            // A failed request must NOT render as real zeros — "0% coverage, 0
+            // needing" is indistinguishable from "all optimised" and hides
+            // pages that need work. Keep the last known figures and surface the
+            // failure instead of silently overwriting with zeros.
+            setStats( prev => prev ?? { total: 0, optimised: 0, needs_attention: 0, missing_title: 0, missing_meta: 0, coverage: 0, new_since_last_visit: 0, streak: 0 } );
+            setToast( { message: 'Couldn’t refresh your library stats', sub: 'Showing the last known figures — check your connection and try again.', icon: 'alert', tone: 'warn' } );
+        }
+    };
+
+    const loadActivity = async () => {
+        try {
+            const res = await fetchActivity( { limit: 8 } );
+            setActivity( res.events || [] );
+        } catch ( e ) {
+            setActivity( [] );
         }
     };
 
@@ -203,6 +219,7 @@ export default function App() {
         setToast( { message: `${ n } page${ n === 1 ? '' : 's' } improved`, sub: 'Title & meta descriptions are live in your site.', icon: 'sparkles', tone: 'ok' } );
         loadQueuePages();
         loadStats();
+        loadActivity();
         refreshQuota();
     };
 
@@ -224,20 +241,33 @@ export default function App() {
     // Open a URL produced by an async call in a new tab without tripping popup
     // blockers: synchronously open a blank tab on the user gesture, then point
     // it at the resolved URL (or close it and fall back if the call failed).
+    //
+    // NB: do NOT pass 'noopener' to window.open here — with noopener the call
+    // returns null, so we'd lose the handle and the fallback would navigate
+    // the *current* WordPress tab to Stripe. We open a real handle and sever
+    // window.opener manually for the same security benefit.
     const openInNewTab = async ( getUrl ) => {
-        const win = window.open( '', '_blank', 'noopener,noreferrer' );
+        const win = window.open( 'about:blank', '_blank' );
+        if ( win ) { try { win.opener = null; } catch ( e ) {} }
         try {
             const res = await getUrl();
             if ( res?.url ) {
-                if ( win ) { win.opener = null; win.location = res.url; }
+                if ( win ) { win.location = res.url; }
                 else { window.location.href = res.url; } // popup blocked — same-tab fallback
             } else {
+                // 200 with no url — surface whatever the backend said (e.g. a
+                // bad/archived Stripe price) instead of a generic message.
                 if ( win ) win.close();
-                setToast( errorToast( {} ) );
+                setToast( checkoutErrorToast( res ) );
             }
         } catch ( e ) {
             if ( win ) win.close();
-            handleApiError( e );
+            if ( e?.name === 'AbortError' ) return;
+            // License / quota errors still route to the connect modal or paywall.
+            if ( e?.code === 'INVALID_LICENSE' || paywallTrigger( e ) ) { handleApiError( e ); return; }
+            // Everything else: show the real checkout/Stripe error so a
+            // misconfigured plan is diagnosable, not hidden behind "try again".
+            setToast( checkoutErrorToast( e ) );
         }
     };
 
@@ -256,6 +286,7 @@ export default function App() {
             const result = await runScan();
             await loadQueuePages();
             await loadStats();
+            await loadActivity();
             return result;
         } catch ( e ) {
             return null;
@@ -272,6 +303,7 @@ export default function App() {
                 <Dashboard
                     quota={quota}
                     stats={stats}
+                    activity={activity}
                     queuePages={queuePages}
                     autoOptimise={autoOptimise}
                     onAutoToggle={handleAutoToggle}

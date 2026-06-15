@@ -27,6 +27,7 @@ const fmtCount = ( n ) => ( typeof n === 'number' ? n.toLocaleString() : n );
    /billing/plans catalog so they always match Stripe. */
 export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgrade, onBuyCredits }) => {
     const [plans, setPlans] = useState( null );
+    const [showMore, setShowMore] = useState( false );
 
     // Pull live Stripe-backed pricing so the modal can never drift.
     useEffect( () => {
@@ -89,6 +90,12 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
     const proQuota     = proPlan?.quota || 1000;
     const creditsPrice = creditsPlan ? fmtPrice( creditsPlan.price, creditsPlan.currency ) : '£9.99';
     const creditsQuota = creditsPlan?.quota || 100;
+    // The backend flags a plan `available:false` (and drops its priceId) when its
+    // Stripe price can't be retrieved — don't offer a CTA that would dead-end at
+    // checkout. Only an explicit false disables; absent/true stays clickable.
+    const proAvailable     = proPlan?.available !== false;
+    const starterAvailable = starterPlan?.available !== false;
+    const creditsAvailable = creditsPlan?.available !== false;
     // Free allowance comes from the live entitlement (currently 15), never hard-coded.
     const freeLimit    = Number.isFinite( entitlement?.token_limit ) ? entitlement.token_limit : 15;
 
@@ -113,26 +120,41 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
 
     const showScanGaps = ( missingTitles !== null || missingMeta !== null )
         && ( ( missingTitles || 0 ) > 0 || ( missingMeta || 0 ) > 0 );
+    // Total detected issues drives the dynamic, problem-framed primary CTA.
+    const totalIssues   = ( missingTitles || 0 ) + ( missingMeta || 0 );
+    const issuePlural   = totalIssues === 1 ? 'Issue' : 'Issues';
 
     const R = 16; // card / surface radius
-    const trust = [
-        'Improve search visibility',
+
+    // ROI framing — users buy time saved, not generations.
+    const why = [
+        'Generate SEO titles and descriptions in seconds',
         'Save hours of manual editing',
-        'Works with your existing SEO plugin',
+        'Improve search visibility',
+        'Fix metadata across your site automatically',
+    ];
+    // Risk reducers kept beside the purchase button.
+    const trust = [
+        'Secure Stripe checkout',
+        'Cancel anytime',
+        'No long-term contracts',
+        'Works with Rank Math, Yoast and other SEO plugins',
     ];
 
     return (
         <Modal open={open} onClose={handleClose} width={760}>
             <div className="bbt-pw" style={{ position: 'relative' }}>
                 <style>{`
-                    .bbt-pw__plans { display:grid; grid-template-columns: 1fr 1fr 1.18fr; gap:14px; align-items:stretch; }
-                    .bbt-pw__plan { border-radius:${R}px; padding:18px 18px 20px; display:flex; flex-direction:column; }
-                    .bbt-pw__plan--pro { transform: scale(1.02); }
+                    .bbt-pw__plans { display:grid; grid-template-columns: 0.92fr 0.92fr 1.22fr; gap:14px; align-items:stretch; }
+                    .bbt-pw__plan { border-radius:${R}px; padding:16px 16px 18px; display:flex; flex-direction:column; }
+                    .bbt-pw__plan--pro { transform: scale(1.04); transform-origin:center; }
+                    .bbt-pw__why { display:grid; grid-template-columns:1fr 1fr; gap:8px 18px; }
                     @media (max-width: 640px) {
                         .bbt-pw__section { padding-left:20px !important; padding-right:20px !important; }
                         .bbt-pw__plans { display:flex; flex-direction:column; gap:16px; }
                         .bbt-pw__plan--pro { order:1; transform:none; }
                         .bbt-pw__plan--starter { order:2; }
+                        .bbt-pw__why { grid-template-columns:1fr; }
                         /* Free (current plan) is contextual only and has no CTA — hide it on
                            mobile so the Pro CTA stays reachable without excess scrolling. */
                         .bbt-pw__plan--free { display:none; }
@@ -274,9 +296,14 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
                         ) )}
                     </div>
 
-                    <Button variant="pro" size="lg" full icon="crown" onClick={onPro} style={{ paddingTop: 14, paddingBottom: 14, fontSize: 15 }}>
-                        Get Pro · {proPrice}/month
+                    <Button variant="pro" size="lg" full icon="crown" onClick={onPro} disabled={!proAvailable} style={{ paddingTop: 14, paddingBottom: 14, fontSize: 15 }}>
+                        {proAvailable ? `Get Pro · ${proPrice}/month` : 'Pro temporarily unavailable'}
                     </Button>
+                    {!proAvailable && (
+                        <p style={{ textAlign: 'center', fontSize: 11.5, color: 'var(--text-3)', margin: '8px 0 0' }}>
+                            This plan is being updated. Please try again shortly or contact support.
+                        </p>
+                    )}
 
                     {starterPlan && (
                         <>
@@ -285,14 +312,14 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
                                 <span style={{ fontSize: 11.5, fontWeight: 500 }}>or</span>
                                 <span style={{ flex: 1, height: 1, background: 'var(--hairline)' }}/>
                             </div>
-                            <Button variant="secondary" size="md" full onClick={onStarter} style={{ background: 'var(--surface)', color: 'var(--primary-ink)', border: '1.5px solid var(--primary)', fontSize: 14 }}>
-                                Start with Starter · {starterPrice}/month
+                            <Button variant="secondary" size="md" full onClick={onStarter} disabled={!starterAvailable} style={{ background: 'var(--surface)', color: 'var(--primary-ink)', border: '1.5px solid var(--primary)', fontSize: 14 }}>
+                                {starterAvailable ? `Start with Starter · ${starterPrice}/month` : 'Starter temporarily unavailable'}
                             </Button>
                         </>
                     )}
 
                     {/* Credit pack — never competes with subscriptions */}
-                    {creditsPlan && (
+                    {creditsPlan && creditsAvailable && (
                         <div style={{ textAlign: 'center', marginTop: 16, fontSize: 12.5, color: 'var(--text-3)', lineHeight: 1.5 }}>
                             Need a one-off top-up?{' '}
                             <button onClick={onCredits} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 12.5, color: 'var(--primary-ink)', fontWeight: 600 }}>

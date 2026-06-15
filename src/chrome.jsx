@@ -14,7 +14,11 @@ export const WPChrome = ({ children, activeTab, onTab, plan, onUpgrade, user, co
                 padding: '0 28px',
                 display: 'flex', alignItems: 'center', gap: 0,
                 height: 52,
-                position: 'sticky', top: 32, zIndex: 50,
+                // top:0 (not 32): #wpbody-content is the sticky scroll
+                // container (it has overflow-x:hidden) and already starts
+                // below the fixed WP admin bar, so offsetting by 32 would
+                // push the bar down and leave a 32px gap.
+                position: 'sticky', top: 0, zIndex: 50,
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', marginRight: 22 }}>
                     <span style={{ fontWeight: 700, fontSize: 14.5, letterSpacing: '-0.015em', color: 'var(--text)' }}>BeepBeep Titles</span>

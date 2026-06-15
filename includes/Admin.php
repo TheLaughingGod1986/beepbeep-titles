@@ -36,7 +36,7 @@ class Admin {
         // left) so the sticky tab bar sits flush under the WP admin bar with
         // no white gap. The earlier content-overlap issue was a duplicate
         // in-page header (since removed), not this offset.
-        echo '<div id="bbt-root" style="margin:0 -20px 0;min-height:calc(100vh - 32px);"></div>';
+        echo '<div id="bbt-root" style="margin:0;min-height:calc(100vh - 32px);"></div>';
     }
 
     // ----------------------------------------------------------------
@@ -124,10 +124,12 @@ class Admin {
             /* Let our app control its own background + spacing */
             #wpwrap, #wpcontent { background: #F6F8FB; }
             #wpbody-content, #wpbody-content .wrap { overflow-x: hidden; }
-            /* Full-bleed: the sticky tab bar must sit flush under the admin bar.
-               WP renders admin notices / screen-meta ABOVE our mount point,
-               which created the white gap. Zero the wrapper spacing AND hide
-               anything WP injects above #bbt-root inside the content column. */
+            /* Full-bleed: the app fills the whole content column (right of the
+               admin sidebar) with no white gap on any side. Zero #wpcontent
+               padding — we keep its margin-left (the sidebar offset) — and the
+               #wpbody* top padding, and hide anything WP injects above our
+               mount point (admin notices / screen-meta created the top gap). */
+            #wpcontent { padding: 0 !important; }
             #wpbody { padding-top: 0 !important; }
             #wpbody-content { padding-top: 0 !important; padding-bottom: 0 !important; }
             #wpbody-content > :not(#bbt-root) { display: none !important; }

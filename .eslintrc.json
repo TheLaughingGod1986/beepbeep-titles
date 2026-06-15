@@ -1,0 +1,27 @@
+{
+	"extends": [ "plugin:@wordpress/eslint-plugin/recommended" ],
+	"env": {
+		"browser": true,
+		"es6": true
+	},
+	"rules": {
+		"camelcase": "off",
+		"curly": "off",
+		"eqeqeq": "off",
+		"import/no-extraneous-dependencies": "off",
+		"jsdoc/check-line-alignment": "off",
+		"jsdoc/check-tag-names": "off",
+		"jsdoc/require-param": "off",
+		"jsdoc/require-param-type": "off",
+		"jsx-a11y/click-events-have-key-events": "off",
+		"jsx-a11y/label-has-associated-control": "off",
+		"jsx-a11y/no-autofocus": "off",
+		"jsx-a11y/no-noninteractive-element-interactions": "off",
+		"jsx-a11y/no-static-element-interactions": "off",
+		"no-nested-ternary": "off",
+		"no-unused-vars": "off",
+		"no-unused-expressions": "off",
+		"prettier/prettier": "off",
+		"react/no-unescaped-entities": "off"
+	}
+}

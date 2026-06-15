@@ -224,12 +224,18 @@ export default function App() {
     // Open a URL produced by an async call in a new tab without tripping popup
     // blockers: synchronously open a blank tab on the user gesture, then point
     // it at the resolved URL (or close it and fall back if the call failed).
+    //
+    // NB: do NOT pass 'noopener' to window.open here — with noopener the call
+    // returns null, so we'd lose the handle and the fallback would navigate
+    // the *current* WordPress tab to Stripe. We open a real handle and sever
+    // window.opener manually for the same security benefit.
     const openInNewTab = async ( getUrl ) => {
-        const win = window.open( '', '_blank', 'noopener,noreferrer' );
+        const win = window.open( 'about:blank', '_blank' );
+        if ( win ) { try { win.opener = null; } catch ( e ) {} }
         try {
             const res = await getUrl();
             if ( res?.url ) {
-                if ( win ) { win.opener = null; win.location = res.url; }
+                if ( win ) { win.location = res.url; }
                 else { window.location.href = res.url; } // popup blocked — same-tab fallback
             } else {
                 if ( win ) win.close();

@@ -21,7 +21,7 @@ class Admin {
     public function register_menus(): void {
         add_menu_page(
             __( 'BeepBeep Titles', 'beepbeep-titles' ),
-            __( 'BB Title & Meta Description', 'beepbeep-titles' ),
+            __( 'BB Titles', 'beepbeep-titles' ),
             'edit_posts',
             BBT_SLUG,
             [ $this, 'render_page' ],
@@ -31,9 +31,12 @@ class Admin {
     }
 
     public function render_page(): void {
-        // The React app mounts here. Negative margin compensates for WP's
-        // default .wrap padding so our full-bleed chrome looks correct.
-        echo '<div id="bbt-root" style="margin:-8px -20px 0;min-height:calc(100vh - 32px);"></div>';
+        // The React app mounts here. Negative margin makes the chrome
+        // full-bleed against WP's #wpcontent/.wrap padding (≈10px top, 20px
+        // left) so the sticky tab bar sits flush under the WP admin bar with
+        // no white gap. The earlier content-overlap issue was a duplicate
+        // in-page header (since removed), not this offset.
+        echo '<div id="bbt-root" style="margin:0;min-height:calc(100vh - 32px);"></div>';
     }
 
     // ----------------------------------------------------------------
@@ -82,7 +85,10 @@ class Admin {
         $settings = get_option( 'bbt_settings', [] );
         $settings = is_array( $settings ) ? $settings : [];
         $settings = SettingsSanitizer::normalize_settings( $settings );
-        $client   = new Client();
+        $client = new Client();
+        // If another BeepBeep plugin on this site already stores a license
+        // (same key works across all of them), connect with it automatically.
+        $adopted = $client->adopt_shared_license();
 
         wp_localize_script( 'beepbeep-titles', 'bbtData', [
             'nonce'      => wp_create_nonce( 'wp_rest' ),
@@ -95,6 +101,7 @@ class Admin {
             ],
             'accountEmail' => $client->get_account_email(),
             'connected'  => $client->has_license(),
+            'licenseAdopted' => $adopted,
             'seoPlugin'  => MetaWriter::active(),
             'settings'   => $settings,
             'wpVersion'  => (string) $wp_version,
@@ -116,8 +123,17 @@ class Admin {
         <style>
             /* Let our app control its own background + spacing */
             #wpwrap, #wpcontent { background: #F6F8FB; }
-            #wpbody-content .wrap { margin: 0; padding: 0; }
-            #bbt-root { font-family: "Geist", "Helvetica Neue", system-ui, sans-serif; }
+            #wpbody-content, #wpbody-content .wrap { overflow-x: hidden; }
+            /* Full-bleed: the app fills the whole content column (right of the
+               admin sidebar) with no white gap on any side. Zero #wpcontent
+               padding — we keep its margin-left (the sidebar offset) — and the
+               #wpbody* top padding, and hide anything WP injects above our
+               mount point (admin notices / screen-meta created the top gap). */
+            #wpcontent { padding: 0 !important; }
+            #wpbody { padding-top: 0 !important; }
+            #wpbody-content { padding-top: 0 !important; padding-bottom: 0 !important; }
+            #wpbody-content > :not(#bbt-root) { display: none !important; }
+            #bbt-root { font-family: "Geist", "Helvetica Neue", system-ui, sans-serif; max-width: 100%; overflow-x: hidden; }
             /* Keep WP admin bar + sidebar unchanged */
         </style>
         <?php

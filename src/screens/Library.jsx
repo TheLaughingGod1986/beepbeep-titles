@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Icon, Card, Pill, Button, KBD, PageAvatar, SerpPreview } from '../components';
 import { fetchPages, updatePage } from '../api';
-import { QUOTA_DEFAULTS, canGenerateOne, dailyRemainingForLibrary, isBulkOverLimit } from '../quota';
+import { dailyRemainingForLibrary, hasDailyCap, isBulkOverLimit, isGenerationLocked } from '../quota';
 
-export const PagesLibrary = ({ plan, quota, onGenerate, onBulkGenerate, onUpgrade }) => {
+export const PagesLibrary = ({ plan, quota, connected = true, onConnect, onGenerate, onBulkGenerate, onUpgrade }) => {
     const [filter, setFilter]     = useState( 'needs' );
     const [selected, setSelected] = useState( new Set() );
     const [search, setSearch]     = useState( '' );
@@ -15,12 +15,17 @@ export const PagesLibrary = ({ plan, quota, onGenerate, onBulkGenerate, onUpgrad
     const [loading, setLoading]   = useState( true );
     const [page, setPage]         = useState( 1 );
     const [total, setTotal]       = useState( 0 );
+    const [libStats, setLibStats] = useState( null );
     const [scanning, setScanning] = useState( false );
     const sentinelRef = useRef( null );
 
     const dailyRemaining = dailyRemainingForLibrary( quota, plan );
-    const dailyUsed  = quota?.daily_used || 0;
-    const dailyLimit = quota?.daily_limit || QUOTA_DEFAULTS.daily_limit;
+
+    // Locked-out state: generation CTAs render as locks but stay clickable —
+    // they route to connect/upgrade. Review and manual editing stay available.
+    const signedOut = !connected;
+    const genLocked = isGenerationLocked( connected, plan, dailyRemaining );
+    const onUnlock  = signedOut ? ( onConnect || onUpgrade ) : onUpgrade;
 
     useEffect( () => {
         loadPages();
@@ -32,6 +37,7 @@ export const PagesLibrary = ({ plan, quota, onGenerate, onBulkGenerate, onUpgrad
             const res = await fetchPages( { filter: filter === 'all' ? '' : filter, search, page, perPage: 30 } );
             setPages( res.pages || res || [] );
             setTotal( res.total || ( res.pages || res || [] ).length );
+            if ( res.stats ) setLibStats( res.stats );
         } catch ( e ) {
             setPages( [] );
         } finally {
@@ -65,13 +71,15 @@ export const PagesLibrary = ({ plan, quota, onGenerate, onBulkGenerate, onUpgrad
         'missing-meta':  pages.filter( p => p.status === 'missing-meta'  || p.status === 'missing-both' ).length,
         ok:             pages.filter( p => p.status === 'ok'  ).length,
         new:            pages.filter( p => p.is_new ).length,
+        drafts:         libStats?.drafts ?? 0,
         all:            total,
-    } ), [pages, total] );
+    } ), [pages, total, libStats] );
 
     const toggle    = ( id ) => { const s = new Set( selected ); s.has( id ) ? s.delete( id ) : s.add( id ); setSelected( s ); };
     const toggleAll = () => selected.size === pages.length && pages.length > 0 ? setSelected( new Set() ) : setSelected( new Set( pages.map( p => p.id ) ) );
 
     const tryBulk = () => {
+        if ( genLocked ) { onUnlock(); return; }
         const selectedPages = pages.filter( p => selected.has( p.id ) );
         if ( isBulkOverLimit( plan, selectedPages.length, dailyRemaining ) ) {
             if ( dailyRemaining > 0 ) onBulkGenerate( selectedPages.slice( 0, dailyRemaining ) );
@@ -99,6 +107,7 @@ export const PagesLibrary = ({ plan, quota, onGenerate, onBulkGenerate, onUpgrad
         { id: 'missing-meta',  label: 'Missing meta',    count: counts['missing-meta'] },
         { id: 'new',           label: 'New pages',       count: counts.new },
         { id: 'ok',            label: 'Optimised',       count: counts.ok },
+        { id: 'drafts',        label: 'Drafts',          count: counts.drafts },
         { id: 'all',           label: 'All pages',       count: counts.all },
     ];
 
@@ -114,6 +123,8 @@ export const PagesLibrary = ({ plan, quota, onGenerate, onBulkGenerate, onUpgrad
                     {scanning ? 'Scanning…' : 'Re-crawl'}
                 </Button>
             </div>
+
+            {genLocked && <LockedNotice signedOut={signedOut} hasDaily={hasDailyCap( quota )} onUnlock={onUnlock}/>}
 
             <div ref={sentinelRef} style={{ height: 1, marginBottom: -1 }}/>
 
@@ -183,9 +194,8 @@ export const PagesLibrary = ({ plan, quota, onGenerate, onBulkGenerate, onUpgrad
                                 onGenerate={() => onGenerate( pg )}
                                 onEdit={() => setEditing( merged )}
                                 justSaved={savedFlash === pg.id}
-                                plan={plan}
-                                dailyRemaining={dailyRemaining}
-                                onUpgrade={onUpgrade}
+                                locked={genLocked}
+                                onUnlock={onUnlock}
                                 last={i === pages.length - 1}/>
                         );
                     } )}
@@ -202,9 +212,11 @@ export const PagesLibrary = ({ plan, quota, onGenerate, onBulkGenerate, onUpgrad
                     count={selected.size}
                     allowed={Math.max( 0, dailyRemaining === Infinity ? selected.size : dailyRemaining )}
                     overLimit={overLimit}
+                    locked={genLocked}
+                    lockedLabel={signedOut ? 'Connect to generate' : 'Upgrade to generate'}
                     onClear={() => setSelected( new Set() )}
                     onOptimise={tryBulk}
-                    onUpgrade={onUpgrade}
+                    onUpgrade={onUnlock}
                 />
             )}
 
@@ -223,7 +235,7 @@ export const PagesLibrary = ({ plan, quota, onGenerate, onBulkGenerate, onUpgrad
     );
 };
 
-const PageRow = ({ pg, selected, onToggle, onGenerate, onEdit, justSaved, plan, dailyRemaining, onUpgrade, last }) => {
+const PageRow = ({ pg, selected, onToggle, onGenerate, onEdit, justSaved, locked, onUnlock, last }) => {
     const [hover, setHover] = useState( false );
     const statusConfig = {
         'missing-both':  { tone: 'danger', label: 'Missing both' },
@@ -232,7 +244,6 @@ const PageRow = ({ pg, selected, onToggle, onGenerate, onEdit, justSaved, plan, 
         'ok':            { tone: 'ok',     label: 'Optimised' },
     };
     const cfg = statusConfig[pg.status] || { tone: 'neutral', label: pg.status || '—' };
-    const canGenerate = canGenerateOne( plan, dailyRemaining );
     const isOk = pg.status === 'ok';
 
     return (
@@ -253,6 +264,9 @@ const PageRow = ({ pg, selected, onToggle, onGenerate, onEdit, justSaved, plan, 
             <div style={{ minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span className="mono" style={{ fontSize: 12.5, color: 'var(--text)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pg.url}</span>
+                    {pg.post_status && pg.post_status !== 'publish' && (
+                        <Pill tone="neutral" style={{ padding: '1px 7px', fontSize: 10 }}>{pg.post_status === 'future' ? 'SCHEDULED' : 'DRAFT'}</Pill>
+                    )}
                     {pg.is_new && <Pill tone="primary" style={{ padding: '1px 7px', fontSize: 10 }}>NEW</Pill>}
                 </div>
                 <div style={{ fontSize: 11.5, color: 'var(--text-3)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -274,9 +288,17 @@ const PageRow = ({ pg, selected, onToggle, onGenerate, onEdit, justSaved, plan, 
 
             <div style={{ textAlign: 'right' }}>
                 {!isOk ? (
-                    <Button variant={hover ? 'primary' : 'secondary'} size="sm" icon="sparkles" onClick={canGenerate ? onGenerate : onUpgrade}>
-                        {canGenerate ? 'Generate' : 'Upgrade'}
-                    </Button>
+                    locked ? (
+                        <span aria-disabled="true" title="Generation is locked — click to unlock">
+                            <Button variant="secondary" size="sm" icon="lock" onClick={onUnlock} style={{ color: 'var(--text-3)' }}>
+                                Generate
+                            </Button>
+                        </span>
+                    ) : (
+                        <Button variant={hover ? 'primary' : 'secondary'} size="sm" icon="sparkles" onClick={onGenerate}>
+                            Generate
+                        </Button>
+                    )
                 ) : (
                     <Button variant="ghost" size="sm" icon="edit" onClick={onEdit}>Edit</Button>
                 )}
@@ -381,17 +403,48 @@ const EditPageSEOModal = ({ page, onClose, onSave }) => {
     );
 };
 
-const BulkActionBar = ({ count, allowed = 0, overLimit, onClear, onOptimise, onUpgrade }) => (
+const LockedNotice = ({ signedOut, hasDaily = true, onUnlock }) => (
+    <Card padding={0} style={{ marginBottom: 16 }}>
+        <div style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)', color: 'var(--text-3)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Icon name="lock" size={14}/>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                    {signedOut ? 'License not connected' : hasDaily ? 'Daily allowance used' : 'Monthly credits used'}
+                </div>
+                <p style={{ margin: '4px 0 0', fontSize: 13, lineHeight: 1.45, color: 'var(--text-2)' }}>
+                    {signedOut
+                        ? 'You can still review and edit titles & meta descriptions. Connect your BeepBeep account to generate with AI.'
+                        : hasDaily
+                            ? "You can still review and edit titles & meta descriptions. Upgrade to keep generating today — your free allowance resets overnight."
+                            : "You can still review and edit titles & meta descriptions. Upgrade to keep generating — your free credits reset next month."}
+                </p>
+            </div>
+            <Button variant={signedOut ? 'primary' : 'pro'} size="sm" icon={signedOut ? 'arrow-right' : 'crown'} onClick={onUnlock}>
+                {signedOut ? 'Connect account' : 'Upgrade'}
+            </Button>
+        </div>
+    </Card>
+);
+
+const BulkActionBar = ({ count, allowed = 0, overLimit, locked, lockedLabel = 'Unlock', onClear, onOptimise, onUpgrade }) => (
     <div style={{ position: 'sticky', bottom: 16, zIndex: 6, marginTop: 16, background: 'var(--text)', color: '#fff', borderRadius: 'var(--r-md)', padding: '10px 12px 10px 16px', display: 'flex', alignItems: 'center', gap: 12, boxShadow: 'var(--shadow-lg)', animation: 'bbt-slide-up .22s cubic-bezier(.2,.8,.2,1)' }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
             <span className="mono tnum" style={{ background: 'rgba(255,255,255,0.14)', color: '#fff', padding: '2px 9px', borderRadius: 999, fontSize: 12, fontWeight: 600 }}>{count}</span>
             <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.92)' }}>{count === 1 ? 'page selected' : 'pages selected'}</span>
-            {overLimit && <span style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.7)', display: 'inline-flex', alignItems: 'center', gap: 5 }}><Icon name="alert" size={12}/>Over today's free limit</span>}
+            {locked
+                ? <span style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.7)', display: 'inline-flex', alignItems: 'center', gap: 5 }}><Icon name="lock" size={12}/>Generation locked</span>
+                : overLimit && <span style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.7)', display: 'inline-flex', alignItems: 'center', gap: 5 }}><Icon name="alert" size={12}/>Over your free limit</span>}
         </div>
         <button onClick={onClear} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.7)', padding: '6px 10px', fontSize: 12.5, fontWeight: 500, cursor: 'pointer' }}
             onMouseEnter={e => e.currentTarget.style.color = '#fff'}
             onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.7)'}>Clear</button>
-        {overLimit ? (
+        {locked ? (
+            <button onClick={onUpgrade} style={{ background: '#fff', color: 'var(--text)', border: 'none', padding: '7px 14px', borderRadius: 'var(--r-md)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <Icon name="lock" size={13}/> {lockedLabel}
+            </button>
+        ) : overLimit ? (
             <div style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
                 <button onClick={onOptimise} style={{ background: 'rgba(255,255,255,0.12)', color: '#fff', border: '1px solid rgba(255,255,255,0.18)', padding: '7px 12px', borderRadius: 'var(--r-md)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                     <Icon name="sparkles" size={13}/> Generate first {allowed}

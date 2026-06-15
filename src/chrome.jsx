@@ -1,13 +1,9 @@
 import { Icon, Button, Tooltip } from './components';
 import { UserMenu } from './auth';
+import { getVisibleTabs } from './navigation';
 
-export const WPChrome = ({ children, activeTab, onTab, plan, onUpgrade, user, connected, onSignOut, onHelp }) => {
-    const tabs = [
-        { id: 'dashboard',  label: 'Home' },
-        { id: 'library',    label: 'Library' },
-        { id: 'automation', label: 'Autopilot' },
-        { id: 'settings',   label: 'Settings' },
-    ];
+export const WPChrome = ({ children, activeTab, onTab, plan, onUpgrade, user, connected, onSignOut, onHelp, onConnect, onSignIn }) => {
+    const tabs = getVisibleTabs( connected );
 
     return (
         <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
@@ -18,7 +14,11 @@ export const WPChrome = ({ children, activeTab, onTab, plan, onUpgrade, user, co
                 padding: '0 28px',
                 display: 'flex', alignItems: 'center', gap: 0,
                 height: 52,
-                position: 'sticky', top: 32, zIndex: 20,
+                // top:0 (not 32): #wpbody-content is the sticky scroll
+                // container (it has overflow-x:hidden) and already starts
+                // below the fixed WP admin bar, so offsetting by 32 would
+                // push the bar down and leave a 32px gap.
+                position: 'sticky', top: 0, zIndex: 50,
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', marginRight: 22 }}>
                     <span style={{ fontWeight: 700, fontSize: 14.5, letterSpacing: '-0.015em', color: 'var(--text)' }}>BeepBeep Titles</span>
@@ -51,8 +51,8 @@ export const WPChrome = ({ children, activeTab, onTab, plan, onUpgrade, user, co
                         );
                     } )}
                 </nav>
-                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <Tooltip content="BeepBeep Titles is monitoring your site in the background">
+                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                    <Tooltip content="BeepBeep Titles is monitoring your site in the background" placement="bottom">
                         <span style={{
                             display: 'inline-flex', alignItems: 'center', gap: 6,
                             padding: '3px 9px',
@@ -67,7 +67,9 @@ export const WPChrome = ({ children, activeTab, onTab, plan, onUpgrade, user, co
                         </span>
                     </Tooltip>
                     {plan === 'free' ? (
-                        <Button variant="pro" size="sm" icon="crown" onClick={onUpgrade}>Upgrade to Pro</Button>
+                        <Button variant="pro" size="sm" icon={connected ? 'crown' : 'arrow-right'} onClick={connected ? onUpgrade : onConnect}>
+                            {connected ? 'Upgrade to Pro' : 'Create Account'}
+                        </Button>
                     ) : (
                         <span style={{
                             display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -92,7 +94,7 @@ export const WPChrome = ({ children, activeTab, onTab, plan, onUpgrade, user, co
                             onHelp={onHelp || (() => {})}
                         />
                     ) : (
-                        <Button variant="secondary" size="sm" icon="user" onClick={() => onTab( 'settings' )}>Sign in</Button>
+                        <Button variant="secondary" size="sm" icon="user" onClick={onSignIn || onConnect || ( () => onTab( 'settings' ) )}>Sign in</Button>
                     )}
                 </div>
             </div>

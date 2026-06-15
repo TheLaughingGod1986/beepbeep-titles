@@ -50,6 +50,68 @@ class BillingController {
         return new \WP_REST_Response( [ 'success' => true, 'connected' => false ], 200 );
     }
 
+    /**
+     * Sign in with a BeepBeep account (email + password). The backend returns
+     * the account's license key, which we store and then validate via /quota —
+     * the response shape matches set_license so the JS can treat them alike.
+     */
+    public function login( \WP_REST_Request $req ): \WP_REST_Response {
+        $email    = sanitize_email( (string) $req->get_param( 'email' ) );
+        $password = (string) $req->get_param( 'password' );
+
+        if ( $email === '' || ! is_email( $email ) || $password === '' ) {
+            return new \WP_REST_Response( [ 'success' => false, 'code' => 'INVALID_REQUEST', 'message' => __( 'Enter your account email and password.', 'beepbeep-titles' ) ], 400 );
+        }
+
+        $user = $this->client->login( $email, $password );
+        if ( is_wp_error( $user ) ) {
+            return ErrorResponder::from_wp_error( $user );
+        }
+
+        $result = $this->client->quota();
+        if ( is_wp_error( $result ) ) {
+            $this->client->clear_license_key();
+            return ErrorResponder::from_wp_error( $result );
+        }
+
+        $result['connected']     = true;
+        $result['account_email'] = $this->client->get_account_email();
+        return new \WP_REST_Response( $result, 200 );
+    }
+
+    /**
+     * Create a BeepBeep account, store the returned license key, and return
+     * the same connected quota shape as login/set_license.
+     */
+    public function register( \WP_REST_Request $req ): \WP_REST_Response {
+        $email    = sanitize_email( (string) $req->get_param( 'email' ) );
+        $password = (string) $req->get_param( 'password' );
+
+        if ( $email === '' || ! is_email( $email ) || $password === '' ) {
+            return new \WP_REST_Response( [ 'success' => false, 'code' => 'INVALID_REQUEST', 'message' => __( 'Enter an email and password to create your account.', 'beepbeep-titles' ) ], 400 );
+        }
+
+        if ( strlen( $password ) < 8 ) {
+            return new \WP_REST_Response( [ 'success' => false, 'code' => 'WEAK_PASSWORD', 'message' => __( 'Use at least 8 characters for your password.', 'beepbeep-titles' ) ], 400 );
+        }
+
+        $user = $this->client->register( $email, $password );
+        if ( is_wp_error( $user ) ) {
+            return ErrorResponder::from_wp_error( $user );
+        }
+
+        $result = $this->client->quota();
+        if ( is_wp_error( $result ) ) {
+            $this->client->clear_license_key();
+            return ErrorResponder::from_wp_error( $result );
+        }
+
+        $result['connected']     = true;
+        $result['account_email'] = $this->client->get_account_email();
+        $result['created']       = true;
+        return new \WP_REST_Response( $result, 200 );
+    }
+
     public function billing_plans( \WP_REST_Request $req ): \WP_REST_Response {
         $result = $this->client->billing_plans();
         if ( is_wp_error( $result ) ) {
@@ -70,7 +132,7 @@ class BillingController {
         $price_id = (string) $req->get_param( 'price_id' );
         $plan     = (string) $req->get_param( 'plan' );
 
-        // Resolve a plan key ('pro' | 'agency' | 'credits') to its Stripe price.
+        // Resolve a plan key ('starter' | 'pro' | 'agency' | 'credits') to its Stripe price.
         if ( $price_id === '' && $plan !== '' ) {
             $plans = $this->client->billing_plans();
             if ( is_wp_error( $plans ) ) {
@@ -87,7 +149,7 @@ class BillingController {
         $success = add_query_arg( 'bbt_billing', 'success', $base );
         $cancel  = add_query_arg( 'bbt_billing', 'cancelled', $base );
 
-        $result = $this->client->create_checkout( $price_id, $success, $cancel );
+        $result = $this->client->create_checkout( $price_id, $success, $cancel, $plan );
         if ( is_wp_error( $result ) ) {
             return ErrorResponder::from_wp_error( $result );
         }
@@ -105,6 +167,14 @@ class BillingController {
 
     /** Map a plan key to its Stripe price id from the backend /plans payload. */
     private function resolve_price_id( array $plans, string $plan ): string {
+        $plan = strtolower( trim( $plan ) );
+        $aliases = [
+            'growth'          => 'pro',
+            'starter_monthly' => 'starter',
+            'pro_monthly'     => 'pro',
+            'credit_pack'     => 'credits',
+        ];
+        $plan = $aliases[ $plan ] ?? $plan;
         if ( isset( $plans['priceIds'][ $plan ] ) && is_string( $plans['priceIds'][ $plan ] ) ) {
             return $plans['priceIds'][ $plan ];
         }

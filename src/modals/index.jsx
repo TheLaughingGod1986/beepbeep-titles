@@ -9,3 +9,4 @@ export { GenerationDrawer } from './GenerationDrawer';
 export { Paywall } from './Paywall';
 export { Toast } from './Toast';
 export { HelpModal } from './HelpModal';
+export { ConnectModal } from './ConnectModal';

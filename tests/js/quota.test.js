@@ -16,7 +16,7 @@ const DISCONNECTED = {
 	daily_limit: 5,
 	daily_remaining: 0,
 	monthly_used: 0,
-	monthly_limit: 50,
+	monthly_limit: 15,
 	reset_date: null,
 };
 
@@ -66,10 +66,10 @@ describe( 'normalizeQuota', () => {
 		expect( out.daily_used ).toBe( 0 );
 	} );
 
-	test( 'monthly limit falls back total_limit -> monthly_limit -> 50', () => {
+	test( 'monthly limit falls back total_limit -> monthly_limit -> 15', () => {
 		expect( normalizeQuota( { total_limit: 100, monthly_limit: 200 } ).monthly_limit ).toBe( 100 );
 		expect( normalizeQuota( { monthly_limit: 200 } ).monthly_limit ).toBe( 200 );
-		expect( normalizeQuota( {} ).monthly_limit ).toBe( 50 );
+		expect( normalizeQuota( {} ).monthly_limit ).toBe( 15 );
 	} );
 
 	test( 'monthly_used derives from credits_remaining when credits_used is absent', () => {

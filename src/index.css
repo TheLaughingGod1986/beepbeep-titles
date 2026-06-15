@@ -94,10 +94,14 @@
   font-feature-settings: "ss01","cv11";
   -webkit-font-smoothing: antialiased;
   line-height: 1.5;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 #bbt-root button { font: inherit; color: inherit; }
 #bbt-root a      { color: var(--primary-ink); text-decoration: none; }
+#bbt-root pre,
+#bbt-root .mono { overflow-wrap: anywhere; }
 
 /* Premium placeholders */
 #bbt-root input::placeholder,
@@ -115,6 +119,17 @@
 /* Utility classes */
 .mono { font-family: var(--font-mono); font-feature-settings: "tnum","zero"; }
 .tnum { font-variant-numeric: tabular-nums; }
+
+/* ----------------------------------------------------------------
+   Logged-out dashboard micro-interactions (scoped to .bbt-audit so
+   dense connected screens are unaffected). Subtle, premium-SaaS only.
+   ---------------------------------------------------------------- */
+.bbt-audit .bbt-card { transition: transform .16s ease, box-shadow .16s ease, border-color .15s ease; }
+.bbt-audit .bbt-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.bbt-audit .bbt-card--locked:hover { box-shadow: 0 0 0 3px rgba(37,99,235,0.10), var(--shadow-md); border-color: var(--primary-border); }
+@media (prefers-reduced-motion: reduce) {
+  .bbt-audit .bbt-card:hover { transform: none; }
+}
 
 /* ----------------------------------------------------------------
    Pulse dot — ambient "active" indicator

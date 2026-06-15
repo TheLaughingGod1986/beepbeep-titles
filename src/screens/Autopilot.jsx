@@ -37,6 +37,16 @@ export const AutopilotScreen = ({ plan, settings, autoOptimise, onAutoToggle, on
     const [metaLen, setMetaLen]       = useState( settings?.meta_length  || 'standard' );
     const [instructions, setInstructions] = useState( settings?.custom_instructions || '' );
     const [saving, setSaving]         = useState( false );
+    const [scanDaily, setScanDaily]       = useState( settings?.scan_daily     ?? isPro );
+    const [weeklyDigest, setWeeklyDigest] = useState( settings?.weekly_digest  ?? isPro );
+    const [driftAlerts, setDriftAlerts]   = useState( settings?.drift_alerts   ?? false );
+
+    const toggleSchedule = async ( key, setter, value, toast ) => {
+        if ( !isPro ) { onUpgrade(); return; }
+        setter( value );
+        try { await saveSettings( { [key]: value } ); } catch ( e ) {}
+        if ( value && onToast ) onToast( toast );
+    };
 
     const preset = PRESETS.find( p => p.id === style );
     const previewTitle = trimToChars( preset.sampleTitle, TITLE_MAX[titleLen] );
@@ -109,9 +119,57 @@ export const AutopilotScreen = ({ plan, settings, autoOptimise, onAutoToggle, on
                     {saving ? 'Saving…' : 'Save changes'}
                 </Button>
             </div>
+
+            <SectionTitle eyebrow="Run on a schedule" title="Background work" subtitle="Optional Pro extras that keep your site SEO healthy without you opening BeepBeep Titles."/>
+
+            <Card padding={0} style={{ marginBottom: 14 }}>
+                <ScheduleRow
+                    icon="calendar"
+                    title="Daily site crawl"
+                    desc="Sweep your published pages every morning to catch anything with missing or weak titles & meta."
+                    on={isPro && scanDaily}
+                    locked={!isPro}
+                    onChange={() => toggleSchedule( 'scan_daily', setScanDaily, !scanDaily, { message: 'Daily crawl enabled', sub: 'BeepBeep Titles will sweep your pages every morning at 6 am.', icon: 'calendar', tone: 'ok' } )}
+                />
+                <Divider/>
+                <ScheduleRow
+                    icon="mail"
+                    title="Weekly digest email"
+                    desc="A Sunday health report: what was optimised, what needs review, coverage trend."
+                    on={isPro && weeklyDigest}
+                    locked={!isPro}
+                    onChange={() => toggleSchedule( 'weekly_digest', setWeeklyDigest, !weeklyDigest, { message: 'Weekly digest enabled', sub: 'Next report lands Sunday at 9 am.', icon: 'mail', tone: 'ok' } )}
+                />
+                <Divider/>
+                <ScheduleRow
+                    icon="bell"
+                    title="SEO drift alerts"
+                    desc="Notify when content updates make existing title & meta stale or off-topic."
+                    on={isPro && driftAlerts}
+                    locked={!isPro}
+                    onChange={() => toggleSchedule( 'drift_alerts', setDriftAlerts, !driftAlerts, { message: 'SEO drift alerts enabled', sub: 'Sample alert: 3 pages on /blog may be off-topic after recent edits.', icon: 'bell', tone: 'warn' } )}
+                />
+            </Card>
         </div>
     );
 };
+
+const ScheduleRow = ({ icon, title, desc, on, locked, onChange }) => (
+    <div style={{ padding: '13px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div style={{ width: 30, height: 30, borderRadius: 8, background: locked ? 'transparent' : on ? 'var(--ok-soft)' : 'var(--bg-sunken)', color: locked ? 'var(--text-3)' : on ? 'var(--ok-ink)' : 'var(--text-3)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: locked ? '1px solid var(--border)' : 'none' }}>
+            <Icon name={locked ? 'lock' : icon} size={14}/>
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: locked ? 'var(--text-2)' : 'var(--text)', lineHeight: 1.3 }}>{title}</span>
+                {locked && <Pill tone="neutral">Pro</Pill>}
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2, lineHeight: 1.45 }}>{desc}</div>
+        </div>
+        <Toggle on={on} disabled={locked} onChange={onChange}/>
+    </div>
+);
+
 
 const AutopilotHero = ({ isPro, on, onToggle, onUpgrade }) => {
     if ( !isPro ) {

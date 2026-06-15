@@ -59,7 +59,7 @@ export const Icon = ({ name, size = 16, strokeWidth = 1.75, className = '', styl
 export const Card = ({ children, className = '', style = {}, padding = 24, onClick }) => (
     <div
         onClick={onClick}
-        className={className}
+        className={`bbt-card${ className ? ' ' + className : '' }`}
         style={{
             background: 'var(--surface)',
             border: '1px solid var(--border)',
@@ -198,20 +198,24 @@ export const KBD = ({ children }) => (
     }}>{children}</kbd>
 );
 
-export const Tooltip = ({ children, content }) => {
+export const Tooltip = ({ children, content, placement = 'top' }) => {
     const [open, setOpen] = useState( false );
+    const position = placement === 'bottom'
+        ? { top: 'calc(100% + 6px)' }
+        : { bottom: 'calc(100% + 6px)' };
     return (
         <span style={{ position: 'relative', display: 'inline-flex' }}
             onMouseEnter={() => setOpen( true )} onMouseLeave={() => setOpen( false )}>
             {children}
             {open && (
                 <span style={{
-                    position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%',
+                    position: 'absolute', left: '50%',
                     transform: 'translateX(-50%)',
                     background: 'var(--text)', color: '#fff',
                     fontSize: 11, padding: '4px 8px', borderRadius: 6,
-                    whiteSpace: 'nowrap', zIndex: 50, fontWeight: 500,
+                    whiteSpace: 'nowrap', zIndex: 1000, fontWeight: 500,
                     pointerEvents: 'none',
+                    ...position,
                 }}>{content}</span>
             )}
         </span>

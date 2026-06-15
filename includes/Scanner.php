@@ -18,8 +18,6 @@ defined( 'ABSPATH' ) || exit;
 
 class Scanner {
 
-    private const POST_TYPES = [ 'page', 'post', 'product' ];
-
     /**
      * Unpublished statuses surfaced by the Library's Drafts tab so titles &
      * meta can be generated before a page goes live. Coverage stats stay
@@ -27,13 +25,39 @@ class Scanner {
      */
     private const DRAFT_STATUSES = [ 'draft', 'pending', 'future' ];
 
+    /**
+     * Post types BeepBeep Titles scans, reports on and auto-generates for.
+     *
+     * Defaults to every public post type (minus attachments) so page-builder
+     * landing pages, LMS courses, WooCommerce products and other CPTs are
+     * covered alongside core pages and posts. The dashboard, Library and
+     * autopilot all resolve their post-type set through here so they never
+     * drift apart.
+     *
+     * @return string[] Post type slugs.
+     */
+    public static function post_types(): array {
+        $types = get_post_types( [ 'public' => true ], 'names' );
+        unset( $types['attachment'] );
+        $types = array_values( $types );
+
+        /**
+         * Filter the post types BeepBeep Titles scans and auto-generates for.
+         *
+         * @param string[] $types Post type slugs.
+         */
+        $types = (array) apply_filters( 'bbt_scanned_post_types', $types );
+
+        return array_values( array_unique( array_filter( array_map( 'strval', $types ) ) ) );
+    }
+
     // ----------------------------------------------------------------
     // Paginated page list
     // ----------------------------------------------------------------
 
     public function get_pages( string $filter, string $search, int $page, int $per_page ): array {
         $args = [
-            'post_type'      => self::POST_TYPES,
+            'post_type'      => self::post_types(),
             'post_status'    => $filter === 'drafts' ? self::DRAFT_STATUSES : 'publish',
             'posts_per_page' => $per_page,
             'paged'          => max( 1, $page ),
@@ -129,7 +153,7 @@ class Scanner {
 
     private function compute_stats(): array {
         global $wpdb;
-        $types_in = "'" . implode( "','", array_map( 'esc_sql', self::POST_TYPES ) ) . "'";
+        $types_in = "'" . implode( "','", array_map( 'esc_sql', self::post_types() ) ) . "'";
 
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery
         $total = (int) $wpdb->get_var(

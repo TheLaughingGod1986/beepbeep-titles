@@ -98,7 +98,7 @@ class Plugin {
         if ( $post->post_status !== 'publish' ) {
             return;
         }
-        if ( ! in_array( $post->post_type, [ 'page', 'post', 'product' ], true ) ) {
+        if ( ! in_array( $post->post_type, Scanner::post_types(), true ) ) {
             return;
         }
 

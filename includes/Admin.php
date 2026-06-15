@@ -124,13 +124,13 @@ class Admin {
             /* Let our app control its own background + spacing */
             #wpwrap, #wpcontent { background: #F6F8FB; }
             #wpbody-content, #wpbody-content .wrap { overflow-x: hidden; }
-            /* Zero WP's default top content spacing so the sticky tab bar sits
-               flush under the admin bar with no white gap. (Horizontal full-bleed
-               is handled by #bbt-root's -20px side margins, so leave #wpcontent
-               padding-left intact.) */
+            /* Full-bleed: the sticky tab bar must sit flush under the admin bar.
+               WP renders admin notices / screen-meta ABOVE our mount point,
+               which created the white gap. Zero the wrapper spacing AND hide
+               anything WP injects above #bbt-root inside the content column. */
             #wpbody { padding-top: 0 !important; }
             #wpbody-content { padding-top: 0 !important; padding-bottom: 0 !important; }
-            #wpbody-content .wrap { margin: 0 !important; padding: 0 !important; }
+            #wpbody-content > :not(#bbt-root) { display: none !important; }
             #bbt-root { font-family: "Geist", "Helvetica Neue", system-ui, sans-serif; max-width: 100%; overflow-x: hidden; }
             /* Keep WP admin bar + sidebar unchanged */
         </style>

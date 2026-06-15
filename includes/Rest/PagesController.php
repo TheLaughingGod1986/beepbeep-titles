@@ -7,6 +7,7 @@
 
 namespace BeepBeep_Titles\Rest;
 
+use BeepBeep_Titles\ActivityLog;
 use BeepBeep_Titles\Api\Client;
 use BeepBeep_Titles\Scanner;
 use BeepBeep_Titles\Seo\MetaWriter;
@@ -58,10 +59,39 @@ class PagesController {
 
         if ( null !== $title || null !== $meta ) {
             MetaWriter::write( $post->ID, (string) $title, (string) $meta );
+            ActivityLog::record( $post->ID, 'edited' );
             $this->bust_stats();
         }
 
         return new \WP_REST_Response( ( new Scanner() )->format_post( get_post( $post->ID ) ) );
+    }
+
+    /**
+     * Recent optimisation events for the Dashboard's "Latest improvements"
+     * strip. Each event carries a precomputed human-friendly "ago" string so
+     * the client renders without re-deriving relative time.
+     */
+    public function get_activity( \WP_REST_Request $req ): \WP_REST_Response {
+        $limit  = (int) $req->get_param( 'limit' );
+        $now    = time();
+        $events = array_map(
+            static function ( array $e ) use ( $now ): array {
+                $time = (int) ( $e['time'] ?? 0 );
+                return [
+                    'post_id' => (int) ( $e['post_id'] ?? 0 ),
+                    'title'   => (string) ( $e['title'] ?? '' ),
+                    'kind'    => (string) ( $e['kind'] ?? 'edited' ),
+                    'time'    => $time,
+                    'ago'     => $time > 0
+                        /* translators: %s: human-readable time difference, e.g. "5 mins". */
+                        ? sprintf( __( '%s ago', 'beepbeep-titles' ), human_time_diff( $time, $now ) )
+                        : '',
+                ];
+            },
+            ActivityLog::recent( $limit > 0 ? $limit : 8 )
+        );
+
+        return new \WP_REST_Response( [ 'events' => $events ] );
     }
 
     public function run_scan( \WP_REST_Request $req ): \WP_REST_Response {

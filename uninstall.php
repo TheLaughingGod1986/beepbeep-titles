@@ -27,6 +27,7 @@ $bbt_options = [
     'bbt_settings',
     'bbt_seo_plugin',
     'bbt_last_scan',
+    'bbt_activity',
     'bbt_db_version',
 ];
 foreach ( $bbt_options as $bbt_option ) {

@@ -25,7 +25,7 @@ const useCountUp = ( target, { duration = 900, decimals = 0 } = {} ) => {
     return value;
 };
 
-export const Dashboard = ({ quota, stats, queuePages, autoOptimise, onAutoToggle, onGenerate, onUpgrade, onView }) => {
+export const Dashboard = ({ quota, stats, activity, queuePages, autoOptimise, onAutoToggle, onGenerate, onUpgrade, onView }) => {
     const plan = quota?.plan || 'free';
     const dailyUsed = quota?.daily_used || 0;
     const dailyLimit = quota?.daily_limit || QUOTA_DEFAULTS.daily_limit;
@@ -83,7 +83,7 @@ export const Dashboard = ({ quota, stats, queuePages, autoOptimise, onAutoToggle
             </div>
 
             <LibraryCoverageCard total={total} optimised={optimised}/>
-            <ActivityStrip onView={onView} newSince={newSince}/>
+            <ActivityStrip onView={onView} newSince={newSince} activity={activity}/>
             <FooterMetrics
                 streak={streak}
                 dailyUsed={dailyUsed}
@@ -366,10 +366,21 @@ const SmallToggle = ({ on, onChange, disabled }) => (
     </button>
 );
 
-const ActivityStrip = ({ onView, newSince }) => {
+const ACTIVITY_KINDS = {
+    generated: { icon: 'sparkles', tone: 'primary', verb: 'Generated title & meta for' },
+    auto:      { icon: 'zap',      tone: 'ok',      verb: 'Autopilot optimised' },
+    edited:    { icon: 'edit',     tone: 'primary', verb: 'Edited' },
+};
+
+const ActivityStrip = ({ onView, newSince, activity }) => {
+    const real = ( activity || [] ).map( ( e ) => {
+        const kind  = ACTIVITY_KINDS[ e.kind ] || ACTIVITY_KINDS.edited;
+        const title = e.title?.trim() || 'Untitled';
+        return { time: e.ago || '', icon: kind.icon, tone: kind.tone, text: `${kind.verb} “${title}”`, action: null };
+    } );
     const events = [
         ...(newSince > 0 ? [{ time: 'Just now', icon: 'upload', tone: 'warn', text: `${newSince} new page${newSince === 1 ? '' : 's'} detected`, action: 'Review', onAction: () => onView && onView( 'library' ) }] : []),
-        { time: 'Earlier', icon: 'sparkles', tone: 'primary', text: 'Pages improved · coverage increased', action: null },
+        ...real,
     ];
     return (
         <div style={{ marginTop: 22, borderTop: '1px solid var(--hairline)', paddingTop: 14 }}>
@@ -377,6 +388,9 @@ const ActivityStrip = ({ onView, newSince }) => {
                 <span style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Latest improvements</span>
             </div>
             <div>
+                {events.length === 0 && (
+                    <div style={{ fontSize: 12.5, color: 'var(--text-3)', padding: '4px 0' }}>No improvements yet — generate titles & meta to see activity here.</div>
+                )}
                 {events.map( ( e, i ) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '4px 0', borderTop: i ? '1px solid var(--hairline)' : 'none' }}>
                         <div style={{ width: 16, height: 16, borderRadius: 999, background: e.tone === 'ok' ? 'var(--ok-soft)' : e.tone === 'warn' ? 'var(--warn-soft)' : 'var(--primary-soft)', color: e.tone === 'ok' ? 'var(--ok-ink)' : e.tone === 'warn' ? 'var(--warn-ink)' : 'var(--primary-ink)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>

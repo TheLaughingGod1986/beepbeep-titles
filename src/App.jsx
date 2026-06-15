@@ -7,7 +7,7 @@ import { SettingsScreen } from './screens/Settings';
 import { AuditSignedOutScreen } from './screens/Audit';
 import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal, ConnectModal } from './modals/index';
 import { SignOutConfirm } from './auth';
-import { getInitialData, fetchQuota, fetchPages, runScan, normalizeQuota, createCheckout, createBillingPortal, clearLicense, saveSettings } from './api';
+import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, createCheckout, createBillingPortal, clearLicense, saveSettings } from './api';
 import { paywallTrigger, errorToast } from './errors';
 import { hasDailyCap } from './quota';
 import { usePaywallGate } from './hooks/usePaywallGate';
@@ -21,6 +21,7 @@ export default function App() {
     const [quota, setQuota]   = useState( initial.quota );
     const [settings, setSettings] = useState( initial.settings );
     const [stats, setStats]   = useState( null );
+    const [activity, setActivity] = useState( [] );
     const [queuePages, setQueuePages] = useState( [] );
     const [autoOptimise, setAutoOptimise] = useState( initial.settings?.auto_generate ?? false );
     const [connected, setConnected] = useState( initial.connected );
@@ -68,6 +69,7 @@ export default function App() {
         refreshQuota();
         loadQueuePages();
         loadStats();
+        loadActivity();
 
         // Returning from Stripe checkout?
         const params  = new URLSearchParams( window.location.search );
@@ -145,7 +147,21 @@ export default function App() {
                 streak:              0,
             } );
         } catch ( e ) {
-            setStats( { total: 0, optimised: 0, needs_attention: 0, missing_title: 0, missing_meta: 0, coverage: 0, new_since_last_visit: 0, streak: 0 } );
+            // A failed request must NOT render as real zeros — "0% coverage, 0
+            // needing" is indistinguishable from "all optimised" and hides
+            // pages that need work. Keep the last known figures and surface the
+            // failure instead of silently overwriting with zeros.
+            setStats( prev => prev ?? { total: 0, optimised: 0, needs_attention: 0, missing_title: 0, missing_meta: 0, coverage: 0, new_since_last_visit: 0, streak: 0 } );
+            setToast( { message: 'Couldn’t refresh your library stats', sub: 'Showing the last known figures — check your connection and try again.', icon: 'alert', tone: 'warn' } );
+        }
+    };
+
+    const loadActivity = async () => {
+        try {
+            const res = await fetchActivity( { limit: 8 } );
+            setActivity( res.events || [] );
+        } catch ( e ) {
+            setActivity( [] );
         }
     };
 
@@ -203,6 +219,7 @@ export default function App() {
         setToast( { message: `${ n } page${ n === 1 ? '' : 's' } improved`, sub: 'Title & meta descriptions are live in your site.', icon: 'sparkles', tone: 'ok' } );
         loadQueuePages();
         loadStats();
+        loadActivity();
         refreshQuota();
     };
 
@@ -262,6 +279,7 @@ export default function App() {
             const result = await runScan();
             await loadQueuePages();
             await loadStats();
+            await loadActivity();
             return result;
         } catch ( e ) {
             return null;
@@ -278,6 +296,7 @@ export default function App() {
                 <Dashboard
                     quota={quota}
                     stats={stats}
+                    activity={activity}
                     queuePages={queuePages}
                     autoOptimise={autoOptimise}
                     onAutoToggle={handleAutoToggle}

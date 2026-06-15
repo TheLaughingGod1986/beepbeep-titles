@@ -137,6 +137,7 @@ class Plugin {
         }
 
         MetaWriter::write( $post_id, (string) ( $result['title'] ?? '' ), (string) ( $result['meta'] ?? '' ) );
+        ActivityLog::record( $post_id, 'auto' );
         delete_transient( 'bbt_stats' );
     }
 

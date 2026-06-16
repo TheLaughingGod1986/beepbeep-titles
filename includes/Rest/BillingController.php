@@ -128,6 +128,15 @@ class BillingController {
         return new \WP_REST_Response( $result, 200 );
     }
 
+    /** Proxy the backend billing-health probe for the admin diagnostics page. */
+    public function billing_health( \WP_REST_Request $req ): \WP_REST_Response {
+        $result = $this->client->billing_health();
+        if ( is_wp_error( $result ) ) {
+            return ErrorResponder::from_wp_error( $result );
+        }
+        return new \WP_REST_Response( $result, 200 );
+    }
+
     public function billing_checkout( \WP_REST_Request $req ): \WP_REST_Response {
         $price_id = (string) $req->get_param( 'price_id' );
         $plan     = (string) $req->get_param( 'plan' );

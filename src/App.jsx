@@ -3,6 +3,7 @@ import { WPChrome } from './chrome';
 import { Dashboard } from './screens/Dashboard';
 import { PagesLibrary } from './screens/Library';
 import { AutopilotScreen } from './screens/Autopilot';
+import { BillingScreen } from './screens/Billing';
 import { SettingsScreen } from './screens/Settings';
 import { AuditSignedOutScreen } from './screens/Audit';
 import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal, ConnectModal } from './modals/index';
@@ -12,6 +13,7 @@ import { paywallTrigger, errorToast, checkoutErrorToast, classifyCheckoutError }
 import { hasDailyCap } from './quota';
 import { usePaywallGate } from './hooks/usePaywallGate';
 import { resolveAllowedTab } from './navigation';
+import { recordCheckoutAttempt, recordCheckoutSuccess, recordCheckoutFailure } from './billingTelemetry';
 
 // Checkout opens Stripe in a new tab, so the success return is a fresh page
 // load that doesn't know which plan was bought. We stash the intent in
@@ -36,6 +38,7 @@ const clearPendingCheckout = () => { try { localStorage.removeItem( PENDING_CHEC
 
 export default function App() {
     const initial = getInitialData();
+    const isAdmin = !! initial.isAdmin;
 
     const [tab, setTab]       = useState( 'dashboard' );
     const [user, setUser]     = useState( initial.user );
@@ -64,7 +67,7 @@ export default function App() {
     };
 
     const selectTab = ( nextTab ) => {
-        setTab( resolveAllowedTab( nextTab, connected ) );
+        setTab( resolveAllowedTab( nextTab, connected, { isAdmin } ) );
     };
 
     const handleSignOut = async () => {
@@ -109,6 +112,7 @@ export default function App() {
                         price_id:      pending?.price_id,
                         source_screen: tab,
                     } );
+                    recordCheckoutSuccess( { plan: pending?.plan || q.plan || null, priceId: pending?.price_id } );
                 }
                 clearPendingCheckout();
             } );
@@ -140,7 +144,7 @@ export default function App() {
     // Signed-out users can only view Home. This also catches any stale tab
     // state after sign-out or failed entitlement refreshes.
     useEffect( () => {
-        setTab( current => resolveAllowedTab( current, connected ) );
+        setTab( current => resolveAllowedTab( current, connected, { isAdmin } ) );
     }, [connected] );
 
     const refreshQuota = async () => {
@@ -328,10 +332,14 @@ export default function App() {
                 // plan on return (localStorage survives the new-tab round-trip).
                 track( 'checkout_started', { ...funnel, checkout_url_present: true } );
                 persistPendingCheckout( args.plan, args.priceId );
+                recordCheckoutAttempt( { plan: args.plan, priceId: args.priceId } );
                 track( 'checkout_redirected', { ...funnel, checkout_url_present: true } );
             },
             // Never suppressed — license/quota failures are tracked too.
-            onFailed: ( reason ) => track( 'checkout_failed', { ...funnel, ...classifyCheckoutError( reason ) } ),
+            onFailed: ( reason ) => {
+                track( 'checkout_failed', { ...funnel, ...classifyCheckoutError( reason ) } );
+                recordCheckoutFailure( { plan: args.plan, priceId: args.priceId, reason } );
+            },
         } );
     };
 
@@ -419,6 +427,18 @@ export default function App() {
                 />
             );
             break;
+        case 'billing':
+            // Admin-only diagnostics. Guard in render too (not just nav) so a
+            // stale/forced tab can't expose it to non-admins.
+            body = isAdmin ? (
+                <BillingScreen
+                    quota={quota}
+                    initial={initial}
+                    onRefreshQuota={refreshQuota}
+                    onToast={setToast}
+                />
+            ) : null;
+            break;
     }
 
     return (
@@ -429,6 +449,7 @@ export default function App() {
                 plan={plan}
                 user={menuUser}
                 connected={connected}
+                isAdmin={isAdmin}
                 onSignOut={() => setSignOutOpen( true )}
                 onHelp={() => setHelpOpen( true )}
                 onConnect={() => openConnect( 'register' )}

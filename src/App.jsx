@@ -45,6 +45,7 @@ export default function App() {
     const [quota, setQuota]   = useState( initial.quota );
     const [settings, setSettings] = useState( initial.settings );
     const [stats, setStats]   = useState( null );
+    const [quotaReady, setQuotaReady] = useState( false );
     const [activity, setActivity] = useState( [] );
     const [queuePages, setQueuePages] = useState( [] );
     const [autoOptimise, setAutoOptimise] = useState( initial.settings?.auto_generate ?? false );
@@ -154,6 +155,7 @@ export default function App() {
             setConnected( !! q.connected );
             return q;
         } catch ( e ) { return null; }
+        finally { setQuotaReady( true ); }
     };
 
     // Push fresh entitlement_state (from a /generate response) into quota.
@@ -368,6 +370,7 @@ export default function App() {
             body = connected ? (
                 <Dashboard
                     quota={quota}
+                    quotaReady={quotaReady}
                     stats={stats}
                     activity={activity}
                     queuePages={queuePages}

@@ -35,6 +35,13 @@ class Plugin {
         // Auto-generate on publish (Pro feature; gated by setting + backend).
         add_action( 'save_post', [ $this, 'maybe_auto_generate' ], 20, 3 );
 
+        // Keep the cached stats (Home's "Today's Pass") in step with the live
+        // Library: any publish/unpublish/trash changes the counts, so bust the
+        // transient on status transitions and deletes — not just when Autopilot
+        // happens to run. Without this the dashboard reads up to 15 min stale.
+        add_action( 'transition_post_status', [ $this, 'invalidate_stats_on_transition' ], 10, 3 );
+        add_action( 'deleted_post', [ $this, 'invalidate_stats_on_delete' ], 10, 1 );
+
         // Surface deferred admin notices (e.g. auto-generate failures).
         add_action( 'admin_notices', [ $this, 'render_admin_notices' ] );
     }
@@ -141,6 +148,36 @@ class Plugin {
 
         MetaWriter::write( $post_id, (string) ( $result['title'] ?? '' ), (string) ( $result['meta'] ?? '' ) );
         ActivityLog::record( $post_id, 'auto' );
+        delete_transient( 'bbt_stats' );
+    }
+
+    /**
+     * Bust the cached stats when a scanned post enters or leaves 'publish'
+     * (new post published, draft → publish, publish → trash, etc.). Anything
+     * that doesn't touch the published set leaves the counts unchanged.
+     */
+    public function invalidate_stats_on_transition( string $new_status, string $old_status, \WP_Post $post ): void {
+        if ( $new_status === $old_status ) {
+            return;
+        }
+        if ( $new_status !== 'publish' && $old_status !== 'publish' ) {
+            return;
+        }
+        if ( ! in_array( $post->post_type, Scanner::post_types(), true ) ) {
+            return;
+        }
+        delete_transient( 'bbt_stats' );
+    }
+
+    /** Permanently deleting a published, scanned post lowers the counts. */
+    public function invalidate_stats_on_delete( int $post_id ): void {
+        $post = get_post( $post_id );
+        if ( ! $post || $post->post_status !== 'publish' ) {
+            return;
+        }
+        if ( ! in_array( $post->post_type, Scanner::post_types(), true ) ) {
+            return;
+        }
         delete_transient( 'bbt_stats' );
     }
 

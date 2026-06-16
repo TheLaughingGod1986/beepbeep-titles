@@ -193,6 +193,16 @@ export async function createBillingPortal() {
     return request( 'POST', '/billing/portal', {} );
 }
 
+/** Current billing/subscription info for this account. */
+export async function fetchBillingInfo() {
+    return request( 'GET', '/billing/info' );
+}
+
+/** Admin-only "can checkout work right now?" probe. Resolves to { stripe, starter, pro, entitlements, timestamp }. */
+export async function fetchBillingHealth() {
+    return request( 'GET', '/billing/health' );
+}
+
 // ── Analytics ───────────────────────────────────────────────────────
 /**
  * Fire a PostHog event when the library is present on the page; no-op
@@ -230,6 +240,12 @@ export function getInitialData() {
         licenseAdopted: data.licenseAdopted ?? false,
         seoPlugin: data.seoPlugin ?? 'fallback',
         settings:  data.settings  ?? {},
+        isAdmin:   data.isAdmin   ?? false,
+        backendUrl: data.backendUrl ?? '',
+        wpVersion:  data.wpVersion  ?? '',
+        phpVersion: data.phpVersion ?? '',
+        version:    data.version    ?? '',
+        siteUrl:    data.siteUrl    ?? ( typeof window !== 'undefined' ? window.location?.origin : '' ),
         // Quota is fetched on mount; this is just a neutral placeholder so the
         // first render doesn't crash before /quota resolves.
         quota:     { plan: 'free', connected: data.connected ?? false },

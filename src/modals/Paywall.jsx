@@ -22,10 +22,12 @@ const fmtPrice = ( amount, currency = 'gbp' ) => {
 const fmtCount = ( n ) => ( typeof n === 'number' ? n.toLocaleString() : n );
 
 /* ── Conversion-focused upgrade modal ──────────────────────────────────
-   Problem first → value → pricing (Pro dominant) → ROI → single primary
-   CTA → secondary links → social proof. Prices come live from the backend
-   /billing/plans catalog so they always match Stripe. */
-export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgrade, onBuyCredits }) => {
+   Problem → Solution → Upgrade. Scan issues + ROI/time-saving first → pricing
+   (Pro dominant) → big Starter→Pro comparison → one dynamic problem-framed CTA
+   ("Fix N SEO issues automatically") → trust → social proof. Alternative
+   purchase paths (Starter, credit pack) stay quiet so they never dilute the
+   primary CTA. Prices come live from /billing/plans so they always match Stripe. */
+export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgrade, onBuyCredits, sourceScreen }) => {
     const [plans, setPlans] = useState( null );
     const [showMore, setShowMore] = useState( false );
 
@@ -114,8 +116,23 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
         if ( planId === 'credits' && onBuyCredits ) { onBuyCredits(); return; }
         if ( onUpgrade ) onUpgrade();
     };
-    const onPro     = () => { track( 'titles_pro_cta_clicked', eventProps ); track( 'pro_cta_clicked', pricingProps( 'pro' ) ); checkout( 'pro' ); };
-    const onStarter = () => { track( 'titles_starter_link_clicked', eventProps ); track( 'starter_cta_clicked', pricingProps( 'starter' ) ); checkout( 'starter' ); };
+    // Canonical funnel event (kept alongside the legacy CTA events for compat).
+    // user_state here is auth-state (anonymous|authenticated), distinct from the
+    // plan-flavoured user_state the legacy pricing_* events carry.
+    const authState = ( entitlement || window.bbtData?.connected ) ? 'authenticated' : 'anonymous';
+    const upgradeProps = ( planId ) => {
+        const plan = ( plans || [] ).find( p => p.id === planId );
+        return {
+            ...pricingProps( planId ),
+            plan:             planId,
+            price_id:         plan?.priceId,
+            source_screen:    sourceScreen || 'modal',
+            source_component: 'upgrade_modal',
+            user_state:       authState,
+        };
+    };
+    const onPro     = () => { track( 'titles_pro_cta_clicked', eventProps ); track( 'pro_cta_clicked', pricingProps( 'pro' ) ); track( 'upgrade_clicked', upgradeProps( 'pro' ) ); checkout( 'pro' ); };
+    const onStarter = () => { track( 'titles_starter_link_clicked', eventProps ); track( 'starter_cta_clicked', pricingProps( 'starter' ) ); track( 'upgrade_clicked', upgradeProps( 'starter' ) ); checkout( 'starter' ); };
     const onCredits = () => { track( 'titles_credit_pack_clicked', eventProps ); checkout( 'credits' ); };
 
     const showScanGaps = ( missingTitles !== null || missingMeta !== null )
@@ -165,52 +182,97 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
                     <Icon name="x" size={14}/>
                 </button>
 
-                {/* ── Section 1: Problem first ── */}
-                <div className="bbt-pw__section" style={{ padding: '40px 40px 8px' }}>
-                    <h2 style={{ fontSize: 26, fontWeight: 600, letterSpacing: '-0.025em', lineHeight: 1.15, margin: '0 0 10px', maxWidth: 520 }}>
-                        Fix missing SEO metadata in minutes
+                {/* ── Section 1: Headline → Issue Summary → SEO Impact → CTA (above the fold) ── */}
+                <div className="bbt-pw__section" style={{ padding: '36px 40px 4px' }}>
+                    <h2 style={{ fontSize: 25, fontWeight: 600, letterSpacing: '-0.025em', lineHeight: 1.15, margin: '0 0 8px', maxWidth: 560 }}>
+                        {showScanGaps ? 'We found SEO issues on your site' : 'Fix missing SEO metadata in minutes'}
                     </h2>
-                    <p style={{ fontSize: 15, color: 'var(--text-2)', lineHeight: 1.55, margin: '0 0 20px', maxWidth: 560 }}>
-                        Automatically generate SEO-optimised titles and meta descriptions for your pages, posts and WooCommerce products.
+                    <p style={{ fontSize: 14.5, color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 16px', maxWidth: 580 }}>
+                        {showScanGaps
+                            ? <>Some pages are missing SEO metadata, which may reduce visibility in Google Search. Fix every detected issue automatically — <strong style={{ color: 'var(--text)', fontWeight: 600 }}>in under 60 seconds</strong>.</>
+                            : <>Many WordPress pages are missing the titles and meta descriptions search engines rely on. BeepBeep generates them automatically and fixes your whole site in under 60 seconds.</> }
                     </p>
 
-                    {showScanGaps ? (
-                        <div style={{ borderRadius: R, border: '1px solid var(--warn-border)', background: 'var(--warn-soft)', padding: '16px 18px', marginBottom: 18 }}>
-                            <div style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--warn-ink)', marginBottom: 10 }}>Your site scan found</div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                    {showScanGaps && (
+                        <div style={{ borderRadius: R, border: '1px solid var(--warn-border)', background: 'var(--warn-soft)', padding: '14px 16px', marginBottom: 14 }}>
+                            {/* Issue count — the primary visual conversion anchor */}
+                            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 12 }}>
+                                <span className="mono tnum" style={{ fontSize: 30, fontWeight: 700, color: 'var(--warn-ink)', letterSpacing: '-0.02em', lineHeight: 1 }}>{fmtCount( totalIssues )}</span>
+                                <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--warn-ink)' }}>SEO {issuePlural} Detected</span>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                                 {( missingTitles || 0 ) > 0 && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 14, color: 'var(--text)' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--text)', background: 'var(--surface)', border: '1px solid var(--warn-border)', borderRadius: 10, padding: '9px 11px' }}>
                                         <Icon name="alert" size={15} style={{ color: 'var(--warn-ink)', flexShrink: 0 }}/>
-                                        <span><span className="mono tnum" style={{ fontWeight: 600 }}>{fmtCount( missingTitles )}</span> pages missing titles</span>
+                                        <span><span className="mono tnum" style={{ fontWeight: 700 }}>{fmtCount( missingTitles )}</span> pages missing SEO titles</span>
                                     </div>
                                 )}
                                 {( missingMeta || 0 ) > 0 && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 14, color: 'var(--text)' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--text)', background: 'var(--surface)', border: '1px solid var(--warn-border)', borderRadius: 10, padding: '9px 11px' }}>
                                         <Icon name="alert" size={15} style={{ color: 'var(--warn-ink)', flexShrink: 0 }}/>
-                                        <span><span className="mono tnum" style={{ fontWeight: 600 }}>{fmtCount( missingMeta )}</span> pages missing meta descriptions</span>
+                                        <span><span className="mono tnum" style={{ fontWeight: 700 }}>{fmtCount( missingMeta )}</span> pages missing meta descriptions</span>
                                     </div>
                                 )}
                             </div>
-                            <div style={{ fontSize: 13.5, color: 'var(--text-2)', marginTop: 12 }}>BeepBeep Titles Pro can fix these automatically.</div>
-                        </div>
-                    ) : (
-                        <div style={{ borderRadius: R, border: '1px solid var(--border)', background: 'var(--surface-2)', padding: '16px 18px', marginBottom: 18 }}>
-                            <p style={{ fontSize: 13.5, color: 'var(--text-2)', lineHeight: 1.55, margin: 0 }}>
-                                Many WordPress sites are missing titles and meta descriptions that help search engines understand content. Generate them automatically with BeepBeep Titles Pro.
+                            {/* SEO impact — subtle, non-alarmist */}
+                            <p style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12.5, color: 'var(--warn-ink)', lineHeight: 1.45, margin: '12px 0 0' }}>
+                                <Icon name="trend" size={15} strokeWidth={2.2} style={{ flexShrink: 0, marginTop: 1 }}/>
+                                <span>Pages without titles and descriptions may not appear optimally in Google Search, lowering click-through and making your content harder to rank.</span>
                             </p>
                         </div>
                     )}
 
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 20px' }}>
+                    {/* ── Primary action — problem-framed dynamic CTA, kept above the fold ── */}
+                    <Button variant="pro" size="lg" full icon="zap" onClick={onPro} disabled={!proAvailable} style={{ paddingTop: 15, paddingBottom: 15, fontSize: 16 }}>
+                        {!proAvailable
+                            ? 'Pro temporarily unavailable'
+                            : totalIssues > 0
+                                ? `Fix All ${fmtCount( totalIssues )} SEO ${issuePlural} Now`
+                                : `Fix My SEO Issues Automatically · ${proPrice}/month` }
+                    </Button>
+                    <p style={{ textAlign: 'center', fontSize: 12.5, color: 'var(--text-3)', margin: '8px 0 0', lineHeight: 1.5 }}>
+                        {!proAvailable
+                            ? 'This plan is being updated. Please try again shortly or contact support.'
+                            : totalIssues > 0
+                                ? `Upgrade to Pro and generate the missing metadata now · ${proPrice}/month`
+                                : `Upgrade to Pro and generate missing metadata across your site · ${proPrice}/month` }
+                    </p>
+
+                    {/* Checkout confidence signals — right beside the button */}
+                    <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '6px 16px', margin: '12px 0 0', fontSize: 11.5, color: 'var(--text-3)' }}>
                         {trust.map( ( t, i ) => (
-                            <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--ok-ink)', fontWeight: 500 }}>
-                                <Icon name="check" size={13} strokeWidth={2.6}/> {t}
+                            <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                                <Icon name="check" size={12} strokeWidth={2.6} style={{ color: 'var(--ok-ink)' }}/> {t}
                             </span>
                         ) )}
                     </div>
                 </div>
 
-                {/* ── Section 2: Pricing (Pro dominant) ── */}
+                {/* ── Section 2: Benefits + time-saving comparison ── */}
+                <div className="bbt-pw__section" style={{ padding: '20px 40px 4px' }}>
+                    <div style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-3)', margin: '0 0 10px' }}>Why upgrade?</div>
+                    <div className="bbt-pw__why" style={{ marginBottom: 14 }}>
+                        {why.map( ( t, i ) => (
+                            <span key={i} style={{ display: 'inline-flex', alignItems: 'flex-start', gap: 8, fontSize: 13, color: 'var(--text-2)', fontWeight: 500, lineHeight: 1.4 }}>
+                                <Icon name="check" size={14} strokeWidth={2.6} style={{ color: 'var(--ok-ink)', flexShrink: 0, marginTop: 1 }}/> {t}
+                            </span>
+                        ) )}
+                    </div>
+
+                    {/* Manual vs BeepBeep — the time-saving punchline */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, borderRadius: R, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                        <div style={{ padding: '12px 16px', background: 'var(--surface-2)', borderRight: '1px solid var(--border)' }}>
+                            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 4 }}>Manual optimisation</div>
+                            <div style={{ fontSize: 14, color: 'var(--text-2)', fontWeight: 600 }}>100 pages = 2–4 hours</div>
+                        </div>
+                        <div style={{ padding: '12px 16px', background: 'var(--ok-soft)' }}>
+                            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--ok-ink)', marginBottom: 4 }}>BeepBeep AI</div>
+                            <div style={{ fontSize: 14, color: 'var(--ok-ink)', fontWeight: 700 }}>100 pages = under 2 minutes</div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* ── Section 3: Pricing (Pro dominant) ── */}
                 <div className="bbt-pw__section" style={{ padding: '22px 40px 4px' }}>
                     <div className="bbt-pw__plans">
                         {/* Free — current plan, intentionally quietest (trial tier) */}
@@ -224,14 +286,13 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
                             </div>
                         </div>
 
-                        {/* Starter — legitimate lower-friction entry point */}
-                        <div className="bbt-pw__plan bbt-pw__plan--starter" style={{ border: '1px solid var(--primary-border)', background: 'var(--surface)', position: 'relative' }}>
-                            <div style={{ position: 'absolute', top: -10, left: 16, background: 'var(--primary-soft)', color: 'var(--primary-ink)', border: '1px solid var(--primary-border)', fontSize: 9.5, fontWeight: 700, padding: '3px 8px', borderRadius: 999, letterSpacing: '0.04em' }}>MOST POPULAR</div>
+                        {/* Starter — lower-friction entry point, deliberately quieter */}
+                        <div className="bbt-pw__plan bbt-pw__plan--starter" style={{ border: '1px solid var(--border)', background: 'var(--surface)', position: 'relative' }}>
+                            <div style={{ position: 'absolute', top: -10, left: 16, background: 'var(--bg-sunken)', color: 'var(--text-3)', border: '1px solid var(--border)', fontSize: 9.5, fontWeight: 700, padding: '3px 8px', borderRadius: 999, letterSpacing: '0.04em' }}>GOOD FOR SMALL SITES</div>
                             <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 8, marginTop: 4 }}>Starter</div>
                             <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.02em' }}>{starterPrice}<span style={{ fontSize: 12.5, color: 'var(--text-3)', fontWeight: 400 }}> /mo</span></div>
-                            <div style={{ fontSize: 11.5, color: 'var(--primary-ink)', fontWeight: 600, marginTop: 4 }}>Best balance of value and affordability</div>
                             <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                {[ `${ fmtCount( starterQuota ) } SEO generations every month`, 'No daily limits', 'Perfect for bloggers, freelancers and small business websites' ].map( ( f, i ) => (
+                                {[ `${ fmtCount( starterQuota ) } SEO generations every month`, 'No daily limits', 'Great for bloggers and small business sites' ].map( ( f, i ) => (
                                     <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.4 }}>
                                         <Icon name="check" size={12} strokeWidth={2.4} style={{ color: 'var(--text-3)', flexShrink: 0, marginTop: 2 }}/> {f}
                                     </div>
@@ -239,21 +300,19 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
                             </div>
                         </div>
 
-                        {/* Pro — dominant */}
-                        <div className="bbt-pw__plan bbt-pw__plan--pro" style={{ border: '2px solid var(--primary)', background: 'var(--surface)', boxShadow: '0 10px 30px rgba(0,0,0,0.08)', position: 'relative' }}>
-                            <div style={{ position: 'absolute', top: -11, left: 18, background: 'var(--primary)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 999, letterSpacing: '0.05em' }}>BEST VALUE</div>
+                        {/* Pro — dominant, recommended */}
+                        <div className="bbt-pw__plan bbt-pw__plan--pro" style={{ border: '2.5px solid var(--primary)', background: 'var(--surface)', boxShadow: '0 14px 36px rgba(37,99,235,0.18)', position: 'relative' }}>
+                            <div style={{ position: 'absolute', top: -12, left: 18, background: 'var(--primary)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 999, letterSpacing: '0.05em' }}>⭐ MOST POPULAR</div>
                             <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--primary-ink)', marginBottom: 8 }}>Pro</div>
-                            <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em' }}>{proPrice}<span style={{ fontSize: 13, color: 'var(--text-3)', fontWeight: 400 }}> /mo</span></div>
-                            <div style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start', background: 'var(--primary)', color: '#fff', borderRadius: 8, padding: '5px 9px', fontSize: 11, fontWeight: 600, lineHeight: 1.25 }}>
+                            <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em' }}>{proPrice}<span style={{ fontSize: 13, color: 'var(--text-3)', fontWeight: 400 }}> /mo</span></div>
+                            <div style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start', background: 'var(--primary)', color: '#fff', borderRadius: 8, padding: '5px 10px', fontSize: 11.5, fontWeight: 700, lineHeight: 1.25 }}>
                                 <Icon name="trend" size={12} strokeWidth={2.4}/>
-                                {capacityMult}× more generations for only {monthlyExtra} extra / month
+                                For only {monthlyExtra} more than Starter
                             </div>
-                            <div style={{ fontSize: 11.5, color: 'var(--text-2)', fontWeight: 500, marginTop: 8, lineHeight: 1.4 }}>Ideal for agencies, growing websites and content-heavy sites</div>
                             <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 9 }}>
-                                <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)' }}>{fmtCount( proQuota )} SEO generations every month</div>
-                                {[ 'Auto-generate on publish', 'Bulk optimise your entire website', 'Fix hundreds of pages in minutes', 'Shared across all BeepBeep plugins', 'Priority processing' ].map( ( f, i ) => (
-                                    <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12.5, color: 'var(--text)' }}>
-                                        <Icon name="check" size={12} strokeWidth={2.6} style={{ color: 'var(--primary-ink)', flexShrink: 0 }}/> {f}
+                                {[ `${ capacityMult }× more SEO generations (${ fmtCount( proQuota ) }/mo)`, 'Auto-generate SEO metadata on publish', 'Bulk optimise your entire website', 'Priority processing', 'Shared across all BeepBeep plugins' ].map( ( f, i ) => (
+                                    <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12.5, color: 'var(--text)', fontWeight: i === 0 ? 600 : 500, lineHeight: 1.4 }}>
+                                        <Icon name="check" size={13} strokeWidth={2.6} style={{ color: 'var(--primary-ink)', flexShrink: 0, marginTop: 1 }}/> {f}
                                     </div>
                                 ) )}
                             </div>
@@ -261,79 +320,58 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
                     </div>
                 </div>
 
-                {/* ── Section 3: Starter → Pro comparison banner ── */}
+                {/* ── Section 3: Starter → Pro comparison banner (large, visual) ── */}
                 <div className="bbt-pw__section" style={{ padding: '20px 40px 4px' }}>
-                    <div style={{ borderRadius: R, background: 'var(--primary-soft)', border: '1px solid var(--primary-border)', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 18, flexWrap: 'wrap' }}>
+                    <div style={{ borderRadius: R, background: 'var(--primary-soft)', border: '1px solid var(--primary-border)', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 22, flexWrap: 'wrap' }}>
                         <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Starter</div>
-                            <div style={{ fontSize: 14, color: 'var(--text-2)', fontWeight: 600 }}>{fmtCount( starterQuota )} generations · {starterPrice}/mo</div>
+                            <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Starter</div>
+                            <div className="mono tnum" style={{ fontSize: 26, color: 'var(--text-2)', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.1 }}>{fmtCount( starterQuota )}</div>
+                            <div style={{ fontSize: 11.5, color: 'var(--text-3)', fontWeight: 500 }}>generations · {starterPrice}/mo</div>
                         </div>
-                        <Icon name="arrow-right" size={18} style={{ color: 'var(--primary-ink)' }}/>
+                        <Icon name="arrow-right" size={26} strokeWidth={2.4} style={{ color: 'var(--primary)' }}/>
                         <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: 11, color: 'var(--primary-ink)', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Pro</div>
-                            <div style={{ fontSize: 14, color: 'var(--text)', fontWeight: 600 }}>{fmtCount( proQuota )} generations · {proPrice}/mo</div>
+                            <div style={{ fontSize: 10.5, color: 'var(--primary-ink)', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Pro</div>
+                            <div className="mono tnum" style={{ fontSize: 34, color: 'var(--primary-ink)', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.1 }}>{fmtCount( proQuota )}</div>
+                            <div style={{ fontSize: 11.5, color: 'var(--primary-ink)', fontWeight: 500 }}>generations · {proPrice}/mo</div>
                         </div>
                         <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: 12.5, fontWeight: 700, color: '#fff', background: 'var(--primary)', borderRadius: 999, padding: '4px 12px' }}>{capacityMult}× more optimisation capacity</div>
-                            <div style={{ fontSize: 11.5, color: 'var(--primary-ink)', fontWeight: 600, marginTop: 6 }}>Only {monthlyExtra} more per month</div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', background: 'var(--primary)', borderRadius: 999, padding: '5px 14px' }}>{capacityMult}× more optimisation</div>
+                            <div style={{ fontSize: 12, color: 'var(--primary-ink)', fontWeight: 700, marginTop: 6 }}>Only {monthlyExtra} more per month</div>
                         </div>
                     </div>
                 </div>
 
-                {/* ── Section 4 + 5: Dual CTAs (Pro primary, Starter real secondary) ── */}
+                {/* ── Section 4: Secondary actions — quieter Starter + credit top-up ── */}
                 <div className="bbt-pw__section" style={{ padding: '20px 40px 0' }}>
-                    {/* Closing value statement */}
-                    <p style={{ textAlign: 'center', fontSize: 13.5, color: 'var(--text-2)', margin: '0 0 12px', lineHeight: 1.5 }}>
-                        Generate SEO titles and meta descriptions in minutes instead of hours.
-                    </p>
-
-                    {/* Risk reduction */}
-                    <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '6px 16px', marginBottom: 14, fontSize: 11.5, color: 'var(--text-3)' }}>
-                        {['Secure Stripe checkout', 'Cancel anytime', 'No long-term contracts'].map( ( t, i ) => (
-                            <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                                <Icon name="check" size={12} strokeWidth={2.6} style={{ color: 'var(--ok-ink)' }}/> {t}
-                            </span>
-                        ) )}
-                    </div>
-
-                    <Button variant="pro" size="lg" full icon="crown" onClick={onPro} disabled={!proAvailable} style={{ paddingTop: 14, paddingBottom: 14, fontSize: 15 }}>
-                        {proAvailable ? `Get Pro · ${proPrice}/month` : 'Pro temporarily unavailable'}
-                    </Button>
-                    {!proAvailable && (
-                        <p style={{ textAlign: 'center', fontSize: 11.5, color: 'var(--text-3)', margin: '8px 0 0' }}>
-                            This plan is being updated. Please try again shortly or contact support.
-                        </p>
-                    )}
-
                     {starterPlan && (
-                        <>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '12px 0', color: 'var(--text-3)' }}>
-                                <span style={{ flex: 1, height: 1, background: 'var(--hairline)' }}/>
-                                <span style={{ fontSize: 11.5, fontWeight: 500 }}>or</span>
-                                <span style={{ flex: 1, height: 1, background: 'var(--hairline)' }}/>
-                            </div>
-                            <Button variant="secondary" size="md" full onClick={onStarter} disabled={!starterAvailable} style={{ background: 'var(--surface)', color: 'var(--primary-ink)', border: '1.5px solid var(--primary)', fontSize: 14 }}>
-                                {starterAvailable ? `Start with Starter · ${starterPrice}/month` : 'Starter temporarily unavailable'}
-                            </Button>
-                        </>
+                        <Button variant="secondary" size="md" full onClick={onStarter} disabled={!starterAvailable} style={{ background: 'var(--surface)', color: 'var(--text-2)', border: '1px solid var(--border-strong)', fontSize: 13.5 }}>
+                            {starterAvailable ? `Or start with Starter · ${starterPrice}/month` : 'Starter temporarily unavailable'}
+                        </Button>
                     )}
 
-                    {/* Credit pack — never competes with subscriptions */}
+                    {/* Secondary purchase paths tucked away so they never dilute the CTA */}
                     {creditsPlan && creditsAvailable && (
-                        <div style={{ textAlign: 'center', marginTop: 16, fontSize: 12.5, color: 'var(--text-3)', lineHeight: 1.5 }}>
-                            Need a one-off top-up?{' '}
-                            <button onClick={onCredits} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 12.5, color: 'var(--primary-ink)', fontWeight: 600 }}>
-                                Buy {fmtCount( creditsQuota )} credits for {creditsPrice}
+                        <div style={{ textAlign: 'center', marginTop: 14 }}>
+                            <button onClick={() => setShowMore( v => !v )} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 12, color: 'var(--text-3)', fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                More options <Icon name={showMore ? 'chevron-down' : 'chevron-right'} size={13} strokeWidth={2.2}/>
                             </button>
+                            {showMore && (
+                                <div style={{ marginTop: 10, fontSize: 12.5, color: 'var(--text-3)', lineHeight: 1.5 }}>
+                                    Need a one-off top-up?{' '}
+                                    <button onClick={onCredits} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 12.5, color: 'var(--primary-ink)', fontWeight: 600 }}>
+                                        Buy {fmtCount( creditsQuota )} credits for {creditsPrice}
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
 
-                {/* ── Section 6: Social proof ── */}
-                <div className="bbt-pw__section" style={{ padding: '20px 40px 32px', marginTop: 16, borderTop: '1px solid var(--hairline)', textAlign: 'center' }}>
+                {/* ── Section 5: Social proof ── */}
+                <div className="bbt-pw__section" style={{ padding: '18px 40px 32px', marginTop: 16, borderTop: '1px solid var(--hairline)', textAlign: 'center' }}>
                     <div aria-hidden="true" style={{ fontSize: 14, letterSpacing: 2, color: '#F59E0B', marginBottom: 6 }}>★★★★★</div>
                     <div style={{ fontSize: 12.5, color: 'var(--text-3)', lineHeight: 1.5, maxWidth: 460, margin: '0 auto' }}>
-                        Built specifically for WordPress SEO workflows. Used by bloggers, agencies and WooCommerce stores.
+                        Trusted by WordPress site owners, bloggers and WooCommerce stores to automate SEO optimisation.
                     </div>
                 </div>
             </div>

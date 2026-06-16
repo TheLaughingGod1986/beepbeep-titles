@@ -107,6 +107,9 @@ class Admin {
             'wpVersion'  => (string) $wp_version,
             'phpVersion' => PHP_VERSION,
             'version'    => BBT_VERSION,
+            // Admin-only billing diagnostics gating + environment display.
+            'isAdmin'    => current_user_can( 'manage_options' ),
+            'backendUrl' => BBT_API_BASE,
         ] );
     }
 

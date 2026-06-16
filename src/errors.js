@@ -17,6 +17,45 @@ export function isPaywall( err ) {
 }
 
 /**
+ * Map a backend/transport error code to a coarse category for funnel analysis,
+ * so the long tail of codes collapses into a handful of buckets in PostHog.
+ * Unknown/absent codes fall through to 'unknown' — never suppressed.
+ */
+const CHECKOUT_ERROR_CATEGORIES = {
+    INVALID_LICENSE:      'user_configuration',
+    QUOTA_EXCEEDED:       'quota',
+    DAILY_QUOTA_EXCEEDED: 'quota',
+    PLAN_UNAVAILABLE:     'plan_availability',
+    NETWORK_ERROR:        'network',
+    OFFLINE:              'network',
+    FETCH_FAILED:         'network',
+    STRIPE_ERROR:         'stripe',
+    INTERNAL_ERROR:       'system',
+    RATE_LIMIT_EXCEEDED:  'system',
+    API_ERROR:            'system',
+    UNKNOWN_ERROR:        'unknown',
+};
+
+/**
+ * Structured classification for a failed checkout, for the checkout_failed
+ * funnel event. Accepts an ApiError (thrown) or a non-error response body
+ * (a 200 with no usable url). Returns a code, a category, and a short sanitized
+ * message — never the raw object, never PII-laden detail.
+ *
+ * @param {{code?:string, message?:string, error?:string}|string} [reason]
+ * @returns {{ error_code:string, error_category:string, error_message:string }}
+ */
+export function classifyCheckoutError( reason ) {
+    const error_code = ( reason && ( reason.code || reason.error_code ) ) || 'UNKNOWN_ERROR';
+    const error_category = CHECKOUT_ERROR_CATEGORIES[ error_code ] || 'unknown';
+    const raw = typeof reason === 'string'
+        ? reason
+        : ( reason?.message || reason?.error || '' );
+    const error_message = String( raw ).replace( /\s+/g, ' ' ).trim().slice( 0, 300 );
+    return { error_code, error_category, error_message };
+}
+
+/**
  * Toast payload for a failed Stripe checkout / billing-portal launch.
  *
  * Unlike the generic errorToast, this surfaces the backend's actual message

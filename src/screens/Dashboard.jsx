@@ -25,7 +25,7 @@ const useCountUp = ( target, { duration = 900, decimals = 0 } = {} ) => {
     return value;
 };
 
-export const Dashboard = ({ quota, stats, activity, queuePages, autoOptimise, onAutoToggle, onGenerate, onUpgrade, onView }) => {
+export const Dashboard = ({ quota, quotaReady, stats, activity, queuePages, autoOptimise, onAutoToggle, onGenerate, onUpgrade, onView }) => {
     const plan = quota?.plan || 'free';
     const dailyUsed = quota?.daily_used || 0;
     const dailyLimit = quota?.daily_limit || QUOTA_DEFAULTS.daily_limit;
@@ -54,6 +54,7 @@ export const Dashboard = ({ quota, stats, activity, queuePages, autoOptimise, on
     return (
         <div style={{ padding: '24px 32px 48px', maxWidth: 1180, margin: '0 auto' }}>
             <TodaysPassHero
+                ready={quotaReady && stats != null}
                 queuePages={queuePages}
                 plan={plan}
                 dailyUsed={dailyUsed}
@@ -97,9 +98,15 @@ export const Dashboard = ({ quota, stats, activity, queuePages, autoOptimise, on
     );
 };
 
-const TodaysPassHero = ({ queuePages, plan, dailyUsed, dailyLimit, dailyRemaining, hasDailyLimit, monthlyRemaining, newSince, needsAttn, onGenerate, onUpgrade }) => {
-    const queueCount = Math.min( dailyRemaining, Math.min( needsAttn, 5 ), queuePages?.length || 0 );
+const TodaysPassHero = ({ ready = true, queuePages, plan, dailyUsed, dailyLimit, dailyRemaining, hasDailyLimit, monthlyRemaining, newSince, needsAttn, onGenerate, onUpgrade }) => {
+    const creditsRemaining = hasDailyLimit ? dailyRemaining : monthlyRemaining;
+    // Don't decide the pass state until quota + stats have loaded — otherwise the
+    // optimistic placeholder quota shows a queue that vanishes once the real
+    // (e.g. 0-credit) quota arrives, causing a flash.
+    const queueCount = ready ? Math.min( creditsRemaining, Math.min( needsAttn, 5 ), queuePages?.length || 0 ) : 0;
     const showQueue = queueCount > 0;
+    // "Out of credits with work still pending" is NOT the same as "caught up".
+    const outOfCredits = ready && ! showQueue && needsAttn > 0 && creditsRemaining <= 0;
     const [hover, setHover] = useState( false );
     const [pressed, setPressed] = useState( false );
 
@@ -137,11 +144,15 @@ const TodaysPassHero = ({ queuePages, plan, dailyUsed, dailyLimit, dailyRemainin
                         <span style={{ fontSize: 11, color: 'var(--primary-ink)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Today's pass</span>
                     </div>
                     <div style={{ fontSize: 19, fontWeight: 600, letterSpacing: '-0.015em', lineHeight: 1.3 }}>
-                        {showQueue
-                            ? newSince > 0
-                                ? <><span className="mono tnum">{newSince}</span> new page{newSince === 1 ? '' : 's'} detected since your last scan</>
-                                : <><span className="mono tnum">{queueCount}</span> pages ready for today's pass</>
-                            : <>Today's pass complete</>}
+                        {! ready
+                            ? <>Checking today's pass…</>
+                            : showQueue
+                                ? newSince > 0
+                                    ? <><span className="mono tnum">{newSince}</span> new page{newSince === 1 ? '' : 's'} detected since your last scan</>
+                                    : <><span className="mono tnum">{queueCount}</span> pages ready for today's pass</>
+                                : outOfCredits
+                                    ? <><span className="mono tnum">{needsAttn}</span> page{needsAttn === 1 ? '' : 's'} still need optimising</>
+                                    : <>Today's pass complete</>}
                     </div>
                 </div>
             </div>
@@ -162,6 +173,22 @@ const TodaysPassHero = ({ queuePages, plan, dailyUsed, dailyLimit, dailyRemainin
                         </div>
                     ) )}
                 </div>
+            ) : ! ready ? (
+                <div style={{ padding: '10px 20px 0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--surface-2)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)' }}>
+                        <span className="pulse-dot" style={{ width: 8, height: 8, background: 'var(--text-3)' }}/>
+                        <div style={{ flex: 1, fontSize: 13, color: 'var(--text-3)', lineHeight: 1.45 }}>Checking your library and credits…</div>
+                    </div>
+                </div>
+            ) : outOfCredits ? (
+                <div style={{ padding: '10px 20px 0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--warn-soft)', border: '1px solid var(--warn-border)', borderRadius: 'var(--r-md)' }}>
+                        <Icon name="alert" size={16} style={{ color: 'var(--warn-ink)' }}/>
+                        <div style={{ flex: 1, fontSize: 13, color: 'var(--warn-ink)', lineHeight: 1.45 }}>
+                            <strong>Out of credits.</strong> <span className="mono tnum">{needsAttn}</span> page{needsAttn === 1 ? '' : 's'} still need optimising — you've used all your credits this billing cycle.
+                        </div>
+                    </div>
+                </div>
             ) : (
                 <div style={{ padding: '10px 20px 0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--ok-soft)', border: '1px solid var(--ok-border)', borderRadius: 'var(--r-md)' }}>
@@ -177,7 +204,9 @@ const TodaysPassHero = ({ queuePages, plan, dailyUsed, dailyLimit, dailyRemainin
 
             <div style={{ padding: '12px 20px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
                 <div className="tnum" style={{ fontSize: 12, color: 'var(--text-3)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    {plan === 'pro' ? (
+                    {! ready ? (
+                        <span style={{ color: 'var(--text-3)' }}>Checking your credits…</span>
+                    ) : plan === 'pro' ? (
                         showQueue ? (
                             <>
                                 <span className="pulse-dot" style={{ width: 6, height: 6, background: 'var(--ok)' }}/>
@@ -198,6 +227,11 @@ const TodaysPassHero = ({ queuePages, plan, dailyUsed, dailyLimit, dailyRemainin
                                     : <><span className="mono tnum">{monthlyRemaining}</span> credits left this billing cycle</>}
                             </span>
                         </>
+                    ) : outOfCredits ? (
+                        <span style={{ color: 'var(--warn-ink)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            <Icon name="alert" size={12} strokeWidth={2.6}/>
+                            <span><span className="mono tnum">{needsAttn}</span> page{needsAttn === 1 ? '' : 's'} waiting · 0 credits left</span>
+                        </span>
                     ) : (
                         <>
                             <Icon name="check" size={12} style={{ color: 'var(--ok-ink)' }} strokeWidth={2.6}/>
@@ -206,7 +240,7 @@ const TodaysPassHero = ({ queuePages, plan, dailyUsed, dailyLimit, dailyRemainin
                     )}
                 </div>
                 <div onClick={e => e.stopPropagation()}>
-                    {showQueue ? (
+                    {! ready ? null : showQueue ? (
                         <Button variant="primary" size="lg" icon="sparkles" onClick={onGenerate}>
                             {plan === 'pro' ? 'Run optimisation pass' : 'Start today\'s pass'}
                         </Button>

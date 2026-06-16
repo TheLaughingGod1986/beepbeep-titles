@@ -222,6 +222,15 @@ export async function runScan() {
     return request( 'POST', '/scan' );
 }
 
+// ── Support (contact form) ──────────────────────────────────────────
+/**
+ * Send a support message. The backend auto-attaches diagnostics + the recent
+ * activity log and emails it to support. Resolves to { sent, message }.
+ */
+export async function submitSupport( { name, email, message } = {} ) {
+    return request( 'POST', '/support/contact', { name, email, message } );
+}
+
 // ── Settings ────────────────────────────────────────────────────────
 export async function fetchSettings() {
     return request( 'GET', '/settings' );

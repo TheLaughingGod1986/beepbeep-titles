@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Icon, Card, Pill, Button, Progress, Toggle, Divider } from '../components';
-import { saveSettings, setLicense, clearLicense } from '../api';
+import { saveSettings, setLicense, clearLicense, submitSupport } from '../api';
 
 export const SettingsScreen = ({ plan, quota, user, settings, connected, onUpgrade, onBuyCredits, onManageBilling, onToast, onConnect }) => {
     const isPro = plan === 'pro';
@@ -159,6 +159,8 @@ export const SettingsScreen = ({ plan, quota, user, settings, connected, onUpgra
                 {advancedOpen && <AdvancedPanel settings={settings} connected={connected} plan={plan}/>}
             </Card>
 
+            <ContactSupport user={user} onToast={onToast}/>
+
             <SettingsSection title="Danger zone" eyebrow="Destructive">
                 <SettingsRow
                     label="Reset generated title & meta"
@@ -296,5 +298,74 @@ const AdvancedPanel = ({ settings, connected, plan }) => {
                 </div>
             </div>
         </div>
+    );
+};
+
+const ContactSupport = ({ user, onToast }) => {
+    const [name, setName]       = useState( user?.name || '' );
+    const [email, setEmail]     = useState( user?.email || '' );
+    const [message, setMessage] = useState( '' );
+    const [sending, setSending] = useState( false );
+
+    const canSend = message.trim().length > 0 && ! sending;
+
+    const handleSend = async () => {
+        if ( ! canSend ) return;
+        setSending( true );
+        try {
+            const res = await submitSupport( { name: name.trim(), email: email.trim(), message: message.trim() } );
+            onToast?.( { message: 'Message sent', sub: res?.message || 'Support will get back to you by email.', icon: 'check', tone: 'ok' } );
+            setMessage( '' );
+        } catch ( err ) {
+            onToast?.( { message: "Couldn't send your message", sub: err?.message || 'Please try again shortly.', icon: 'alert', tone: 'warn' } );
+        } finally {
+            setSending( false );
+        }
+    };
+
+    const inputStyle = {
+        width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--r-md)',
+        fontSize: 13, color: 'var(--text)', background: 'var(--surface)', outline: 0, fontFamily: 'inherit',
+    };
+    const focus = e => { e.target.style.borderColor = 'var(--primary)'; e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.18)'; };
+    const blur  = e => { e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = 'none'; };
+
+    return (
+        <SettingsSection title="Contact support" eyebrow="Help">
+            <div style={{ padding: '14px 20px' }}>
+                <div style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 12, lineHeight: 1.45 }}>
+                    Have a question or hit a problem? Send us a message — your diagnostic logs and contact
+                    details are attached automatically so we can help faster.
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                    <div style={{ flex: 1 }}>
+                        <label style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, display: 'block', marginBottom: 4 }}>Name</label>
+                        <input value={name} onChange={e => setName( e.target.value )} placeholder="Your name" autoComplete="name" style={inputStyle} onFocus={focus} onBlur={blur}/>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                        <label style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, display: 'block', marginBottom: 4 }}>Email</label>
+                        <input value={email} onChange={e => setEmail( e.target.value )} type="email" placeholder="you@example.com" autoComplete="email" style={inputStyle} onFocus={focus} onBlur={blur}/>
+                    </div>
+                </div>
+                <label style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, display: 'block', marginBottom: 4 }}>Message</label>
+                <textarea
+                    value={message}
+                    onChange={e => setMessage( e.target.value )}
+                    placeholder="Tell us what's going on…"
+                    rows={4}
+                    style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }}
+                    onFocus={focus}
+                    onBlur={blur}
+                />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, gap: 12 }}>
+                    <span style={{ fontSize: 11.5, color: 'var(--text-3)', lineHeight: 1.4 }}>
+                        Diagnostics &amp; recent activity are included automatically.
+                    </span>
+                    <Button variant="primary" size="sm" icon="mail" onClick={handleSend} disabled={! canSend}>
+                        {sending ? 'Sending…' : 'Send message'}
+                    </Button>
+                </div>
+            </div>
+        </SettingsSection>
     );
 };

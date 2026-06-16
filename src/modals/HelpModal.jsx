@@ -56,7 +56,7 @@ export const HelpModal = ({ open, onClose, onStartScan }) => {
     }, [open] );
 
     const startScan = () => {
-        track( 'setup_guide_completed', { completion_percent: 100, action: 'start_first_scan' } );
+        track( 'setup_guide_completed', { completion_percent: 100, action: 'go_to_dashboard' } );
         onClose();
         if ( onStartScan ) {
             onStartScan();

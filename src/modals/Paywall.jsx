@@ -27,7 +27,7 @@ const fmtCount = ( n ) => ( typeof n === 'number' ? n.toLocaleString() : n );
    ("Fix N SEO issues automatically") → trust → social proof. Alternative
    purchase paths (Starter, credit pack) stay quiet so they never dilute the
    primary CTA. Prices come live from /billing/plans so they always match Stripe. */
-export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgrade, onBuyCredits, sourceScreen }) => {
+export const Paywall = ({ open, onClose, entitlement, stats, connected = true, onCheckout, onUpgrade, onBuyCredits, onConnect, sourceScreen }) => {
     const [plans, setPlans] = useState( null );
     const [showMore, setShowMore] = useState( false );
 
@@ -108,6 +108,10 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
     const capacityMult = ( proQuota && starterQuota ) ? Math.max( 2, Math.round( proQuota / starterQuota ) ) : 10;
 
     const checkout = ( planId ) => {
+        if ( ! connected ) {
+            onConnect?.();
+            return;
+        }
         const plan = ( plans || [] ).find( p => p.id === planId );
         const checkoutArgs = plan?.priceId
             ? { plan: planId, priceId: plan.priceId }
@@ -119,7 +123,8 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
     // Canonical funnel event (kept alongside the legacy CTA events for compat).
     // user_state here is auth-state (anonymous|authenticated), distinct from the
     // plan-flavoured user_state the legacy pricing_* events carry.
-    const authState = ( entitlement || window.bbtData?.connected ) ? 'authenticated' : 'anonymous';
+    const authState = connected ? 'authenticated' : 'anonymous';
+    const needsSignIn = ! connected;
     const upgradeProps = ( planId ) => {
         const plan = ( plans || [] ).find( p => p.id === planId );
         return {
@@ -189,8 +194,8 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
                     </h2>
                     <p style={{ fontSize: 14.5, color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 16px', maxWidth: 580 }}>
                         {showScanGaps
-                            ? <>Some pages are missing SEO metadata, which may reduce visibility in Google Search. Fix every detected issue automatically — <strong style={{ color: 'var(--text)', fontWeight: 600 }}>in under 60 seconds</strong>.</>
-                            : <>Many WordPress pages are missing the titles and meta descriptions search engines rely on. BeepBeep generates them automatically and fixes your whole site in under 60 seconds.</> }
+                            ? <>Some of your content is missing SEO metadata, which may reduce visibility in Google Search. Fix every detected issue automatically — <strong style={{ color: 'var(--text)', fontWeight: 600 }}>in under 60 seconds</strong>.</>
+                            : <>Many pages and posts are missing the titles and meta descriptions search engines rely on. BeepBeep generates them automatically and fixes your whole site in under 60 seconds.</> }
                     </p>
 
                     {showScanGaps && (
@@ -204,38 +209,42 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
                                 {( missingTitles || 0 ) > 0 && (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--text)', background: 'var(--surface)', border: '1px solid var(--warn-border)', borderRadius: 10, padding: '9px 11px' }}>
                                         <Icon name="alert" size={15} style={{ color: 'var(--warn-ink)', flexShrink: 0 }}/>
-                                        <span><span className="mono tnum" style={{ fontWeight: 700 }}>{fmtCount( missingTitles )}</span> pages missing SEO titles</span>
+                                        <span><span className="mono tnum" style={{ fontWeight: 700 }}>{fmtCount( missingTitles )}</span> missing SEO titles</span>
                                     </div>
                                 )}
                                 {( missingMeta || 0 ) > 0 && (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--text)', background: 'var(--surface)', border: '1px solid var(--warn-border)', borderRadius: 10, padding: '9px 11px' }}>
                                         <Icon name="alert" size={15} style={{ color: 'var(--warn-ink)', flexShrink: 0 }}/>
-                                        <span><span className="mono tnum" style={{ fontWeight: 700 }}>{fmtCount( missingMeta )}</span> pages missing meta descriptions</span>
+                                        <span><span className="mono tnum" style={{ fontWeight: 700 }}>{fmtCount( missingMeta )}</span> missing meta descriptions</span>
                                     </div>
                                 )}
                             </div>
                             {/* SEO impact — subtle, non-alarmist */}
                             <p style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12.5, color: 'var(--warn-ink)', lineHeight: 1.45, margin: '12px 0 0' }}>
                                 <Icon name="trend" size={15} strokeWidth={2.2} style={{ flexShrink: 0, marginTop: 1 }}/>
-                                <span>Pages without titles and descriptions may not appear optimally in Google Search, lowering click-through and making your content harder to rank.</span>
+                                <span>Content without titles and descriptions may not appear optimally in Google Search, lowering click-through and making it harder to rank.</span>
                             </p>
                         </div>
                     )}
 
                     {/* ── Primary action — problem-framed dynamic CTA, kept above the fold ── */}
-                    <Button variant="pro" size="lg" full icon="zap" onClick={onPro} disabled={!proAvailable} style={{ paddingTop: 15, paddingBottom: 15, fontSize: 16 }}>
-                        {!proAvailable
+                    <Button variant="pro" size="lg" full icon={needsSignIn ? 'user' : 'zap'} onClick={onPro} disabled={!proAvailable && !needsSignIn} style={{ paddingTop: 15, paddingBottom: 15, fontSize: 16 }}>
+                        {!proAvailable && !needsSignIn
                             ? 'Pro temporarily unavailable'
-                            : totalIssues > 0
-                                ? `Fix All ${fmtCount( totalIssues )} SEO ${issuePlural} Now`
-                                : `Fix My SEO Issues Automatically · ${proPrice}/month` }
+                            : needsSignIn
+                                ? 'Sign in to upgrade'
+                                : totalIssues > 0
+                                    ? `Fix All ${fmtCount( totalIssues )} SEO ${issuePlural} Now`
+                                    : `Fix My SEO Issues Automatically · ${proPrice}/month` }
                     </Button>
                     <p style={{ textAlign: 'center', fontSize: 12.5, color: 'var(--text-3)', margin: '8px 0 0', lineHeight: 1.5 }}>
-                        {!proAvailable
+                        {!proAvailable && !needsSignIn
                             ? 'This plan is being updated. Please try again shortly or contact support.'
-                            : totalIssues > 0
-                                ? `Upgrade to Pro and generate the missing metadata now · ${proPrice}/month`
-                                : `Upgrade to Pro and generate missing metadata across your site · ${proPrice}/month` }
+                            : needsSignIn
+                                ? 'Create a free account or sign in, then choose Starter or Pro at checkout.'
+                                : totalIssues > 0
+                                    ? `Upgrade to Pro and generate the missing metadata now · ${proPrice}/month`
+                                    : `Upgrade to Pro and generate missing metadata across your site · ${proPrice}/month` }
                     </p>
 
                     {/* Checkout confidence signals — right beside the button */}
@@ -263,11 +272,11 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, borderRadius: R, overflow: 'hidden', border: '1px solid var(--border)' }}>
                         <div style={{ padding: '12px 16px', background: 'var(--surface-2)', borderRight: '1px solid var(--border)' }}>
                             <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 4 }}>Manual optimisation</div>
-                            <div style={{ fontSize: 14, color: 'var(--text-2)', fontWeight: 600 }}>100 pages = 2–4 hours</div>
+                            <div style={{ fontSize: 14, color: 'var(--text-2)', fontWeight: 600 }}>100 pages &amp; posts = 2–4 hours</div>
                         </div>
                         <div style={{ padding: '12px 16px', background: 'var(--ok-soft)' }}>
                             <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--ok-ink)', marginBottom: 4 }}>BeepBeep AI</div>
-                            <div style={{ fontSize: 14, color: 'var(--ok-ink)', fontWeight: 700 }}>100 pages = under 2 minutes</div>
+                            <div style={{ fontSize: 14, color: 'var(--ok-ink)', fontWeight: 700 }}>100 pages &amp; posts = under 2 minutes</div>
                         </div>
                     </div>
                 </div>
@@ -344,8 +353,10 @@ export const Paywall = ({ open, onClose, entitlement, stats, onCheckout, onUpgra
                 {/* ── Section 4: Secondary actions — quieter Starter + credit top-up ── */}
                 <div className="bbt-pw__section" style={{ padding: '20px 40px 0' }}>
                     {starterPlan && (
-                        <Button variant="secondary" size="md" full onClick={onStarter} disabled={!starterAvailable} style={{ background: 'var(--surface)', color: 'var(--text-2)', border: '1px solid var(--border-strong)', fontSize: 13.5 }}>
-                            {starterAvailable ? `Or start with Starter · ${starterPrice}/month` : 'Starter temporarily unavailable'}
+                        <Button variant="secondary" size="md" full onClick={onStarter} disabled={!starterAvailable && !needsSignIn} style={{ background: 'var(--surface)', color: 'var(--text-2)', border: '1px solid var(--border-strong)', fontSize: 13.5 }}>
+                            {needsSignIn
+                                ? 'Sign in to view Starter'
+                                : starterAvailable ? `Or start with Starter · ${starterPrice}/month` : 'Starter temporarily unavailable'}
                         </Button>
                     )}
 

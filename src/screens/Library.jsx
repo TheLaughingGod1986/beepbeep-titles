@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Icon, Card, Pill, Button, KBD, PageAvatar, SerpPreview } from '../components';
 import { fetchPages, updatePage } from '../api';
+import { contentSubtitle } from '../contentType';
 import { dailyRemainingForLibrary, hasDailyCap, isBulkOverLimit, isGenerationLocked } from '../quota';
 
 export const PagesLibrary = ({ plan, quota, connected = true, onConnect, onGenerate, onBulkGenerate, onUpgrade }) => {
@@ -105,10 +106,10 @@ export const PagesLibrary = ({ plan, quota, connected = true, onConnect, onGener
         { id: 'needs',         label: 'Needs attention', count: counts.needs },
         { id: 'missing-title', label: 'Missing title',   count: counts['missing-title'] },
         { id: 'missing-meta',  label: 'Missing meta',    count: counts['missing-meta'] },
-        { id: 'new',           label: 'New pages',       count: counts.new },
+        { id: 'new',           label: 'New',             count: counts.new },
         { id: 'ok',            label: 'Optimised',       count: counts.ok },
         { id: 'drafts',        label: 'Drafts',          count: counts.drafts },
-        { id: 'all',           label: 'All pages',       count: counts.all },
+        { id: 'all',           label: 'All',             count: counts.all },
     ];
 
     return (
@@ -116,8 +117,8 @@ export const PagesLibrary = ({ plan, quota, connected = true, onConnect, onGener
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 20, gap: 24 }}>
                 <div>
                     <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>Library</div>
-                    <h1 style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em', margin: 0 }}>Every page, all in one view</h1>
-                    <p style={{ fontSize: 13, color: 'var(--text-2)', margin: '4px 0 0' }}>Review titles and meta descriptions across every page on your site.</p>
+                    <h1 style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em', margin: 0 }}>All your content in one view</h1>
+                    <p style={{ fontSize: 13, color: 'var(--text-2)', margin: '4px 0 0' }}>Review titles and meta descriptions across pages, posts, and more.</p>
                 </div>
                 <Button variant="secondary" size="md" icon="refresh" onClick={handleScan} disabled={scanning}>
                     {scanning ? 'Scanning…' : 'Re-crawl'}
@@ -164,7 +165,7 @@ export const PagesLibrary = ({ plan, quota, connected = true, onConnect, onGener
                 <div style={{ display: 'grid', gridTemplateColumns: '32px 44px 1.5fr 1.4fr 130px 110px', padding: '10px 18px', gap: 14, alignItems: 'center', borderBottom: '1px solid var(--hairline)', fontSize: 10.5, fontWeight: 600, color: 'var(--text-3)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                     <Checkbox checked={selected.size === pages.length && pages.length > 0} indeterminate={selected.size > 0 && selected.size < pages.length} onChange={toggleAll}/>
                     <span/>
-                    <span>Page</span>
+                    <span>Content</span>
                     <span>Title & meta</span>
                     <span>Status</span>
                     <span style={{ textAlign: 'right' }}/>
@@ -174,7 +175,7 @@ export const PagesLibrary = ({ plan, quota, connected = true, onConnect, onGener
                     {loading ? (
                         <div style={{ padding: '48px 20px', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>
                             <span className="pulse-dot" style={{ display: 'inline-block', marginRight: 8 }}/>
-                            Loading pages…
+                            Loading…
                         </div>
                     ) : pages.length === 0 ? (
                         <div style={{ padding: '72px 20px', textAlign: 'center', color: 'var(--text-3)' }}>
@@ -182,7 +183,7 @@ export const PagesLibrary = ({ plan, quota, connected = true, onConnect, onGener
                                 <Icon name="check" size={20} style={{ color: 'var(--ok-ink)' }}/>
                             </div>
                             <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>All caught up</div>
-                            <div style={{ fontSize: 12.5, marginTop: 4 }}>No pages match this filter.</div>
+                            <div style={{ fontSize: 12.5, marginTop: 4 }}>Nothing matches this filter.</div>
                         </div>
                     ) : pages.map( ( pg, i ) => {
                         const ov = overrides[pg.id] || {};
@@ -259,7 +260,7 @@ const PageRow = ({ pg, selected, onToggle, onGenerate, onEdit, justSaved, locked
             }}>
             <Checkbox checked={selected} onChange={onToggle}/>
 
-            <PageAvatar section={pg.section} hue={pg.hue ?? 220} size={36} style={{ flexShrink: 0 }}/>
+            <PageAvatar type={pg.type} section={pg.section} hue={pg.hue ?? 220} size={36} style={{ flexShrink: 0 }}/>
 
             <div style={{ minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -270,7 +271,7 @@ const PageRow = ({ pg, selected, onToggle, onGenerate, onEdit, justSaved, locked
                     {pg.is_new && <Pill tone="primary" style={{ padding: '1px 7px', fontSize: 10 }}>NEW</Pill>}
                 </div>
                 <div style={{ fontSize: 11.5, color: 'var(--text-3)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span>{pg.section}</span>
+                    <span>{contentSubtitle( { type: pg.type, section: pg.section } )}</span>
                     {pg.traffic && <><span style={{ opacity: 0.5 }}>·</span><span className="mono">{pg.traffic}/mo</span></>}
                 </div>
             </div>
@@ -337,11 +338,11 @@ const EditPageSEOModal = ({ page, onClose, onSave }) => {
         <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,23,42,0.45)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
             <div onClick={e => e.stopPropagation()} style={{ width: 620, maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-xl)', boxShadow: 'var(--shadow-lg)', animation: 'bbt-scale-in .2s cubic-bezier(0.16,1,0.3,1)' }}>
                 <div style={{ padding: '18px 22px 12px', display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-                    <PageAvatar section={page.section} hue={hue} fontSize={14} style={{ flexShrink: 0 }}/>
+                    <PageAvatar type={page.type} section={page.section} hue={hue} fontSize={14} style={{ flexShrink: 0 }}/>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 2 }}>Edit page SEO</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 2 }}>Edit SEO</div>
                         <div className="mono" style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{page.url}</div>
-                        <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>{page.section}</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>{contentSubtitle( { type: page.type, section: page.section } )}</div>
                     </div>
                     <button onClick={onClose} aria-label="Close" style={{ background: 'transparent', border: 0, padding: 6, cursor: 'pointer', color: 'var(--text-3)', borderRadius: 6 }}>
                         <Icon name="x" size={16}/>
@@ -432,7 +433,7 @@ const BulkActionBar = ({ count, allowed = 0, overLimit, locked, lockedLabel = 'U
     <div style={{ position: 'sticky', bottom: 16, zIndex: 6, marginTop: 16, background: 'var(--text)', color: '#fff', borderRadius: 'var(--r-md)', padding: '10px 12px 10px 16px', display: 'flex', alignItems: 'center', gap: 12, boxShadow: 'var(--shadow-lg)', animation: 'bbt-slide-up .22s cubic-bezier(.2,.8,.2,1)' }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
             <span className="mono tnum" style={{ background: 'rgba(255,255,255,0.14)', color: '#fff', padding: '2px 9px', borderRadius: 999, fontSize: 12, fontWeight: 600 }}>{count}</span>
-            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.92)' }}>{count === 1 ? 'page selected' : 'pages selected'}</span>
+            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.92)' }}>{count === 1 ? 'item selected' : 'items selected'}</span>
             {locked
                 ? <span style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.7)', display: 'inline-flex', alignItems: 'center', gap: 5 }}><Icon name="lock" size={12}/>Generation locked</span>
                 : overLimit && <span style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.7)', display: 'inline-flex', alignItems: 'center', gap: 5 }}><Icon name="alert" size={12}/>Over your free limit</span>}

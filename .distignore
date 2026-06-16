@@ -3,6 +3,7 @@
 .claude
 .gitignore
 .distignore
+.plugin-check.json
 .wp-env.json
 .eslintrc.json
 README.md

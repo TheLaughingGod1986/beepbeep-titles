@@ -167,7 +167,8 @@ class Scanner {
         // String of "%s,%s,…" placeholders — one per post type — for the IN clause.
         $types_ph = implode( ',', array_fill( 0, count( $types ), '%s' ) );
 
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $types_ph is a placeholder list; values bound via prepare().
+        // phpcs:disable WordPress.DB.PreparedSQL, WordPress.DB.PreparedSQLPlaceholders -- Dynamic IN() lists; values bound via prepare().
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery
         $total = (int) $wpdb->get_var( $wpdb->prepare(
             "SELECT COUNT(*) FROM {$wpdb->posts}
              WHERE post_status = 'publish' AND post_type IN ($types_ph)",
@@ -182,7 +183,7 @@ class Scanner {
         } else {
             [ $title_key, $meta_key ] = $keys;
 
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $types_ph is a placeholder list; values bound via prepare().
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery
             $with_title = (int) $wpdb->get_var( $wpdb->prepare(
                 "SELECT COUNT(DISTINCT pm.post_id)
                  FROM {$wpdb->postmeta} pm
@@ -192,7 +193,7 @@ class Scanner {
                 array_merge( [ $title_key ], $types )
             ) );
 
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $types_ph is a placeholder list; values bound via prepare().
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery
             $with_meta = (int) $wpdb->get_var( $wpdb->prepare(
                 "SELECT COUNT(DISTINCT pm.post_id)
                  FROM {$wpdb->postmeta} pm
@@ -202,7 +203,7 @@ class Scanner {
                 array_merge( [ $meta_key ], $types )
             ) );
 
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $types_ph is a placeholder list; values bound via prepare().
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery
             $both = $total > 0 ? (int) $wpdb->get_var( $wpdb->prepare(
                 "SELECT COUNT(DISTINCT p.ID)
                  FROM {$wpdb->posts} p
@@ -219,12 +220,13 @@ class Scanner {
 
         // Unpublished pages the Drafts tab can pre-optimise (excluded from coverage).
         $draft_ph = implode( ',', array_fill( 0, count( self::DRAFT_STATUSES ), '%s' ) );
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $draft_ph/$types_ph are placeholder lists; values bound via prepare().
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery
         $drafts = (int) $wpdb->get_var( $wpdb->prepare(
             "SELECT COUNT(*) FROM {$wpdb->posts}
              WHERE post_status IN ($draft_ph) AND post_type IN ($types_ph)",
             array_merge( self::DRAFT_STATUSES, $types )
         ) );
+        // phpcs:enable WordPress.DB.PreparedSQL, WordPress.DB.PreparedSQLPlaceholders
 
         return compact( 'total', 'with_title', 'with_meta', 'coverage', 'optimised', 'remaining', 'drafts' );
     }
@@ -247,7 +249,8 @@ class Scanner {
             return [ 0, 0, 0 ];
         }
 
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- $table is a prefix-built identifier (cannot be a placeholder); $types_ph values bound via prepare().
+        // phpcs:disable WordPress.DB.PreparedSQL, WordPress.DB.PreparedSQLPlaceholders -- $table is prefix-built; IN() lists use bound placeholders.
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery, PluginCheck.Security.DirectDB.UnescapedDBParameter
         $with_title = (int) $wpdb->get_var( $wpdb->prepare(
             "SELECT COUNT(DISTINCT a.post_id)
              FROM {$table} a JOIN {$wpdb->posts} p ON p.ID = a.post_id
@@ -255,7 +258,7 @@ class Scanner {
                AND p.post_status = 'publish' AND p.post_type IN ($types_ph)",
             $types
         ) );
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- $table is a prefix-built identifier (cannot be a placeholder); $types_ph values bound via prepare().
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery, PluginCheck.Security.DirectDB.UnescapedDBParameter
         $with_meta = (int) $wpdb->get_var( $wpdb->prepare(
             "SELECT COUNT(DISTINCT a.post_id)
              FROM {$table} a JOIN {$wpdb->posts} p ON p.ID = a.post_id
@@ -263,7 +266,7 @@ class Scanner {
                AND p.post_status = 'publish' AND p.post_type IN ($types_ph)",
             $types
         ) );
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- $table is a prefix-built identifier (cannot be a placeholder); $types_ph values bound via prepare().
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery, PluginCheck.Security.DirectDB.UnescapedDBParameter
         $both = (int) $wpdb->get_var( $wpdb->prepare(
             "SELECT COUNT(DISTINCT a.post_id)
              FROM {$table} a JOIN {$wpdb->posts} p ON p.ID = a.post_id
@@ -272,6 +275,7 @@ class Scanner {
                AND p.post_status = 'publish' AND p.post_type IN ($types_ph)",
             $types
         ) );
+        // phpcs:enable WordPress.DB.PreparedSQL, WordPress.DB.PreparedSQLPlaceholders
 
         return [ $with_title, $with_meta, $both ];
     }

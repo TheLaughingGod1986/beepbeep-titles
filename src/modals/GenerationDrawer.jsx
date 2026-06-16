@@ -3,6 +3,7 @@ import { Icon, Button, Progress, PageAvatar } from '../components';
 import { generateSingle, submitJob, updatePage } from '../api';
 import { pollUntilComplete } from '../jobs';
 import { isPaywall, errorToast } from '../errors';
+import { contentSubtitle } from '../contentType';
 
 /* ── Generation drawer ─────────────────────────────────────────────── */
 const ASSISTANT_PHRASES = [
@@ -37,7 +38,8 @@ const itemToResult = ( item, pageById ) => {
         key:       postId ?? item.id ?? Math.random().toString( 36 ).slice( 2 ),
         postId,
         url:       item.url ?? page?.url ?? '',
-        section:   item.section ?? page?.section ?? 'Page',
+        section:   item.section ?? page?.section ?? '',
+        type:      page?.type ?? item.type ?? 'page',
         hue:       page?.hue ?? ( ( ( postId || 0 ) * 47 ) % 360 ),
         status:    item.status === 'failed' ? 'failed' : 'completed',
         title:     item.title ?? '',
@@ -73,7 +75,7 @@ export const GenerationDrawer = ({ open, pages, plan, onClose, onComplete, onPay
                     const res = await generateSingle( { postId: pg.id } );
                     if ( controller.signal.aborted ) return;
                     pushResult( {
-                        key: pg.id, postId: pg.id, url: pg.url, section: pg.section,
+                        key: pg.id, postId: pg.id, url: pg.url, section: pg.section, type: pg.type,
                         hue: pg.hue ?? 220, status: 'completed',
                         title: res.title ?? '', meta: res.meta ?? '',
                     } );
@@ -101,7 +103,7 @@ export const GenerationDrawer = ({ open, pages, plan, onClose, onComplete, onPay
                 if ( pages.length === 1 ) {
                     const pg = pages[0];
                     pushResult( {
-                        key: pg.id, postId: pg.id, url: pg.url, section: pg.section,
+                        key: pg.id, postId: pg.id, url: pg.url, section: pg.section, type: pg.type,
                         hue: pg.hue ?? 220, status: 'failed',
                         errorCode: err?.code || 'ERROR', error: err?.message || '',
                     } );
@@ -367,11 +369,11 @@ const GenPlaceholderRow = ({ page }) => {
         <div style={{ padding: '14px 0' }}>
             <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                 <div style={{ flexShrink: 0 }}>
-                    <PageAvatar section={page.section} hue={hue} uppercase/>
+                    <PageAvatar type={page.type} section={page.section} hue={hue} uppercase/>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="mono" style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{page.url}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>{page.section}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>{contentSubtitle( { type: page.type, section: page.section } )}</div>
                     <div style={{ marginTop: 6, padding: '10px 12px', background: 'var(--surface-2)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-sm)', display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--text-2)' }}>
                         <span className="pulse-dot" style={{ width: 6, height: 6, background: 'var(--primary)' }}/>
                         <span key={phrase} className="phrase-in" style={{ lineHeight: 1.4 }}>{phrase}</span>

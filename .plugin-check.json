@@ -1,0 +1,21 @@
+{
+	"exclude-directories": [
+		"tests",
+		"scripts",
+		".github",
+		".claude",
+		"node_modules",
+		"src"
+	],
+	"exclude-files": [
+		".wp-env.json",
+		".eslintrc.json",
+		".gitignore",
+		".distignore",
+		".plugin-check.json",
+		"docker-compose.yml",
+		"package.json",
+		"package-lock.json",
+		"README.md"
+	]
+}

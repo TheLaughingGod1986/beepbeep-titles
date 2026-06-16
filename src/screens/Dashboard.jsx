@@ -161,7 +161,7 @@ const TodaysPassHero = ({ ready = true, queuePages, plan, dailyUsed, dailyLimit,
                 <div style={{ padding: '12px 20px 0', display: 'grid', gridTemplateColumns: `repeat(${Math.min( queueCount, 5 )}, minmax(0, 1fr))`, gap: 8 }}>
                     {displayPages.map( ( pg, i ) => (
                         <div key={pg.id || i} style={{ padding: 10, background: 'var(--surface-2)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                            <PageAvatar section={pg.section} hue={pg.hue ?? 220} size={36} style={{ flexShrink: 0 }}/>
+                            <PageAvatar type={pg.type} section={pg.section} hue={pg.hue ?? 220} size={36} style={{ flexShrink: 0 }}/>
                             <div style={{ minWidth: 0, flex: 1 }}>
                                 <div className="mono" style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pg.url}</div>
                                 <div style={{ marginTop: 3 }}>

@@ -197,7 +197,7 @@ class MetaWriter {
 
         global $wpdb;
         $table = $wpdb->prefix . 'aioseo_posts';
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- $table is a prefix-built identifier (cannot be a placeholder); post_id bound via prepare().
         $row = $wpdb->get_row(
             $wpdb->prepare( "SELECT title, description FROM {$table} WHERE post_id = %d", $post_id ),
             ARRAY_A
@@ -234,7 +234,7 @@ class MetaWriter {
         $table = $wpdb->prefix . 'aioseo_posts';
         $now   = current_time( 'mysql' );
 
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- $table is a prefix-built identifier (cannot be a placeholder); post_id bound via prepare().
         $exists = (int) $wpdb->get_var(
             $wpdb->prepare( "SELECT id FROM {$table} WHERE post_id = %d", $post_id )
         );

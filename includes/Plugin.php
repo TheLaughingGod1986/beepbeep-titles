@@ -82,7 +82,7 @@ class Plugin {
     private static function drop_legacy_table(): void {
         global $wpdb;
         $table = $wpdb->prefix . 'bbt_usage_log';
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- $table is a prefix-built identifier (cannot be a placeholder); static DDL with no user input.
         $wpdb->query( "DROP TABLE IF EXISTS {$table}" );
         delete_option( 'bbt_db_version' );
     }

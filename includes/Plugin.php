@@ -98,7 +98,10 @@ class Plugin {
         if ( $post->post_status !== 'publish' ) {
             return;
         }
-        if ( ! in_array( $post->post_type, [ 'page', 'post', 'product' ], true ) ) {
+        // Cover the same post types the scanner/Library does (all public types
+        // incl. custom post types) so Autopilot doesn't lag behind the manual
+        // pipeline — shares the `bbt_scanned_post_types` filter as one source.
+        if ( ! in_array( $post->post_type, Scanner::post_types(), true ) ) {
             return;
         }
 

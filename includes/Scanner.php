@@ -33,12 +33,13 @@ class Scanner {
      *
      * @return string[]
      */
-    private function post_types(): array {
+    public static function post_types(): array {
         $types = get_post_types( [ 'public' => true ], 'names' );
         unset( $types['attachment'] );
 
         /**
-         * Filter the post types BeepBeep Titles scans for SEO coverage.
+         * Filter the post types BeepBeep Titles scans and auto-generates for.
+         * Single source of truth shared by the scanner, stats, and Autopilot.
          *
          * @param string[] $types Public post-type names (attachment removed).
          */
@@ -53,7 +54,7 @@ class Scanner {
 
     public function get_pages( string $filter, string $search, int $page, int $per_page ): array {
         $args = [
-            'post_type'      => $this->post_types(),
+            'post_type'      => self::post_types(),
             'post_status'    => $filter === 'drafts' ? self::DRAFT_STATUSES : 'publish',
             'posts_per_page' => $per_page,
             'paged'          => max( 1, $page ),
@@ -149,7 +150,7 @@ class Scanner {
 
     private function compute_stats(): array {
         global $wpdb;
-        $types_in = "'" . implode( "','", array_map( 'esc_sql', $this->post_types() ) ) . "'";
+        $types_in = "'" . implode( "','", array_map( 'esc_sql', self::post_types() ) ) . "'";
 
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery
         $total = (int) $wpdb->get_var(

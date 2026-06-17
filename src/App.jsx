@@ -5,9 +5,8 @@ import { PagesLibrary } from './screens/Library';
 import { AutopilotScreen } from './screens/Autopilot';
 import { BillingScreen } from './screens/Billing';
 import { SettingsScreen } from './screens/Settings';
-import { AuditSignedOutScreen } from './screens/Audit';
 import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal, ConnectModal } from './modals/index';
-import { SignOutConfirm } from './auth';
+import { SignOutConfirm, SignedOutScreen } from './auth';
 import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, createCheckout, createBillingPortal, clearLicense, saveSettings, track } from './api';
 import { paywallTrigger, errorToast, checkoutErrorToast, classifyCheckoutError } from './errors';
 import { hasDailyCap } from './quota';
@@ -392,10 +391,13 @@ export default function App() {
                     onView={selectTab}
                 />
             ) : (
-                <AuditSignedOutScreen
-                    stats={stats}
-                    onConnect={() => openConnect( 'register' )}
-                    onHelp={() => setHelpOpen( true )}
+                <SignedOutScreen
+                    lastEmail={accountEmail || user?.email}
+                    onConnected={( res ) => {
+                        refreshQuota();
+                        setToast( { message: 'Account connected', sub: `Plan: ${ res?.plan || 'free' } · generations ready.`, icon: 'check', tone: 'ok' } );
+                    }}
+                    onToast={setToast}
                 />
             );
             break;

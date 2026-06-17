@@ -167,6 +167,7 @@
 @keyframes bbt-fade-down  { from{opacity:0;transform:translateY(-2px)} to{opacity:1;transform:translateY(0)} }
 
 .fade-in          { animation: bbt-fade-down   .22s ease-out 1 both; }
+.signedout-in     { animation: bbt-slide-up    .34s cubic-bezier(.2,.8,.2,1) 1 both; }
 .gen-row-in       { animation: bbt-gen-row     .32s cubic-bezier(.2,.8,.2,1) 1 both; }
 .gen-check        { animation: bbt-gen-check   .36s cubic-bezier(.2,.8,.2,1) 1 both; }
 .phrase-in        { animation: bbt-phrase-in   .28s ease-out 1 both; }

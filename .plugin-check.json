@@ -5,7 +5,8 @@
 		".github",
 		".claude",
 		"node_modules",
-		"src"
+		"src",
+		"dist"
 	],
 	"exclude-files": [
 		".wp-env.json",

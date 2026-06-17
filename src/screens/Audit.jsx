@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Icon, Card, Button } from '../components';
+import { Icon, Card, Button, SerpPreview } from '../components';
 import { track, fetchPlans } from '../api';
 import { QUOTA_DEFAULTS } from '../quota';
 
@@ -20,6 +20,26 @@ const fmtPrice = ( amount, currency = 'gbp' ) => {
 const EST_GAIN = '12–18%';
 const OPPORTUNITY = 'Opportunity detected';
 const REVEAL_FOOT = 'Connect account to reveal opportunities';
+const BLURRED_OPPS = '•• opportunities found';
+const MINUTES_PER_PAGE = 3;
+
+const formatAuditTime = ( raw ) => {
+    if ( ! raw ) return null;
+    const d = new Date( String( raw ).replace( ' ', 'T' ) );
+    if ( Number.isNaN( d.getTime() ) ) return null;
+    const now = new Date();
+    const time = d.toLocaleTimeString( undefined, { hour: '2-digit', minute: '2-digit', hour12: false } );
+    if ( d.toDateString() === now.toDateString() ) {
+        return `Last audit completed today at ${ time }`;
+    }
+    return `Last audit: ${ d.toLocaleDateString( undefined, { day: 'numeric', month: 'short' } ) } at ${ time }`;
+};
+
+const kpiDisplay = ( value, hasData, suffix = '' ) => {
+    if ( ! hasData ) return OPPORTUNITY;
+    if ( value === 0 && suffix === ' minutes' ) return '0 minutes';
+    return `${ value.toLocaleString() }${ suffix }`;
+};
 
 const trackingProps = ( stats = {} ) => ( {
     site_url: window.bbtData?.siteUrl || window.location.origin,
@@ -32,6 +52,8 @@ export const AuditSignedOutScreen = ({ stats, onConnect, onHelp }) => {
     const total        = Math.max( 0, stats?.total ?? 0 );
     const fixCount     = Math.max( 0, stats?.needs_attention ?? 0 );
     const hasScan      = total > 0;
+    const minutesSaved = fixCount > 0 ? fixCount * MINUTES_PER_PAGE : 0;
+    const lastAudit    = formatAuditTime( stats?.last_scan || window.bbtData?.lastScan || '' );
     const eventProps   = trackingProps( stats );
 
     useEffect( () => {
@@ -48,10 +70,6 @@ export const AuditSignedOutScreen = ({ stats, onConnect, onHelp }) => {
         track( 'quick_setup_clicked', eventProps );
         onHelp?.();
     };
-
-    const statusMessage = hasScan
-        ? `We scanned ${ total.toLocaleString() } pages and found metadata opportunities.`
-        : 'Connect your account to run your first metadata audit.';
 
     return (
         <div className="bbt-audit" style={{ background: 'var(--bg)', minHeight: 'calc(100vh - 32px - 52px)', overflowX: 'hidden' }}>
@@ -74,12 +92,41 @@ export const AuditSignedOutScreen = ({ stats, onConnect, onHelp }) => {
                             <h1 style={{ fontSize: 30, fontWeight: 600, letterSpacing: '-0.025em', lineHeight: 1.15, margin: '0 0 10px' }}>
                                 Find missing SEO titles and meta descriptions in under 60 seconds
                             </h1>
-                            <p style={{ fontSize: 15, color: 'var(--text-2)', lineHeight: 1.55, margin: '0 0 12px', maxWidth: 460 }}>
+                            <p style={{ fontSize: 15, color: 'var(--text-2)', lineHeight: 1.55, margin: '0 0 16px', maxWidth: 460 }}>
                                 Discover metadata issues, improve search appearance and generate optimised SEO titles and descriptions automatically.
                             </p>
-                            <p style={{ fontSize: 13.5, color: 'var(--text-3)', lineHeight: 1.5, margin: '0 0 22px', maxWidth: 460 }}>
-                                {statusMessage}
-                            </p>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10, marginBottom: 16 }}>
+                                <HeroKPI
+                                    label="Pages Scanned"
+                                    value={kpiDisplay( total, hasScan )}
+                                    icon="search"
+                                />
+                                <HeroKPI
+                                    label="Pages Need Review"
+                                    value={kpiDisplay( fixCount, hasScan )}
+                                    icon="alert"
+                                    tone="warn"
+                                />
+                                <HeroKPI
+                                    label="Minutes Saved"
+                                    value={hasScan && fixCount > 0 ? kpiDisplay( minutesSaved, true, ' minutes' ) : hasScan ? '0 minutes' : OPPORTUNITY}
+                                    icon="clock"
+                                    tone="ok"
+                                />
+                            </div>
+
+                            {lastAudit ? (
+                                <p style={{ fontSize: 12.5, color: 'var(--text-3)', lineHeight: 1.45, margin: '0 0 18px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <Icon name="clock" size={13} style={{ color: 'var(--ok-ink)', flexShrink: 0 }}/>
+                                    {lastAudit}
+                                </p>
+                            ) : hasScan ? (
+                                <p style={{ fontSize: 12.5, color: 'var(--text-3)', lineHeight: 1.45, margin: '0 0 18px' }}>Recent audit completed</p>
+                            ) : (
+                                <p style={{ fontSize: 12.5, color: 'var(--text-3)', lineHeight: 1.45, margin: '0 0 18px' }}>Connect your account to run your first metadata audit.</p>
+                            )}
+
                             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                                 <Button variant="primary" size="lg" icon="arrow-right" onClick={() => connectFromHero( 'hero_connect_clicked' )}>Connect Account</Button>
                                 <Button variant="secondary" size="lg" onClick={openQuickSetup}>Quick Setup Guide</Button>
@@ -100,10 +147,10 @@ export const AuditSignedOutScreen = ({ stats, onConnect, onHelp }) => {
                     <CoveragePreviewCard total={total} fixCount={fixCount} onConnect={() => connectFromHero( 'coverage_preview_connect_clicked' )}/>
                 </div>
 
-                <SiteAuditPreviewCard
+                <MetadataOpportunitiesCard
                     total={total}
                     fixCount={fixCount}
-                    onConnect={() => connectFromHero( 'site_audit_preview_connect_clicked' )}
+                    onConnect={() => connectFromHero( 'metadata_opportunities_connect_clicked' )}
                 />
 
                 <SearchOpportunityCard/>
@@ -136,11 +183,11 @@ export const AuditSignedOutScreen = ({ stats, onConnect, onHelp }) => {
                     <div style={{ padding: '28px 30px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 18, flexWrap: 'wrap' }}>
                         <div>
                             <h2 style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.02em', margin: '0 0 6px' }}>Unlock your full SEO metadata report</h2>
-                            <p style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 6px', maxWidth: 520 }}>
-                                Reveal missing titles, weak descriptions and page-level optimisation opportunities across your WordPress site.
+                            <p style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 8px', maxWidth: 560 }}>
+                                Unlock every metadata opportunity discovered during your site audit and start generating optimised SEO titles and descriptions in seconds.
                             </p>
-                            <p style={{ fontSize: 12.5, color: 'var(--text-3)', margin: 0 }}>
-                                No credit card required. Setup takes under 60 seconds.
+                            <p style={{ fontSize: 12.5, color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>
+                                No credit card required.<br/>Setup takes under 60 seconds.
                             </p>
                         </div>
                         <Button variant="primary" size="lg" icon="arrow-right" onClick={() => connectFromHero( 'footer_connect_clicked' )}>Connect Account</Button>
@@ -152,67 +199,103 @@ export const AuditSignedOutScreen = ({ stats, onConnect, onHelp }) => {
     );
 };
 
-const CoveragePreviewCard = ({ total, fixCount, onConnect }) => (
-    <Card padding={0} className="bbt-card--locked" style={{ display: 'flex', flexDirection: 'column', padding: '22px 22px 20px' }}>
-        <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 14 }}>SEO Coverage Preview</div>
-        <div style={{ position: 'relative', width: 120, height: 120, margin: '0 auto 14px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width={120} height={120} style={{ transform: 'rotate(-90deg)' }}>
-                <circle cx={60} cy={60} r={50} fill="none" stroke="var(--bg-sunken)" strokeWidth={10}/>
-                <circle cx={60} cy={60} r={50} fill="none" stroke="var(--border-strong)" strokeWidth={10} strokeLinecap="round" strokeDasharray="200 314" opacity="0.55"/>
-            </svg>
-            <span style={{
-                position: 'absolute', width: 48, height: 48, borderRadius: 999,
-                background: 'rgba(255,255,255,0.72)', border: '1px solid var(--border)',
-                color: 'var(--text-3)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: '0 10px 30px rgba(15,23,42,0.08)',
-                backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
-            }}>
-                <Icon name="search" size={22}/>
-            </span>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 0, marginBottom: 14 }}>
-            <PreviewMetric label="Pages scanned" value={total > 0 ? String( total ) : OPPORTUNITY} revealed={total > 0}/>
-            <PreviewMetric label="Pages needing review" value={fixCount > 0 ? String( fixCount ) : total > 0 ? '0' : OPPORTUNITY} revealed={total > 0}/>
-            <PreviewMetric label="Missing SEO titles" value={OPPORTUNITY} revealed={false}/>
-            <PreviewMetric label="Missing meta descriptions" value={OPPORTUNITY} revealed={false}/>
-        </div>
-        <p style={{ margin: '0 0 14px', fontSize: 12.5, color: 'var(--text-3)', lineHeight: 1.45, textAlign: 'center' }}>
-            Connect your account to reveal every page that needs metadata improvements.
-        </p>
-        <Button variant="secondary" size="sm" icon="arrow-right" onClick={onConnect} style={{ alignSelf: 'center' }}>Unlock Full Report</Button>
-    </Card>
-);
+const HeroKPI = ({ label, value, icon, tone = 'primary' }) => {
+    const tones = {
+        ok:      { soft: 'var(--ok-soft)',      ink: 'var(--ok-ink)',      bd: 'var(--ok-border)' },
+        warn:    { soft: 'var(--warn-soft)',    ink: 'var(--warn-ink)',    bd: 'var(--warn-border)' },
+        primary: { soft: 'var(--primary-soft)', ink: 'var(--primary-ink)', bd: 'var(--primary-border)' },
+    };
+    const t = tones[tone] || tones.primary;
+    const isLocked = value === OPPORTUNITY;
 
-const PreviewMetric = ({ label, value, revealed }) => (
+    return (
+        <div style={{
+            padding: '14px 14px 12px', borderRadius: 'var(--r-md)',
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            boxShadow: 'var(--shadow-sm)',
+        }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, lineHeight: 1.3 }}>{label}</span>
+                <span style={{
+                    width: 24, height: 24, borderRadius: 7, flexShrink: 0,
+                    background: t.soft, color: t.ink, border: `1px solid ${ t.bd }`,
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                }}><Icon name={icon} size={12}/></span>
+            </div>
+            <div className="mono tnum" style={{
+                fontSize: isLocked ? 13 : 26, fontWeight: 600, letterSpacing: '-0.03em',
+                color: 'var(--text)', lineHeight: 1.15,
+            }}>{value}</div>
+        </div>
+    );
+};
+
+const CoveragePreviewCard = ({ total, fixCount, onConnect }) => {
+    const hasScan = total > 0;
+    const lockedValue = hasScan ? BLURRED_OPPS : 'Reveal affected pages';
+
+    return (
+        <Card padding={0} className="bbt-card--locked" style={{ display: 'flex', flexDirection: 'column', padding: '22px 22px 20px' }}>
+            <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 14 }}>SEO Coverage Preview</div>
+            <div style={{ position: 'relative', width: 120, height: 120, margin: '0 auto 14px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width={120} height={120} style={{ transform: 'rotate(-90deg)' }}>
+                    <circle cx={60} cy={60} r={50} fill="none" stroke="var(--bg-sunken)" strokeWidth={10}/>
+                    <circle cx={60} cy={60} r={50} fill="none" stroke="var(--border-strong)" strokeWidth={10} strokeLinecap="round" strokeDasharray="200 314" opacity="0.55"/>
+                </svg>
+                <span style={{
+                    position: 'absolute', width: 48, height: 48, borderRadius: 999,
+                    background: 'rgba(255,255,255,0.72)', border: '1px solid var(--border)',
+                    color: 'var(--text-3)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: '0 10px 30px rgba(15,23,42,0.08)',
+                    backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
+                }}>
+                    <Icon name="search" size={22}/>
+                </span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 0, marginBottom: 14 }}>
+                <PreviewMetric label="Pages scanned" value={hasScan ? String( total ) : OPPORTUNITY} revealed={hasScan}/>
+                <PreviewMetric label="Pages needing review" value={hasScan ? String( fixCount ) : OPPORTUNITY} revealed={hasScan}/>
+                <PreviewMetric label="Missing SEO titles" value={lockedValue} revealed={false} blurred={hasScan}/>
+                <PreviewMetric label="Missing meta descriptions" value={lockedValue} revealed={false} blurred={hasScan}/>
+            </div>
+            <p style={{ margin: '0 0 14px', fontSize: 12.5, color: 'var(--text-3)', lineHeight: 1.45, textAlign: 'center' }}>
+                Connect your account to reveal every page that needs metadata improvements.
+            </p>
+            <Button variant="secondary" size="sm" icon="arrow-right" onClick={onConnect} style={{ alignSelf: 'center' }}>Unlock Full Report</Button>
+        </Card>
+    );
+};
+
+const PreviewMetric = ({ label, value, revealed, blurred = false }) => (
     <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '8px 0', borderTop: '1px solid var(--hairline)',
     }}>
         <span style={{ fontSize: 12.5, color: 'var(--text-2)' }}>{label}</span>
         <span className="mono tnum" style={{
-            fontSize: 12.5, fontWeight: 600,
+            fontSize: blurred ? 11.5 : 12.5, fontWeight: 600,
             color: revealed ? 'var(--text)' : 'var(--text-3)',
-            filter: revealed ? 'none' : 'blur(3px)',
+            filter: revealed ? 'none' : blurred ? 'blur(4px)' : 'blur(3px)',
             userSelect: revealed ? 'auto' : 'none',
+            letterSpacing: blurred ? '0.06em' : 'normal',
         }}>{value}</span>
     </div>
 );
 
-const SiteAuditPreviewCard = ({ total, fixCount, onConnect }) => {
-    const timeSaved = fixCount > 0 ? `${ ( fixCount * 3 ).toLocaleString() } minutes` : OPPORTUNITY;
+const MetadataOpportunitiesCard = ({ total, fixCount, onConnect }) => {
+    const hasScan = total > 0;
+    const metaOpps = hasScan && fixCount > 0 ? String( fixCount ) : hasScan ? '0' : OPPORTUNITY;
 
     return (
         <Card padding={0} style={{ marginBottom: 28, overflow: 'hidden' }}>
             <div style={{ padding: '18px 20px 0' }}>
                 <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>Site audit</div>
-                <h3 style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.015em', margin: '0 0 14px' }}>Site Audit Preview</h3>
+                <h3 style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.015em', margin: '0 0 14px' }}>Metadata Opportunities Found</h3>
             </div>
             <div style={{ padding: '0 20px 16px' }}>
-                <PreviewMetric label="Pages scanned" value={total > 0 ? String( total ) : OPPORTUNITY} revealed={total > 0}/>
-                <PreviewMetric label="Missing SEO titles" value={OPPORTUNITY} revealed={false}/>
-                <PreviewMetric label="Missing meta descriptions" value={OPPORTUNITY} revealed={false}/>
-                <PreviewMetric label="Pages needing review" value={fixCount > 0 ? String( fixCount ) : total > 0 ? '0' : OPPORTUNITY} revealed={total > 0}/>
-                <PreviewMetric label="Estimated time saved" value={timeSaved} revealed={fixCount > 0}/>
+                <PreviewMetric label="Pages scanned" value={hasScan ? String( total ) : OPPORTUNITY} revealed={hasScan}/>
+                <PreviewMetric label="Pages needing review" value={hasScan ? String( fixCount ) : OPPORTUNITY} revealed={hasScan}/>
+                <PreviewMetric label="Metadata opportunities detected" value={metaOpps} revealed={hasScan}/>
             </div>
             <div style={{ padding: '0 20px 18px', display: 'flex', justifyContent: 'flex-end' }}>
                 <Button variant="secondary" size="sm" icon="arrow-right" onClick={onConnect}>Unlock Full Report</Button>
@@ -221,33 +304,49 @@ const SiteAuditPreviewCard = ({ total, fixCount, onConnect }) => {
     );
 };
 
-const SearchOpportunityCard = () => (
-    <Card padding={0} style={{ marginBottom: 28, overflow: 'hidden', borderColor: 'var(--primary-border)' }}>
-        <div style={{ padding: '22px 24px', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', gap: 20, background: 'linear-gradient(135deg,#F8FAFF 0%,#EEF4FF 100%)' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-                <span style={{
-                    width: 40, height: 40, borderRadius: 10,
-                    background: 'var(--primary-soft)', color: 'var(--primary-ink)', border: '1px solid var(--primary-border)',
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                }}><Icon name="trend" size={19}/></span>
-                <div>
-                    <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>Search opportunity</div>
-                    <h2 style={{ margin: 0, fontSize: 19, fontWeight: 600, letterSpacing: '-0.018em' }}>Search Opportunity</h2>
-                    <p style={{ margin: '7px 0 0', fontSize: 13.5, lineHeight: 1.55, color: 'var(--text-2)', maxWidth: 560 }}>
-                        Better metadata can improve click-through rates and help searchers understand your pages before they visit.
-                    </p>
-                    <p style={{ margin: '8px 0 0', fontSize: 12, lineHeight: 1.45, color: 'var(--text-3)', maxWidth: 560 }}>
-                        Actual results vary depending on ranking position, search intent and existing metadata quality.
-                    </p>
+const SearchOpportunityCard = () => {
+    const siteUrl = window.bbtData?.siteUrl || 'https://example.com';
+    let host = 'example.com';
+    try { host = new URL( siteUrl ).hostname; } catch ( e ) { /* keep default */ }
+
+    return (
+        <Card padding={0} style={{ marginBottom: 28, overflow: 'hidden', borderColor: 'var(--primary-border)' }}>
+            <div style={{ padding: '22px 24px', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'start', gap: 20, background: 'linear-gradient(135deg,#F8FAFF 0%,#EEF4FF 100%)' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+                    <span style={{
+                        width: 40, height: 40, borderRadius: 10,
+                        background: 'var(--primary-soft)', color: 'var(--primary-ink)', border: '1px solid var(--primary-border)',
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                    }}><Icon name="trend" size={19}/></span>
+                    <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>Search opportunity</div>
+                        <h2 style={{ margin: 0, fontSize: 19, fontWeight: 600, letterSpacing: '-0.018em' }}>Search Opportunity</h2>
+                        <p style={{ margin: '7px 0 0', fontSize: 13.5, lineHeight: 1.55, color: 'var(--text-2)', maxWidth: 560 }}>
+                            Pages missing metadata often receive fewer clicks even when ranking. Well-written titles and descriptions help searchers understand your content before they visit.
+                        </p>
+                        <p style={{ margin: '8px 0 0', fontSize: 12, lineHeight: 1.45, color: 'var(--text-3)', maxWidth: 560 }}>
+                            Actual results vary depending on ranking position, search intent and existing metadata quality.
+                        </p>
+                        <div style={{ marginTop: 16, maxWidth: 420 }}>
+                            <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>Example search appearance</div>
+                            <SerpPreview
+                                variant="compact"
+                                faviconLetter={host.charAt( 0 ).toUpperCase()}
+                                url={`${ host } › example-page`}
+                                title="Your optimised SEO title appears here"
+                                meta="A clear meta description helps searchers understand what your page offers before they click through."
+                            />
+                        </div>
+                    </div>
+                </div>
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, marginBottom: 4 }}>Typical uplift</div>
+                    <div className="mono tnum" style={{ fontSize: 34, fontWeight: 700, color: 'var(--primary-ink)', letterSpacing: '-0.035em', whiteSpace: 'nowrap' }}>+{EST_GAIN}</div>
                 </div>
             </div>
-            <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, marginBottom: 4 }}>Typical uplift</div>
-                <div className="mono tnum" style={{ fontSize: 34, fontWeight: 700, color: 'var(--primary-ink)', letterSpacing: '-0.035em', whiteSpace: 'nowrap' }}>+{EST_GAIN}</div>
-            </div>
-        </div>
-    </Card>
-);
+        </Card>
+    );
+};
 
 const WebsiteHealthCards = ({ total, fixCount }) => (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 28 }}>
@@ -351,15 +450,47 @@ const AutopilotCard = ({ onUnlock }) => (
                 padding: '26px 28px',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center',
             }}>
-                <div style={{ width: 118, height: 118, borderRadius: 999, background: 'var(--primary-soft)', border: '1px solid var(--primary-border)', color: 'var(--primary-ink)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
-                    <Icon name="zap" size={42} strokeWidth={1.9}/>
-                </div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Always-on metadata</div>
-                <div style={{ fontSize: 12.5, color: 'var(--text-3)', marginTop: 4, lineHeight: 1.45, maxWidth: 230 }}>New content can get search-ready titles and meta descriptions automatically.</div>
+                <AutopilotWorkflow/>
             </div>
         </div>
     </Card>
 );
+
+const AutopilotWorkflow = () => {
+    const steps = [
+        { label: 'New Page Published', icon: 'library' },
+        { label: 'AI Generates Metadata', icon: 'zap' },
+        { label: 'Review', icon: 'eye' },
+        { label: 'Publish', icon: 'check' },
+    ];
+
+    return (
+        <div style={{ width: '100%', maxWidth: 220 }}>
+            {steps.map( ( step, i ) => (
+                <div key={i}>
+                    <div style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        padding: '10px 12px', borderRadius: 'var(--r-md)',
+                        background: 'var(--surface)', border: '1px solid var(--border)',
+                        boxShadow: 'var(--shadow-sm)',
+                    }}>
+                        <span style={{
+                            width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+                            background: 'var(--primary-soft)', color: 'var(--primary-ink)', border: '1px solid var(--primary-border)',
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        }}><Icon name={step.icon} size={14}/></span>
+                        <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text)', lineHeight: 1.3, textAlign: 'left' }}>{step.label}</span>
+                    </div>
+                    {i < steps.length - 1 && (
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 0', color: 'var(--text-3)' }}>
+                            <Icon name="chevron-down" size={16}/>
+                        </div>
+                    )}
+                </div>
+            ) )}
+        </div>
+    );
+};
 
 const SocialProofCard = () => (
     <Card padding={0} style={{ marginBottom: 28 }}>
@@ -367,6 +498,9 @@ const SocialProofCard = () => (
             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, letterSpacing: '-0.015em' }}>Built for real WordPress SEO workflows</h2>
             <p style={{ margin: '6px 0 14px', fontSize: 13.5, color: 'var(--text-2)', lineHeight: 1.5, maxWidth: 640 }}>
                 Designed for bloggers, agencies, WooCommerce stores and content-heavy WordPress websites.
+            </p>
+            <p style={{ margin: '0 0 14px', fontSize: 13.5, color: 'var(--text-2)', lineHeight: 1.5, maxWidth: 640 }}>
+                Designed to fit existing WordPress SEO workflows without changing how your team publishes content.
             </p>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
                 <TrustPill>Metadata workflows for WordPress</TrustPill>
@@ -450,6 +584,7 @@ const PricingTeaserCard = ({ onPlanSelect }) => {
                         features={PLAN_COPY.free.features}
                         cta={PLAN_COPY.free.cta}
                         onSelect={onPlanSelect}
+                        variant="neutral"
                     />
                     <PlanTeaser
                         planId="starter"
@@ -460,6 +595,7 @@ const PricingTeaserCard = ({ onPlanSelect }) => {
                         features={PLAN_COPY.starter.features}
                         cta={PLAN_COPY.starter.cta}
                         onSelect={onPlanSelect}
+                        variant="starter"
                     />
                     <PlanTeaser
                         planId="pro"
@@ -473,6 +609,9 @@ const PricingTeaserCard = ({ onPlanSelect }) => {
                         onSelect={onPlanSelect}
                     />
                 </div>
+                <p style={{ margin: '14px 0 0', fontSize: 12.5, color: 'var(--text-3)', lineHeight: 1.45, textAlign: 'center' }}>
+                    Most users recover the monthly cost after optimising just a handful of pages.
+                </p>
             </div>
         </Card>
     );
@@ -488,12 +627,32 @@ const PricingTrustRow = () => (
     </div>
 );
 
-const PlanTeaser = ({ planId, name, allowance, price, badge, features = [], cta, highlight, onSelect }) => (
+const PlanTeaser = ({ planId, name, allowance, price, badge, features = [], cta, highlight, variant, onSelect }) => {
+    const styles = highlight
+        ? {
+            padding: '18px 16px',
+            border: '2px solid var(--primary)',
+            background: 'var(--primary-soft)',
+            boxShadow: '0 10px 30px rgba(37,99,235,0.12)',
+        }
+        : variant === 'starter'
+            ? {
+                padding: 14,
+                border: '1px solid var(--primary-border)',
+                background: 'var(--surface)',
+                boxShadow: '0 4px 14px rgba(37,99,235,0.06)',
+            }
+            : {
+                padding: 14,
+                border: '1px solid var(--border)',
+                background: 'var(--surface-2)',
+                boxShadow: 'none',
+            };
+
+    return (
     <div style={{
-        padding: highlight ? '18px 16px' : 14, borderRadius: 'var(--r-md)', minWidth: 0, position: 'relative',
-        border: `${ highlight ? '2px' : '1px' } solid ${ highlight ? 'var(--primary)' : 'var(--border)' }`,
-        background: highlight ? 'var(--primary-soft)' : 'var(--surface-2)',
-        boxShadow: highlight ? '0 10px 30px rgba(37,99,235,0.12)' : 'none',
+        ...styles,
+        borderRadius: 'var(--r-md)', minWidth: 0, position: 'relative',
         display: 'flex', flexDirection: 'column',
     }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
@@ -529,7 +688,8 @@ const PlanTeaser = ({ planId, name, allowance, price, badge, features = [], cta,
             </Button>
         )}
     </div>
-);
+    );
+};
 
 const TrustPill = ({ children }) => (
     <span style={{

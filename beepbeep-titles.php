@@ -47,7 +47,7 @@ spl_autoload_register( static function ( string $class ): void {
 
 // Tell Plugin Check to skip dev-only paths (mirrors .distignore / release zip).
 add_filter( 'wp_plugin_check_ignore_directories', static function ( array $directories ): array {
-    return array_merge( $directories, [ 'tests', 'scripts', '.github', '.claude', 'node_modules', 'src' ] );
+    return array_merge( $directories, [ 'tests', 'scripts', '.github', '.claude', 'node_modules', 'src', 'dist' ] );
 } );
 add_filter( 'wp_plugin_check_ignore_files', static function ( array $files ): array {
     return array_merge( $files, [

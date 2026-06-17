@@ -110,6 +110,7 @@ class Admin {
             // Admin-only billing diagnostics gating + environment display.
             'isAdmin'    => current_user_can( 'manage_options' ),
             'backendUrl' => BBT_API_BASE,
+            'lastScan'   => (string) get_option( 'bbt_last_scan', '' ),
         ] );
     }
 

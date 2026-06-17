@@ -201,7 +201,7 @@ export default function App() {
 
     const loadActivity = async () => {
         try {
-            const res = await fetchActivity( { limit: 8 } );
+            const res = await fetchActivity( { limit: 30 } );
             setActivity( res.events || [] );
         } catch ( e ) {
             setActivity( [] );
@@ -388,7 +388,6 @@ export default function App() {
                     queuePages={queuePages}
                     autoOptimise={autoOptimise}
                     onAutoToggle={handleAutoToggle}
-                    onGenerate={openGen}
                     onUpgrade={() => setPaywall( { open: true, trigger: 'default', entitlement: null } )}
                     onView={selectTab}
                 />

@@ -12,6 +12,7 @@ node_modules
 src
 tests
 scripts
+dist
 package.json
 package-lock.json
 .DS_Store

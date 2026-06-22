@@ -11,7 +11,6 @@ use BeepBeep_Titles\ActivityLog;
 use BeepBeep_Titles\Api\Client;
 use BeepBeep_Titles\PostPresenter;
 use BeepBeep_Titles\Seo\MetaWriter;
-use BeepBeep_Titles\UsageMeter;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -43,7 +42,6 @@ class GenerateController {
         $meta  = (string) ( $result['meta'] ?? '' );
         MetaWriter::write( $post->ID, $title, $meta );
         ActivityLog::record( $post->ID, 'generated' );
-        UsageMeter::record();
         $this->bust_stats();
 
         $result['wp_post_id'] = $post->ID;
@@ -100,7 +98,6 @@ class GenerateController {
         $ordered = is_array( $ordered ) ? $ordered : [];
         $items   = isset( $result['items'] ) && is_array( $result['items'] ) ? $result['items'] : [];
         $wrote   = false;
-        $written = 0;
 
         foreach ( $items as $i => &$item ) {
             $post_id = $this->resolve_item_post_id( $item, $ordered, $i );
@@ -116,7 +113,6 @@ class GenerateController {
                     MetaWriter::write( $post_id, (string) ( $item['title'] ?? '' ), (string) ( $item['meta'] ?? '' ) );
                     ActivityLog::record( $post_id, 'generated' );
                     $wrote = true;
-                    $written++;
                 }
             }
         }
@@ -125,7 +121,6 @@ class GenerateController {
         $result['items'] = $items;
 
         if ( $wrote ) {
-            UsageMeter::record( $written );
             $this->bust_stats();
         }
 

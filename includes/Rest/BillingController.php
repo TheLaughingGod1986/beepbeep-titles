@@ -8,7 +8,6 @@
 namespace BeepBeep_Titles\Rest;
 
 use BeepBeep_Titles\Api\Client;
-use BeepBeep_Titles\UsageMeter;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -26,13 +25,9 @@ class BillingController {
         }
         $result['connected']     = true;
         $result['account_email'] = $this->client->get_account_email();
-        // Reconstruct which BeepBeep plugin spent the shared credits this cycle
-        // from local sources, so the Settings card can itemise the combined
-        // total the backend reports. Keep tracking aligned to the backend's
-        // billing cycle (its reset date). See UsageMeter.
-        $reset = (string) ( $result['reset_date'] ?? '' );
-        UsageMeter::remember_cycle( $reset );
-        $result['usage_by_feature'] = UsageMeter::breakdown( $reset );
+        // `usage_by_feature` (per-plugin attribution of the shared wallet) is
+        // provided by the backend quota response and passed straight through to
+        // the Settings "Credit usage" card.
         return new \WP_REST_Response( $result, 200 );
     }
 

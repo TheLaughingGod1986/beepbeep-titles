@@ -149,7 +149,6 @@ class Plugin {
 
         MetaWriter::write( $post_id, (string) ( $result['title'] ?? '' ), (string) ( $result['meta'] ?? '' ) );
         ActivityLog::record( $post_id, 'auto' );
-        UsageMeter::record();
         delete_transient( 'beepti_stats' );
     }
 

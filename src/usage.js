@@ -5,8 +5,8 @@ const FEATURE_META = {
 };
 
 /* The fixed catalog of BeepBeep AI plugins that draw from the shared pool,
-   newest-relevant first: this plugin, then its siblings. Always rendered in
-   full so the card reads as a roster, not just "what happened to bill". */
+   this plugin first, then its siblings. Always rendered in full so the card
+   reads as a roster, not just "what happened to bill". */
 const CATALOG = [
     { id: 'title_meta', current: true },
     { id: 'alt_text' },
@@ -69,28 +69,29 @@ function splitFromQuota( quota ) {
 /**
  * Build the shared-credit breakdown for the Settings card.
  *
- * Always returns the full plugin catalog (this plugin + siblings) so the card
- * reads as a roster, with `current` / `installed` flags driving the
- * "This plugin" and "Not installed" badges. Per-plugin credit counts are only
- * filled when the backend actually attributes them (`hasSplit`); when the
- * service reports a single combined total we keep the catalog visible but leave
- * the numbers off rather than inventing a split.
+ * Always returns the full plugin catalog (this plugin + siblings) with
+ * `current` / `installed` flags for the badges. `attributed` is how many of the
+ * used credits we could actually pin to a specific plugin; the caller compares
+ * it to the total to decide whether the per-plugin numbers reconcile (and are
+ * worth showing) or whether to fall back to a single shared-usage bar.
  *
  * @param {Object} quota     Normalized quota payload.
  * @param {number} totalUsed Combined credits used this cycle (header figure).
- * @param {Object} [installed] Optional install hints, e.g. { alt_text: true, schema: false }.
- * @returns {{ rows: Array, hasSplit: boolean, total: number }}
+ * @param {Object} [installed] Optional install hints, e.g. { alt_text: true }.
+ * @returns {{ rows: Array, hasSplit: boolean, attributed: number, total: number }}
  */
 export function creditUsageRows( quota, totalUsed = 0, installed = {} ) {
-    const split   = splitFromQuota( quota );
+    const split    = splitFromQuota( quota );
     const hasSplit = split.size > 0;
-    const total   = Math.max( 0, Number( totalUsed ) || 0 );
+    const total    = Math.max( 0, Number( totalUsed ) || 0 );
 
+    let attributed = 0;
     const rows = CATALOG.map( ( { id, current } ) => {
         const meta = FEATURE_META[id];
         const used = split.get( id ) || 0;
-        // A plugin counts as installed if the caller says so, or if it has
-        // billed against the shared pool (it can't bill without being present).
+        attributed += used;
+        // A plugin is installed if the caller says so, or if it billed against
+        // the shared pool (it can't bill without being present).
         const isInstalled = !! current || installed[id] === true || used > 0;
         return {
             id,
@@ -101,27 +102,9 @@ export function creditUsageRows( quota, totalUsed = 0, installed = {} ) {
             border: meta.border,
             current: !! current,
             installed: isInstalled,
-            // Only surface a number when the backend attributed it.
             used: hasSplit ? used : null,
         };
     } );
 
-    // When the backend attributes usage, keep any credits spent by plugins
-    // outside the known catalog visible so the rows still reconcile to the total.
-    if ( hasSplit ) {
-        const known = new Set( CATALOG.map( c => c.id ) );
-        let extra = 0;
-        split.forEach( ( value, id ) => { if ( ! known.has( id ) ) extra += value; } );
-        const attributed = rows.reduce( ( sum, row ) => sum + ( row.used || 0 ), 0 ) + extra;
-        const unallocated = Math.max( 0, total - attributed ) + extra;
-        if ( unallocated > 0 ) {
-            rows.push( {
-                id: 'other', label: 'Other BeepBeep AI services', icon: 'sparkles',
-                color: '#64748B', soft: '#F8FAFC', border: '#E2E8F0',
-                current: false, installed: true, used: unallocated,
-            } );
-        }
-    }
-
-    return { rows, hasSplit, total };
+    return { rows, hasSplit, attributed, total };
 }

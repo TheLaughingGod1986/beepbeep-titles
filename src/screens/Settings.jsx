@@ -228,9 +228,15 @@ const PlanCard = ({ isPro, monthlyUsed, monthlyLimit, pct, resetDate, onUpgrade,
 
 const CreditUsageCard = ({ quota, used, limit, resetDate }) => {
     const companion = window.beeptiAdminData?.altTextCompanion?.state;
-    const { rows, hasSplit } = creditUsageRows( quota, used, {
+    const { rows, attributed } = creditUsageRows( quota, used, {
         alt_text: companion === 'active' || companion === 'installed',
     } );
+
+    // Only show per-plugin numbers when the credits we could attribute actually
+    // reconcile with the total used — otherwise (e.g. credits spent before
+    // tracking began) fall back to one honest shared-usage bar instead of a
+    // misleading row of zeros.
+    const showBreakdown = used > 0 && attributed >= used;
 
     return (
         <Card padding={0} style={{ marginBottom: 18, overflow: 'hidden' }}>
@@ -246,12 +252,12 @@ const CreditUsageCard = ({ quota, used, limit, resetDate }) => {
             <div style={{ padding: '11px 20px', display: 'flex', alignItems: 'flex-start', gap: 9, background: 'var(--surface-2)', borderBottom: '1px solid var(--hairline)', fontSize: 12, color: 'var(--text-2)', lineHeight: 1.45 }}>
                 <Icon name="info" size={14} style={{ color: 'var(--text-3)', flexShrink: 0, marginTop: 1 }}/>
                 <span>
-                    One credit pool is shared by every BeepBeep AI plugin on this site. {hasSplit
+                    One credit pool is shared by every BeepBeep AI plugin on this site. {showBreakdown
                         ? `The breakdown below shows which plugin consumed each credit · resets ${resetDate}.`
                         : `Per-plugin credits aren't itemised yet — the total above is shared across these plugins · resets ${resetDate}.`}
                 </span>
             </div>
-            {! hasSplit && (
+            {! showBreakdown && (
                 <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--hairline)' }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 7 }}>
                         <span style={{ fontSize: 11.5, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Shared usage</span>
@@ -262,7 +268,7 @@ const CreditUsageCard = ({ quota, used, limit, resetDate }) => {
             )}
             <div>
                 {rows.map( ( row, index ) => {
-                    const hasNumber = row.used !== null && row.used !== undefined;
+                    const hasNumber = showBreakdown && row.used !== null && row.used !== undefined;
                     const percentage = hasNumber && used > 0 ? Math.min( 100, Math.round( ( row.used / used ) * 100 ) ) : 0;
                     return (
                         <div key={row.id} style={{ padding: '12px 20px', display: 'grid', gridTemplateColumns: '36px minmax(0, 1fr) auto', gap: 12, alignItems: 'center', borderBottom: index === rows.length - 1 ? 0 : '1px solid var(--hairline)', background: row.current ? row.soft : 'var(--surface)', opacity: row.installed ? 1 : 0.72 }}>

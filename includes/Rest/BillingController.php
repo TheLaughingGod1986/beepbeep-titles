@@ -26,10 +26,13 @@ class BillingController {
         }
         $result['connected']     = true;
         $result['account_email'] = $this->client->get_account_email();
-        // Reconstruct which BeepBeep plugin spent the shared credits this month
+        // Reconstruct which BeepBeep plugin spent the shared credits this cycle
         // from local sources, so the Settings card can itemise the combined
-        // total the backend reports. See UsageMeter.
-        $result['usage_by_feature'] = UsageMeter::breakdown();
+        // total the backend reports. Keep tracking aligned to the backend's
+        // billing cycle (its reset date). See UsageMeter.
+        $reset = (string) ( $result['reset_date'] ?? '' );
+        UsageMeter::remember_cycle( $reset );
+        $result['usage_by_feature'] = UsageMeter::breakdown( $reset );
         return new \WP_REST_Response( $result, 200 );
     }
 

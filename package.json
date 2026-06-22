@@ -10,6 +10,10 @@
     "lint:css": "wp-scripts lint-style src",
     "test:unit": "wp-scripts test-unit-js",
     "smoke": "bash scripts/smoke.sh",
+    "plugin-check": "bash scripts/plugin-check-release.sh",
+    "plugin-check:dev": "bash scripts/plugin-check-dev.sh",
+    "screenshots": "node scripts/capture-readme-screenshots.mjs",
+    "release:zip": "bash scripts/build-release-zip.sh",
     "env:start": "docker compose up -d",
     "env:stop": "docker compose down",
     "env:logs": "docker compose logs -f wordpress"

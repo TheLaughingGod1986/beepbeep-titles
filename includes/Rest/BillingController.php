@@ -25,6 +25,9 @@ class BillingController {
         }
         $result['connected']     = true;
         $result['account_email'] = $this->client->get_account_email();
+        // `usage_by_feature` (per-plugin attribution of the shared wallet) is
+        // provided by the backend quota response and passed straight through to
+        // the Settings "Credit usage" card.
         return new \WP_REST_Response( $result, 200 );
     }
 
@@ -154,9 +157,9 @@ class BillingController {
             return new \WP_REST_Response( [ 'success' => false, 'code' => 'INVALID_REQUEST', 'message' => __( 'No plan or price selected.', 'beepbeep-titles' ) ], 400 );
         }
 
-        $base    = admin_url( 'admin.php?page=' . BBT_SLUG );
-        $success = add_query_arg( 'bbt_billing', 'success', $base );
-        $cancel  = add_query_arg( 'bbt_billing', 'cancelled', $base );
+        $base    = admin_url( 'admin.php?page=' . BEEPTI_SLUG );
+        $success = add_query_arg( 'beepti_billing', 'success', $base );
+        $cancel  = add_query_arg( 'beepti_billing', 'cancelled', $base );
 
         $result = $this->client->create_checkout( $price_id, $success, $cancel, $plan );
         if ( is_wp_error( $result ) ) {
@@ -166,7 +169,7 @@ class BillingController {
     }
 
     public function billing_portal( \WP_REST_Request $req ): \WP_REST_Response {
-        $return = admin_url( 'admin.php?page=' . BBT_SLUG );
+        $return = admin_url( 'admin.php?page=' . BEEPTI_SLUG );
         $result = $this->client->billing_portal( $return );
         if ( is_wp_error( $result ) ) {
             return ErrorResponder::from_wp_error( $result );

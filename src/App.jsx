@@ -5,9 +5,8 @@ import { PagesLibrary } from './screens/Library';
 import { AutopilotScreen } from './screens/Autopilot';
 import { BillingScreen } from './screens/Billing';
 import { SettingsScreen } from './screens/Settings';
-import { AuditSignedOutScreen } from './screens/Audit';
 import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal, ConnectModal } from './modals/index';
-import { SignOutConfirm } from './auth';
+import { SignOutConfirm, SignedOutScreen } from './auth';
 import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, createCheckout, createBillingPortal, clearLicense, saveSettings, track } from './api';
 import { paywallTrigger, errorToast, checkoutErrorToast, classifyCheckoutError } from './errors';
 import { hasDailyCap } from './quota';
@@ -201,7 +200,7 @@ export default function App() {
 
     const loadActivity = async () => {
         try {
-            const res = await fetchActivity( { limit: 8 } );
+            const res = await fetchActivity( { limit: 30 } );
             setActivity( res.events || [] );
         } catch ( e ) {
             setActivity( [] );
@@ -324,6 +323,18 @@ export default function App() {
     // ── Billing: open Stripe checkout / portal in a new tab (shared account) ──
     const goToCheckout = ( checkout = 'pro' ) => {
         const args = typeof checkout === 'string' ? { plan: checkout } : checkout;
+        if ( ! connected ) {
+            setPaywall( { open: false, trigger: 'default', entitlement: null } );
+            openConnect( 'password' );
+            setToast( {
+                message: 'Sign in to continue',
+                sub: 'Create a free account or sign in before choosing a paid plan.',
+                icon: 'info',
+                tone: 'warn',
+            } );
+            track( 'checkout_blocked_signed_out', { plan: args.plan, plan_selected: args.plan, source_screen: tab } );
+            return;
+        }
         // Canonical funnel props (plan_selected kept alongside plan for compat).
         const funnel = { plan: args.plan, plan_selected: args.plan, price_id: args.priceId, source_screen: tab };
         openInNewTab( () => createCheckout( args ), {
@@ -376,16 +387,17 @@ export default function App() {
                     queuePages={queuePages}
                     autoOptimise={autoOptimise}
                     onAutoToggle={handleAutoToggle}
-                    onGenerate={openGen}
                     onUpgrade={() => setPaywall( { open: true, trigger: 'default', entitlement: null } )}
                     onView={selectTab}
                 />
             ) : (
-                <AuditSignedOutScreen
-                    stats={stats}
-                    onConnect={() => setConnectOpen( true )}
-                    onHelp={() => setHelpOpen( true )}
-                    onUpgrade={() => setPaywall( { open: true, trigger: 'default', entitlement: null } )}
+                <SignedOutScreen
+                    lastEmail={accountEmail || user?.email}
+                    onConnected={( res ) => {
+                        refreshQuota();
+                        setToast( { message: 'Account connected', sub: `Plan: ${ res?.plan || 'free' } · generations ready.`, icon: 'check', tone: 'ok' } );
+                    }}
+                    onToast={setToast}
                 />
             );
             break;
@@ -481,7 +493,7 @@ export default function App() {
             <HelpModal
                 open={helpOpen}
                 onClose={() => setHelpOpen( false )}
-                onStartScan={handleScan}
+                onStartScan={() => selectTab( 'dashboard' )}
             />
 
             <ConnectModal
@@ -517,10 +529,15 @@ export default function App() {
                 trigger={paywall.trigger}
                 entitlement={paywall.entitlement}
                 stats={stats}
+                connected={connected}
                 onClose={() => setPaywall( { open: false, trigger: 'default', entitlement: null } )}
                 onCheckout={goToCheckout}
                 onUpgrade={handleUpgrade}
                 onBuyCredits={handleBuyCredits}
+                onConnect={() => {
+                    setPaywall( { open: false, trigger: 'default', entitlement: null } );
+                    openConnect( 'password' );
+                }}
                 sourceScreen={tab}
             />
 

@@ -54,7 +54,7 @@ class Admin {
             'beepbeep-titles-fonts',
             'https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap',
             [],
-            null
+            BBT_VERSION
         );
 
         $asset_file = BBT_DIR . 'build/index.asset.php';
@@ -110,6 +110,7 @@ class Admin {
             // Admin-only billing diagnostics gating + environment display.
             'isAdmin'    => current_user_can( 'manage_options' ),
             'backendUrl' => BBT_API_BASE,
+            'lastScan'   => (string) get_option( 'bbt_last_scan', '' ),
         ] );
     }
 

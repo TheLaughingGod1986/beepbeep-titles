@@ -18,12 +18,14 @@ class Routes {
     private readonly GenerateController $generate;
     private readonly BillingController $billing;
     private readonly PagesController $pages;
+    private readonly SupportController $support;
 
     public function __construct() {
         $client = new Client();
         $this->generate = new GenerateController( $client );
         $this->billing  = new BillingController( $client );
         $this->pages    = new PagesController( $client );
+        $this->support  = new SupportController( $client );
     }
 
     public function register(): void {
@@ -35,6 +37,7 @@ class Routes {
         $g  = $this->generate;
         $b  = $this->billing;
         $p  = $this->pages;
+        $s  = $this->support;
 
         // ── Generation ─────────────────────────────────────────────
         register_rest_route( $ns, '/generate', [
@@ -194,6 +197,18 @@ class Routes {
             'methods'             => 'POST',
             'callback'            => [ $p, 'run_scan' ],
             'permission_callback' => [ $this, 'require_editor' ],
+        ] );
+
+        // ── Support (contact form) ─────────────────────────────────
+        register_rest_route( $ns, '/support/contact', [
+            'methods'             => 'POST',
+            'callback'            => [ $s, 'contact' ],
+            'permission_callback' => [ $this, 'require_editor' ],
+            'args'                => [
+                'name'    => [ 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ],
+                'email'   => [ 'type' => 'string', 'sanitize_callback' => 'sanitize_email' ],
+                'message' => [ 'required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_textarea_field' ],
+            ],
         ] );
 
         // ── Settings ───────────────────────────────────────────────

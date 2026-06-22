@@ -1,7 +1,8 @@
 import { Icon } from './index';
+import { contentAvatarLetter } from '../contentType';
 
-export const PageAvatar = ({ section, hue = 220, size = 40, fontSize = 13, uppercase = false, failed = false, style = {} }) => {
-    const letter = ( section || 'P' )[0];
+export const PageAvatar = ({ section, type, hue = 220, size = 40, fontSize = 13, uppercase = false, failed = false, style = {} }) => {
+    const letter = contentAvatarLetter( { type, section } );
     return (
         <div style={{
             width: size, height: size, borderRadius: 8,

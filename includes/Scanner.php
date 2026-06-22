@@ -43,6 +43,7 @@ class Scanner {
          *
          * @param string[] $types Public post-type names (attachment removed).
          */
+        // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- "bbt_" is this plugin's established hook prefix.
         $types = apply_filters( 'bbt_scanned_post_types', array_values( $types ) );
 
         return array_values( array_filter( array_map( 'strval', (array) $types ) ) );
@@ -72,6 +73,7 @@ class Scanner {
         } elseif ( $filter !== 'drafts' ) {
             $meta_query = $this->filter_to_meta_query( $filter );
             if ( $meta_query ) {
+                // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- Admin-only coverage filter; result set is paginated.
                 $args['meta_query'] = $meta_query;
             }
         }
@@ -150,51 +152,65 @@ class Scanner {
 
     private function compute_stats(): array {
         global $wpdb;
-        $types_in = "'" . implode( "','", array_map( 'esc_sql', self::post_types() ) ) . "'";
+        $types = self::post_types();
+        if ( empty( $types ) ) {
+            return [
+                'total'      => 0,
+                'with_title' => 0,
+                'with_meta'  => 0,
+                'coverage'   => 0,
+                'optimised'  => 0,
+                'remaining'  => 0,
+                'drafts'     => 0,
+            ];
+        }
+        // String of "%s,%s,…" placeholders — one per post type — for the IN clause.
+        $types_ph = implode( ',', array_fill( 0, count( $types ), '%s' ) );
 
+        // phpcs:disable WordPress.DB.PreparedSQL, WordPress.DB.PreparedSQLPlaceholders -- Dynamic IN() lists; values bound via prepare().
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-        $total = (int) $wpdb->get_var(
+        $total = (int) $wpdb->get_var( $wpdb->prepare(
             "SELECT COUNT(*) FROM {$wpdb->posts}
-             WHERE post_status = 'publish' AND post_type IN ({$types_in})"
-        );
+             WHERE post_status = 'publish' AND post_type IN ($types_ph)",
+            $types
+        ) );
 
         $keys = MetaWriter::postmeta_keys();
 
         if ( null === $keys ) {
             // AIOSEO: counts come from its custom table.
-            [ $with_title, $with_meta, $both ] = $this->aioseo_counts( $types_in );
+            [ $with_title, $with_meta, $both ] = $this->aioseo_counts( $types );
         } else {
             [ $title_key, $meta_key ] = $keys;
 
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery
             $with_title = (int) $wpdb->get_var( $wpdb->prepare(
                 "SELECT COUNT(DISTINCT pm.post_id)
                  FROM {$wpdb->postmeta} pm
                  JOIN {$wpdb->posts} p ON p.ID = pm.post_id
                  WHERE pm.meta_key = %s AND pm.meta_value != ''
-                   AND p.post_status = 'publish' AND p.post_type IN ({$types_in})",
-                $title_key
+                   AND p.post_status = 'publish' AND p.post_type IN ($types_ph)",
+                array_merge( [ $title_key ], $types )
             ) );
 
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery
             $with_meta = (int) $wpdb->get_var( $wpdb->prepare(
                 "SELECT COUNT(DISTINCT pm.post_id)
                  FROM {$wpdb->postmeta} pm
                  JOIN {$wpdb->posts} p ON p.ID = pm.post_id
                  WHERE pm.meta_key = %s AND pm.meta_value != ''
-                   AND p.post_status = 'publish' AND p.post_type IN ({$types_in})",
-                $meta_key
+                   AND p.post_status = 'publish' AND p.post_type IN ($types_ph)",
+                array_merge( [ $meta_key ], $types )
             ) );
 
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery
             $both = $total > 0 ? (int) $wpdb->get_var( $wpdb->prepare(
                 "SELECT COUNT(DISTINCT p.ID)
                  FROM {$wpdb->posts} p
                  JOIN {$wpdb->postmeta} pm1 ON pm1.post_id = p.ID AND pm1.meta_key = %s AND pm1.meta_value != ''
                  JOIN {$wpdb->postmeta} pm2 ON pm2.post_id = p.ID AND pm2.meta_key = %s AND pm2.meta_value != ''
-                 WHERE p.post_status = 'publish' AND p.post_type IN ({$types_in})",
-                $title_key,
-                $meta_key
+                 WHERE p.post_status = 'publish' AND p.post_type IN ($types_ph)",
+                array_merge( [ $title_key, $meta_key ], $types )
             ) ) : 0;
         }
 
@@ -203,22 +219,29 @@ class Scanner {
         $coverage  = $total > 0 ? (int) round( ( $optimised / $total ) * 100 ) : 0;
 
         // Unpublished pages the Drafts tab can pre-optimise (excluded from coverage).
-        $draft_statuses_in = "'" . implode( "','", array_map( 'esc_sql', self::DRAFT_STATUSES ) ) . "'";
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
-        $drafts = (int) $wpdb->get_var(
+        $draft_ph = implode( ',', array_fill( 0, count( self::DRAFT_STATUSES ), '%s' ) );
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+        $drafts = (int) $wpdb->get_var( $wpdb->prepare(
             "SELECT COUNT(*) FROM {$wpdb->posts}
-             WHERE post_status IN ({$draft_statuses_in}) AND post_type IN ({$types_in})"
-        );
+             WHERE post_status IN ($draft_ph) AND post_type IN ($types_ph)",
+            array_merge( self::DRAFT_STATUSES, $types )
+        ) );
+        // phpcs:enable WordPress.DB.PreparedSQL, WordPress.DB.PreparedSQLPlaceholders
 
         return compact( 'total', 'with_title', 'with_meta', 'coverage', 'optimised', 'remaining', 'drafts' );
     }
 
     /**
+     * @param string[] $types Public post-type names to count within.
      * @return array{0:int,1:int,2:int} [ with_title, with_meta, both ]
      */
-    private function aioseo_counts( string $types_in ): array {
+    private function aioseo_counts( array $types ): array {
         global $wpdb;
-        $table = $wpdb->prefix . 'aioseo_posts';
+        if ( empty( $types ) ) {
+            return [ 0, 0, 0 ];
+        }
+        $table    = $wpdb->prefix . 'aioseo_posts';
+        $types_ph = implode( ',', array_fill( 0, count( $types ), '%s' ) );
 
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery
         $found = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) );
@@ -226,28 +249,33 @@ class Scanner {
             return [ 0, 0, 0 ];
         }
 
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
-        $with_title = (int) $wpdb->get_var(
+        // phpcs:disable WordPress.DB.PreparedSQL, WordPress.DB.PreparedSQLPlaceholders -- $table is prefix-built; IN() lists use bound placeholders.
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery, PluginCheck.Security.DirectDB.UnescapedDBParameter
+        $with_title = (int) $wpdb->get_var( $wpdb->prepare(
             "SELECT COUNT(DISTINCT a.post_id)
              FROM {$table} a JOIN {$wpdb->posts} p ON p.ID = a.post_id
              WHERE a.title IS NOT NULL AND a.title != ''
-               AND p.post_status = 'publish' AND p.post_type IN ({$types_in})"
-        );
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
-        $with_meta = (int) $wpdb->get_var(
+               AND p.post_status = 'publish' AND p.post_type IN ($types_ph)",
+            $types
+        ) );
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery, PluginCheck.Security.DirectDB.UnescapedDBParameter
+        $with_meta = (int) $wpdb->get_var( $wpdb->prepare(
             "SELECT COUNT(DISTINCT a.post_id)
              FROM {$table} a JOIN {$wpdb->posts} p ON p.ID = a.post_id
              WHERE a.description IS NOT NULL AND a.description != ''
-               AND p.post_status = 'publish' AND p.post_type IN ({$types_in})"
-        );
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
-        $both = (int) $wpdb->get_var(
+               AND p.post_status = 'publish' AND p.post_type IN ($types_ph)",
+            $types
+        ) );
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery, PluginCheck.Security.DirectDB.UnescapedDBParameter
+        $both = (int) $wpdb->get_var( $wpdb->prepare(
             "SELECT COUNT(DISTINCT a.post_id)
              FROM {$table} a JOIN {$wpdb->posts} p ON p.ID = a.post_id
              WHERE a.title IS NOT NULL AND a.title != ''
                AND a.description IS NOT NULL AND a.description != ''
-               AND p.post_status = 'publish' AND p.post_type IN ({$types_in})"
-        );
+               AND p.post_status = 'publish' AND p.post_type IN ($types_ph)",
+            $types
+        ) );
+        // phpcs:enable WordPress.DB.PreparedSQL, WordPress.DB.PreparedSQLPlaceholders
 
         return [ $with_title, $with_meta, $both ];
     }

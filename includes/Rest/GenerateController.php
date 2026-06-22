@@ -11,6 +11,7 @@ use BeepBeep_Titles\ActivityLog;
 use BeepBeep_Titles\Api\Client;
 use BeepBeep_Titles\PostPresenter;
 use BeepBeep_Titles\Seo\MetaWriter;
+use BeepBeep_Titles\UsageMeter;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -42,6 +43,7 @@ class GenerateController {
         $meta  = (string) ( $result['meta'] ?? '' );
         MetaWriter::write( $post->ID, $title, $meta );
         ActivityLog::record( $post->ID, 'generated' );
+        UsageMeter::record();
         $this->bust_stats();
 
         $result['wp_post_id'] = $post->ID;
@@ -81,7 +83,7 @@ class GenerateController {
         if ( $job_id !== '' ) {
             // Cache ordered post ids so we can map poll items back even if the
             // backend assigns its own item ids.
-            set_transient( 'bbt_job_' . $job_id, $ordered, HOUR_IN_SECONDS );
+            set_transient( 'beepti_job_' . $job_id, $ordered, HOUR_IN_SECONDS );
         }
 
         return new \WP_REST_Response( $result, 200 );
@@ -94,10 +96,11 @@ class GenerateController {
             return ErrorResponder::from_wp_error( $result );
         }
 
-        $ordered = get_transient( 'bbt_job_' . $job_id );
+        $ordered = get_transient( 'beepti_job_' . $job_id );
         $ordered = is_array( $ordered ) ? $ordered : [];
         $items   = isset( $result['items'] ) && is_array( $result['items'] ) ? $result['items'] : [];
         $wrote   = false;
+        $written = 0;
 
         foreach ( $items as $i => &$item ) {
             $post_id = $this->resolve_item_post_id( $item, $ordered, $i );
@@ -113,6 +116,7 @@ class GenerateController {
                     MetaWriter::write( $post_id, (string) ( $item['title'] ?? '' ), (string) ( $item['meta'] ?? '' ) );
                     ActivityLog::record( $post_id, 'generated' );
                     $wrote = true;
+                    $written++;
                 }
             }
         }
@@ -121,12 +125,13 @@ class GenerateController {
         $result['items'] = $items;
 
         if ( $wrote ) {
+            UsageMeter::record( $written );
             $this->bust_stats();
         }
 
         // Clean up the mapping once the job is terminal.
         if ( in_array( $result['status'] ?? '', [ 'completed', 'failed' ], true ) ) {
-            delete_transient( 'bbt_job_' . $job_id );
+            delete_transient( 'beepti_job_' . $job_id );
         }
 
         return new \WP_REST_Response( $result, 200 );
@@ -134,7 +139,7 @@ class GenerateController {
 
     /** Options block shared by single + bulk generation. */
     private function generation_options(): array {
-        $settings = get_option( 'bbt_settings', [] );
+        $settings = get_option( 'beepti_settings', [] );
         $settings = is_array( $settings ) ? $settings : [];
 
         $brand = ! empty( $settings['brand_name_override'] )
@@ -181,6 +186,6 @@ class GenerateController {
     }
 
     private function bust_stats(): void {
-        delete_transient( 'bbt_stats' );
+        delete_transient( 'beepti_stats' );
     }
 }

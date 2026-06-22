@@ -32,7 +32,8 @@ class Plugin {
         add_action( 'activated_plugin',   [ MetaWriter::class, 'refresh' ] );
         add_action( 'deactivated_plugin', [ MetaWriter::class, 'refresh' ] );
 
-        // Auto-generate on publish (Pro feature; gated by setting + backend).
+        // Auto-generate on publish when enabled; remote generation may require
+        // an account and available BeepBeep AI service credits.
         add_action( 'save_post', [ $this, 'maybe_auto_generate' ], 20, 3 );
 
         // Keep the cached stats (Home's "Today's Pass") in step with the live
@@ -64,13 +65,13 @@ class Plugin {
     }
 
     public static function deactivate(): void {
-        delete_transient( 'bbt_scan_lock' );
-        delete_transient( 'bbt_stats' );
+        delete_transient( 'beepti_scan_lock' );
+        delete_transient( 'beepti_stats' );
         flush_rewrite_rules();
     }
 
     private static function set_defaults(): void {
-        add_option( 'bbt_settings', [
+        add_option( 'beepti_settings', [
             'tone'                 => 'direct',
             'title_length'         => 'standard',
             'meta_length'          => 'standard',
@@ -88,10 +89,10 @@ class Plugin {
     /** Remove the pre-1.0 local usage table — quota is backend-owned now. */
     private static function drop_legacy_table(): void {
         global $wpdb;
-        $table = $wpdb->prefix . 'bbt_usage_log';
+        $table = $wpdb->prefix . 'beepti_usage_log';
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- $table is a prefix-built identifier (cannot be a placeholder); static DDL with no user input.
         $wpdb->query( "DROP TABLE IF EXISTS {$table}" );
-        delete_option( 'bbt_db_version' );
+        delete_option( 'beepti_db_version' );
     }
 
     // ----------------------------------------------------------------
@@ -107,12 +108,12 @@ class Plugin {
         }
         // Cover the same post types the scanner/Library does (all public types
         // incl. custom post types) so Autopilot doesn't lag behind the manual
-        // pipeline — shares the `bbt_scanned_post_types` filter as one source.
+        // pipeline — shares the `beepti_scanned_post_types` filter as one source.
         if ( ! in_array( $post->post_type, Scanner::post_types(), true ) ) {
             return;
         }
 
-        $settings = get_option( 'bbt_settings', [] );
+        $settings = get_option( 'beepti_settings', [] );
         if ( empty( $settings['auto_generate'] ) ) {
             return;
         }
@@ -148,7 +149,8 @@ class Plugin {
 
         MetaWriter::write( $post_id, (string) ( $result['title'] ?? '' ), (string) ( $result['meta'] ?? '' ) );
         ActivityLog::record( $post_id, 'auto' );
-        delete_transient( 'bbt_stats' );
+        UsageMeter::record();
+        delete_transient( 'beepti_stats' );
     }
 
     /**
@@ -166,7 +168,7 @@ class Plugin {
         if ( ! in_array( $post->post_type, Scanner::post_types(), true ) ) {
             return;
         }
-        delete_transient( 'bbt_stats' );
+        delete_transient( 'beepti_stats' );
     }
 
     /** Permanently deleting a published, scanned post lowers the counts. */
@@ -178,7 +180,7 @@ class Plugin {
         if ( ! in_array( $post->post_type, Scanner::post_types(), true ) ) {
             return;
         }
-        delete_transient( 'bbt_stats' );
+        delete_transient( 'beepti_stats' );
     }
 
     private function autopilot_page_envelope( \WP_Post $post, array $current ): array {
@@ -205,18 +207,18 @@ class Plugin {
     // ----------------------------------------------------------------
 
     private function queue_admin_notice( string $message, string $type = 'info' ): void {
-        $notices   = get_transient( 'bbt_admin_notices' );
+        $notices   = get_transient( 'beepti_admin_notices' );
         $notices   = is_array( $notices ) ? $notices : [];
         $notices[] = [ 'message' => $message, 'type' => $type ];
-        set_transient( 'bbt_admin_notices', $notices, 5 * MINUTE_IN_SECONDS );
+        set_transient( 'beepti_admin_notices', $notices, 5 * MINUTE_IN_SECONDS );
     }
 
     public function render_admin_notices(): void {
-        $notices = get_transient( 'bbt_admin_notices' );
+        $notices = get_transient( 'beepti_admin_notices' );
         if ( empty( $notices ) || ! is_array( $notices ) ) {
             return;
         }
-        delete_transient( 'bbt_admin_notices' );
+        delete_transient( 'beepti_admin_notices' );
 
         foreach ( $notices as $notice ) {
             $class = 'notice notice-' . ( $notice['type'] === 'warning' ? 'warning' : 'info' ) . ' is-dismissible';

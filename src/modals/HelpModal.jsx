@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Icon, Button } from '../components';
+import { Row, Stack } from '../ui';
 import { track } from '../api';
 import { Modal } from './Modal';
 
@@ -9,7 +10,7 @@ const steps = [
     {
         icon: 'user',
         title: 'Connect your account',
-        body: 'Connect your BeepBeep account to unlock metadata generation and reporting.',
+        body: 'Scan and review metadata locally. Connect BeepBeep AI when you want external AI generation.',
         benefits: [
             'No credit card required',
             'Setup takes less than one minute',
@@ -101,37 +102,34 @@ export const HelpModal = ({ open, onClose, onStartScan }) => {
                     </div>
                 </div>
 
-                <div style={{
+                <Row justify="between" gap={12} wrap style={{
                     borderTop: '1px solid var(--hairline)',
                     background: 'var(--surface-2)',
                     padding: '14px 20px',
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    gap: 12, flexWrap: 'wrap',
                     borderBottomLeftRadius: 'var(--r-xl)', borderBottomRightRadius: 'var(--r-xl)',
                 }}>
                     <div style={{ fontSize: 12.5, color: 'var(--text-3)', lineHeight: 1.45 }}>
                         Start with a scan, then generate and publish only what you approve.
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <Row gap={8} wrap>
                         <Button variant="secondary" size="md" icon="external" onClick={openDocs}>View Full Documentation</Button>
                         <Button variant="primary" size="md" icon="search" onClick={startScan}>Start My First Scan</Button>
-                    </div>
-                </div>
+                    </Row>
+                </Row>
             </div>
         </Modal>
     );
 };
 
 const SetupStep = ({ index, icon, title, body, benefits }) => (
-    <div style={{
-        display: 'flex', gap: 12,
+    <Row align="stretch" gap={12} style={{
         background: 'var(--surface)',
         border: '1px solid var(--border)',
         borderRadius: 'var(--r-md)',
         padding: 14,
         minHeight: 176,
     }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+        <Stack gap={0} align="center" style={{ flexShrink: 0 }}>
             <span className="mono tnum" style={{
                 width: 22, height: 22, borderRadius: 999,
                 background: 'var(--text)', color: '#fff',
@@ -147,18 +145,18 @@ const SetupStep = ({ index, icon, title, body, benefits }) => (
             }}>
                 <Icon name={icon} size={16}/>
             </span>
-        </div>
+        </Stack>
         <div style={{ minWidth: 0 }}>
             <h3 style={{ fontSize: 14.5, fontWeight: 600, letterSpacing: '-0.01em', margin: '1px 0 5px', color: 'var(--text)', lineHeight: 1.25 }}>{title}</h3>
             <p style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.45, margin: '0 0 9px' }}>{body}</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <Stack gap={5}>
                 {benefits.map( benefit => (
-                    <span key={benefit} style={{ display: 'flex', alignItems: 'flex-start', gap: 7, fontSize: 12, color: 'var(--text-3)', lineHeight: 1.35 }}>
+                    <Row key={benefit} align="start" gap={7} style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.35 }}>
                         <Icon name="check" size={12} strokeWidth={2.6} style={{ color: 'var(--ok-ink)', flexShrink: 0, marginTop: 1 }}/>
                         {benefit}
-                    </span>
+                    </Row>
                 ) )}
-            </div>
+            </Stack>
         </div>
-    </div>
+    </Row>
 );

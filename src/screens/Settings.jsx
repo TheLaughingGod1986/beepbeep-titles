@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Icon, Card, Pill, Button, Progress, Toggle, Divider } from '../components';
+import { Input, Textarea, Row } from '../ui';
 import { saveSettings, setLicense, clearLicense, submitSupport } from '../api';
 import { creditUsageRows } from '../usage';
 
@@ -240,7 +241,7 @@ const CreditUsageCard = ({ quota, used, limit, resetDate }) => {
 
     return (
         <Card padding={0} style={{ marginBottom: 18, overflow: 'hidden' }}>
-            <div style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, borderBottom: '1px solid var(--hairline)' }}>
+            <Row gap={16} justify="between" style={{ padding: '14px 20px', borderBottom: '1px solid var(--hairline)' }}>
                 <div>
                     <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 2 }}>Shared across BeepBeep AI</div>
                     <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Credit usage</div>
@@ -248,21 +249,21 @@ const CreditUsageCard = ({ quota, used, limit, resetDate }) => {
                 <div className="tnum" style={{ fontSize: 13, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
                     <strong style={{ color: 'var(--text)', fontWeight: 600 }}>{used}</strong> / {limit} credits used
                 </div>
-            </div>
-            <div style={{ padding: '11px 20px', display: 'flex', alignItems: 'flex-start', gap: 9, background: 'var(--surface-2)', borderBottom: '1px solid var(--hairline)', fontSize: 12, color: 'var(--text-2)', lineHeight: 1.45 }}>
+            </Row>
+            <Row align="start" gap={9} style={{ padding: '11px 20px', background: 'var(--surface-2)', borderBottom: '1px solid var(--hairline)', fontSize: 12, color: 'var(--text-2)', lineHeight: 1.45 }}>
                 <Icon name="info" size={14} style={{ color: 'var(--text-3)', flexShrink: 0, marginTop: 1 }}/>
                 <span>
                     One credit pool is shared by every BeepBeep AI plugin on this site. {showBreakdown
                         ? `The breakdown below shows which plugin consumed each credit · resets ${resetDate}.`
                         : `Per-plugin credits aren't itemised yet — the total above is shared across these plugins · resets ${resetDate}.`}
                 </span>
-            </div>
+            </Row>
             {! showBreakdown && (
                 <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--hairline)' }}>
-                    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 7 }}>
+                    <Row align="baseline" justify="between" style={{ marginBottom: 7 }}>
                         <span style={{ fontSize: 11.5, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Shared usage</span>
                         <span className="mono tnum" style={{ fontSize: 11.5, color: 'var(--text-2)', fontWeight: 600 }}>{used} / {limit}</span>
-                    </div>
+                    </Row>
                     <Progress value={used} max={limit} tone={limit > 0 && used / limit > 0.9 ? 'danger' : limit > 0 && used / limit > 0.75 ? 'warn' : 'primary'} height={6}/>
                 </div>
             )}
@@ -391,12 +392,7 @@ const ContactSupport = ({ user, onToast }) => {
         }
     };
 
-    const inputStyle = {
-        width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--r-md)',
-        fontSize: 13, color: 'var(--text)', background: 'var(--surface)', outline: 0, fontFamily: 'inherit',
-    };
-    const focus = e => { e.target.style.borderColor = 'var(--primary)'; e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.18)'; };
-    const blur  = e => { e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = 'none'; };
+    const labelStyle = { fontSize: 11, color: 'var(--text-3)', fontWeight: 600, display: 'block', marginBottom: 4 };
 
     return (
         <SettingsSection title="Contact support" eyebrow="Help">
@@ -405,34 +401,26 @@ const ContactSupport = ({ user, onToast }) => {
                     Have a question or hit a problem? Send us a message — your diagnostic logs and contact
                     details are attached automatically so we can help faster.
                 </div>
-                <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                <Row gap={8} align="stretch" style={{ marginBottom: 8 }}>
                     <div style={{ flex: 1 }}>
-                        <label style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, display: 'block', marginBottom: 4 }}>Name</label>
-                        <input value={name} onChange={e => setName( e.target.value )} placeholder="Your name" autoComplete="name" style={inputStyle} onFocus={focus} onBlur={blur}/>
+                        <label style={labelStyle}>Name</label>
+                        <Input size="sm" value={name} onChange={e => setName( e.target.value )} placeholder="Your name" autoComplete="name"/>
                     </div>
                     <div style={{ flex: 1 }}>
-                        <label style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, display: 'block', marginBottom: 4 }}>Email</label>
-                        <input value={email} onChange={e => setEmail( e.target.value )} type="email" placeholder="you@example.com" autoComplete="email" style={inputStyle} onFocus={focus} onBlur={blur}/>
+                        <label style={labelStyle}>Email</label>
+                        <Input size="sm" type="email" value={email} onChange={e => setEmail( e.target.value )} placeholder="you@example.com" autoComplete="email"/>
                     </div>
-                </div>
-                <label style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, display: 'block', marginBottom: 4 }}>Message</label>
-                <textarea
-                    value={message}
-                    onChange={e => setMessage( e.target.value )}
-                    placeholder="Tell us what's going on…"
-                    rows={4}
-                    style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }}
-                    onFocus={focus}
-                    onBlur={blur}
-                />
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, gap: 12 }}>
+                </Row>
+                <label style={labelStyle}>Message</label>
+                <Textarea size="sm" value={message} onChange={e => setMessage( e.target.value )} placeholder="Tell us what's going on…" rows={4}/>
+                <Row gap={12} justify="between" style={{ marginTop: 10 }}>
                     <span style={{ fontSize: 11.5, color: 'var(--text-3)', lineHeight: 1.4 }}>
                         Diagnostics &amp; recent activity are included automatically.
                     </span>
                     <Button variant="primary" size="sm" icon="mail" onClick={handleSend} disabled={! canSend}>
                         {sending ? 'Sending…' : 'Send message'}
                     </Button>
-                </div>
+                </Row>
             </div>
         </SettingsSection>
     );

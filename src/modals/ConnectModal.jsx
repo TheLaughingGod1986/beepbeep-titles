@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Modal } from './Modal';
 import { Icon, Button } from '../components';
+import { Row } from '../ui';
 import { loginWithPassword, registerAccount } from '../api';
 
 const inputStyle = ( error, mono = false ) => ( {
@@ -37,10 +38,10 @@ const FieldLabel = ({ children }) => (
 );
 
 const FieldError = ({ children }) => (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginTop: 7, fontSize: 12, color: 'var(--danger-ink)', lineHeight: 1.45 }}>
+    <Row align="start" gap={6} style={{ marginTop: 7, fontSize: 12, color: 'var(--danger-ink)', lineHeight: 1.45 }}>
         <Icon name="alert" size={13} style={{ flexShrink: 0, marginTop: 1 }}/>
         {children}
-    </div>
+    </Row>
 );
 
 export const ConnectModal = ({ open, onClose, onSuccess, initialMode = 'register' }) => {
@@ -129,8 +130,8 @@ export const ConnectModal = ({ open, onClose, onSuccess, initialMode = 'register
             <div style={{ padding: '28px 28px 24px' }}>
 
                 {/* Header */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <Row align="start" justify="between" style={{ marginBottom: 20 }}>
+                    <Row gap={12}>
                         <div style={{
                             width: 42, height: 42, borderRadius: 11,
                             background: 'linear-gradient(135deg,#3B82F6,#5046E5)',
@@ -150,7 +151,7 @@ export const ConnectModal = ({ open, onClose, onSuccess, initialMode = 'register
                                 BeepBeep Titles
                             </div>
                         </div>
-                    </div>
+                    </Row>
                     <button
                         onClick={handleClose}
                         disabled={connecting}
@@ -158,7 +159,7 @@ export const ConnectModal = ({ open, onClose, onSuccess, initialMode = 'register
                     >
                         <Icon name="x" size={16}/>
                     </button>
-                </div>
+                </Row>
 
                 {done ? (
                     /* ── Success state ── */
@@ -168,7 +169,7 @@ export const ConnectModal = ({ open, onClose, onSuccess, initialMode = 'register
                         <p style={{ fontSize: 13.5, color: 'var(--text-2)', lineHeight: 1.6, margin: '0 0 20px' }}>
                             {mode === 'register' ? (
                                 <>Create a <strong style={{ color: 'var(--text)', fontWeight: 600 }}>BeepBeep account</strong> to connect this site,
-                                unlock SEO title and meta generation, and start improving your search appearance.</>
+                                use the external AI title and meta generation service.</>
                             ) : (
                                 <>Sign in with your <strong style={{ color: 'var(--text)', fontWeight: 600 }}>BeepBeep account</strong> and
                                 we&rsquo;ll connect this site automatically.</>

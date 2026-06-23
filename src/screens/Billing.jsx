@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Icon, Card, Pill, Button, Divider } from '../components';
+import { Row } from '../ui';
 import { fetchBillingHealth, fetchBillingInfo } from '../api';
 import { readCheckoutTelemetry } from '../billingTelemetry';
 
@@ -131,7 +132,7 @@ export const BillingScreen = ({ quota, initial, onRefreshQuota, onToast }) => {
 
             {/* Diagnostic actions */}
             <Card padding={0} style={{ marginBottom: 14 }}>
-                <div style={{ padding: '14px 20px', display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+                <Row gap={10} wrap style={{ padding: '14px 20px' }}>
                     <Button variant="secondary" size="sm" icon="refresh" disabled={busy === 'entitlements'} onClick={refreshEntitlements}>
                         {busy === 'entitlements' ? 'Refreshing…' : 'Refresh entitlements'}
                     </Button>
@@ -144,19 +145,19 @@ export const BillingScreen = ({ quota, initial, onRefreshQuota, onToast }) => {
                     <span style={{ marginLeft: 'auto', fontSize: 11.5, color: 'var(--text-3)' }}>
                         {loading ? 'Loading…' : `Updated ${ fmtTs( lastRefresh ) }`}
                     </span>
-                </div>
+                </Row>
             </Card>
 
             {/* Health summary */}
             <Card style={{ marginBottom: 14 }}>
                 <SectionLabel icon="activity">Checkout health</SectionLabel>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+                <Row gap={8} wrap align="stretch" style={{ marginTop: 10 }}>
                     <HealthPill label="Stripe" ok={health?.stripe} unknown={! healthOk}/>
                     <HealthPill label="Starter" ok={health?.starter} unknown={! healthOk}/>
                     <HealthPill label="Pro" ok={health?.pro} unknown={! healthOk}/>
                     <HealthPill label="Entitlements" ok={health?.entitlements} unknown={! healthOk}/>
                     <HealthPill label="Checkout available" ok={checkoutAvailable} unknown={checkoutAvailable === null}/>
-                </div>
+                </Row>
                 {health?.error && <div style={{ marginTop: 10, fontSize: 12.5, color: 'var(--warn-ink)' }}>Health probe error: {String( health.error )}</div>}
             </Card>
 
@@ -215,19 +216,19 @@ export const BillingScreen = ({ quota, initial, onRefreshQuota, onToast }) => {
 };
 
 const SectionLabel = ({ icon, children }) => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+    <Row gap={7}>
         {icon && <Icon name={icon} size={14} style={{ color: 'var(--text-3)' }}/>}
         <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{children}</span>
-    </div>
+    </Row>
 );
 
 const Rows = ({ rows }) => (
     <div style={{ marginTop: 10 }}>
         {rows.map( ( [ label, value, mono ], i ) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, padding: '6px 0', borderTop: i ? '1px solid var(--hairline)' : 'none' }}>
+            <Row key={i} align="baseline" justify="between" gap={12} style={{ padding: '6px 0', borderTop: i ? '1px solid var(--hairline)' : 'none' }}>
                 <span style={{ fontSize: 12.5, color: 'var(--text-3)', flexShrink: 0 }}>{label}</span>
                 <span className={mono ? 'mono' : undefined} style={{ fontSize: 12.5, color: 'var(--text)', fontWeight: 500, textAlign: 'right', wordBreak: 'break-all' }}>{String( value )}</span>
-            </div>
+            </Row>
         ) )}
     </div>
 );

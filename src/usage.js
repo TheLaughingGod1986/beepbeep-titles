@@ -1,7 +1,9 @@
+import { FEATURE_COLORS } from './ui/tokens';
+
 const FEATURE_META = {
-    title_meta: { label: 'Titles & Meta Descriptions', icon: 'edit', color: '#2563EB', soft: '#EFF6FF', border: '#BFDBFE' },
-    alt_text:   { label: 'Image ALT Text', icon: 'image', color: '#059669', soft: '#ECFDF5', border: '#A7F3D0' },
-    schema:     { label: 'Schema & Rich Snippets', icon: 'trend', color: '#D97706', soft: '#FFFBEB', border: '#FDE68A' },
+    title_meta: { label: 'Titles & Meta Descriptions', icon: 'edit',  ...FEATURE_COLORS.title_meta },
+    alt_text:   { label: 'Image ALT Text',             icon: 'image', ...FEATURE_COLORS.alt_text },
+    schema:     { label: 'Schema & Rich Snippets',     icon: 'trend', ...FEATURE_COLORS.schema },
 };
 
 /* The fixed catalog of BeepBeep AI plugins that draw from the shared pool,

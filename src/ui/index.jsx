@@ -20,7 +20,7 @@ export {
     KBD,
     Tooltip,
     Toggle,
-} from '../components';
+} from './primitives';
 
 export { Field, Input, Textarea } from './Field';
 export { Row, Stack } from './Layout';

@@ -117,6 +117,11 @@ class Client {
         return $this->request( 'GET', '/billing/info', null, 30 );
     }
 
+    /** Backend "can checkout work right now?" probe (booleans only). */
+    public function billing_health(): array|\WP_Error {
+        return $this->request( 'GET', '/billing/health', null, 15 );
+    }
+
     /**
      * Resolve the BeepBeep account email for the stored license and cache it.
      * Best-effort: returns the cached value on backend failure.

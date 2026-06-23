@@ -126,6 +126,13 @@ class Routes {
             'permission_callback' => [ $this, 'require_editor' ],
         ] );
 
+        // Admin-only billing diagnostics probe (booleans only).
+        register_rest_route( $ns, '/billing/health', [
+            'methods'             => 'GET',
+            'callback'            => [ $b, 'billing_health' ],
+            'permission_callback' => [ $this, 'require_admin' ],
+        ] );
+
         register_rest_route( $ns, '/billing/checkout', [
             'methods'             => 'POST',
             'callback'            => [ $b, 'billing_checkout' ],

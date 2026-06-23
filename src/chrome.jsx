@@ -2,8 +2,8 @@ import { Icon, Button, Tooltip } from './components';
 import { UserMenu } from './auth';
 import { getVisibleTabs } from './navigation';
 
-export const WPChrome = ({ children, activeTab, onTab, plan, onUpgrade, user, connected, onSignOut, onHelp, onConnect, onSignIn }) => {
-    const tabs = getVisibleTabs( connected );
+export const WPChrome = ({ children, activeTab, onTab, plan, onUpgrade, user, connected, isAdmin, onSignOut, onHelp, onConnect, onSignIn }) => {
+    const tabs = getVisibleTabs( connected, { isAdmin } );
 
     return (
         <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>

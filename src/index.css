@@ -2,200 +2,610 @@
    Adapted from Claude Design prototype (styles.css).
    Cool slate scale, Linear/Vercel/Stripe inspired. */
 
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap');
-
 :root {
-  --font-sans: "Geist", "Helvetica Neue", system-ui, -apple-system, sans-serif;
-  --font-mono: "Geist Mono", "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+	--font-sans: -apple-system, blinkmacsystemfont, "Segoe UI", helvetica, arial, sans-serif;
+	--font-mono: ui-monospace, "SFMono-Regular", menlo, monaco, consolas, monospace;
 
-  /* Surface hierarchy */
-  --bg:          #F6F8FB;
-  --bg-sunken:   #EEF2F7;
-  --surface:     #FFFFFF;
-  --surface-2:   #F8FAFC;
+	/* Surface hierarchy */
+	--bg: #f6f8fb;
+	--bg-sunken: #eef2f7;
+	--surface: #fff;
+	--surface-2: #f8fafc;
 
-  /* Borders */
-  --border:        #E6EAF0;
-  --border-strong: #D2D8E2;
-  --hairline:      #EEF1F6;
+	/* Borders */
+	--border: #e6eaf0;
+	--border-strong: #d2d8e2;
+	--hairline: #eef1f6;
 
-  /* Text */
-  --text:     #0F172A;
-  --text-2:   #475569;
-  --text-3:   #64748B;
-  --text-inv: #ffffff;
+	/* Text */
+	--text: #0f172a;
+	--text-2: #475569;
+	--text-3: #64748b;
+	--text-inv: #fff;
 
-  /* Primary (blue) */
-  --primary:        #2563EB;
-  --primary-strong: #1D4ED8;
-  --primary-soft:   #EFF4FE;
-  --primary-border: #C7D7F7;
-  --primary-ink:    #1D4ED8;
+	/* Primary (blue) */
+	--primary: #2563eb;
+	--primary-strong: #1d4ed8;
+	--primary-soft: #eff4fe;
+	--primary-border: #c7d7f7;
+	--primary-ink: #1d4ed8;
 
-  /* Success / green — completion, coverage */
-  --ok:        #10B981;
-  --ok-soft:   #ECFDF5;
-  --ok-border: #BBF0D6;
-  --ok-ink:    #047857;
+	/* Success / green — completion, coverage */
+	--ok: #10b981;
+	--ok-soft: #ecfdf5;
+	--ok-border: #bbf0d6;
+	--ok-ink: #047857;
 
-  /* Warning / amber — review, pending */
-  --warn:        #D97706;
-  --warn-soft:   #FFF7ED;
-  --warn-border: #FDE3BE;
-  --warn-ink:    #B45309;
+	/* Warning / amber — review, pending */
+	--warn: #d97706;
+	--warn-soft: #fff7ed;
+	--warn-border: #fde3be;
+	--warn-ink: #b45309;
 
-  /* Danger / red — missing, urgent */
-  --danger:        #EF4444;
-  --danger-soft:   #FEF2F2;
-  --danger-border: #FECACA;
-  --danger-ink:    #B91C1C;
+	/* Danger / red — missing, urgent */
+	--danger: #ef4444;
+	--danger-soft: #fef2f2;
+	--danger-border: #fecaca;
+	--danger-ink: #b91c1c;
 
-  /* Info / blue — quota, limits */
-  --info:        #3B82F6;
-  --info-soft:   #EFF6FF;
-  --info-border: #C7DAFB;
-  --info-ink:    #1D4ED8;
+	/* Info / blue — quota, limits */
+	--info: #3b82f6;
+	--info-soft: #eff6ff;
+	--info-border: #c7dafb;
+	--info-ink: #1d4ed8;
 
-  --streak:      #F97316;
-  --streak-soft: #FFF7ED;
+	--streak: #f97316;
+	--streak-soft: #fff7ed;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(15,23,42,0.04);
-  --shadow-md: 0 1px 2px rgba(15,23,42,0.04), 0 6px 16px -6px rgba(15,23,42,0.08);
-  --shadow-lg: 0 1px 2px rgba(15,23,42,0.05), 0 20px 40px -12px rgba(15,23,42,0.18);
+	/* Shadows */
+	--shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+	--shadow-md: 0 1px 2px rgba(15, 23, 42, 0.04), 0 6px 16px -6px rgba(15, 23, 42, 0.08);
+	--shadow-lg: 0 1px 2px rgba(15, 23, 42, 0.05), 0 20px 40px -12px rgba(15, 23, 42, 0.18);
 
-  /* Radii */
-  --r-xs:  4px;
-  --r-sm:  6px;
-  --r-md:  10px;
-  --r-lg:  14px;
-  --r-xl:  20px;
-  --r-pill:999px;
+	/* Radii */
+	--r-xs: 4px;
+	--r-sm: 6px;
+	--r-md: 10px;
+	--r-lg: 14px;
+	--r-xl: 20px;
+	--r-pill: 999px;
 
-  /* WP chrome colours */
-  --wp-bg:      #1d2327;
-  --wp-bg-2:    #2c3338;
-  --wp-text:    #c3c4c7;
-  --wp-text-dim:#8c8f94;
-  --wp-active:  #2271b1;
+	/* WP chrome colours */
+	--wp-bg: #1d2327;
+	--wp-bg-2: #2c3338;
+	--wp-text: #c3c4c7;
+	--wp-text-dim: #8c8f94;
+	--wp-active: #2271b1;
 }
 
 /* ----------------------------------------------------------------
    Reset
    ---------------------------------------------------------------- */
-*, *::before, *::after { box-sizing: border-box; }
-
-#bbt-root {
-  margin: 0;
-  padding: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font-sans);
-  font-feature-settings: "ss01","cv11";
-  -webkit-font-smoothing: antialiased;
-  line-height: 1.5;
-  max-width: 100%;
-  overflow-x: hidden;
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
 }
 
-#bbt-root button { font: inherit; color: inherit; }
-#bbt-root a      { color: var(--primary-ink); text-decoration: none; }
-#bbt-root pre,
-#bbt-root .mono { overflow-wrap: anywhere; }
-
-/* Premium placeholders */
-#bbt-root input::placeholder,
-#bbt-root textarea::placeholder {
-  color: var(--text-3);
-  opacity: 0.7;
-  font-weight: 400;
+#beepti-root {
+	margin: 0;
+	min-height: calc(100vh - 32px);
+	padding: 0;
+	background: var(--bg);
+	color: var(--text);
+	font-family: var(--font-sans);
+	font-feature-settings: "ss01", "cv11";
+	-webkit-font-smoothing: antialiased;
+	line-height: 1.5;
+	max-width: 100%;
+	overflow-x: hidden;
 }
-#bbt-root input:focus::placeholder,
-#bbt-root textarea:focus::placeholder {
-  opacity: 0.45;
-  transition: opacity .18s ease;
+
+.beepti-pw__plans {
+	display: grid;
+	grid-template-columns: 0.92fr 0.92fr 1.22fr;
+	gap: 14px;
+	align-items: stretch;
+}
+
+.beepti-pw__plan {
+	display: flex;
+	flex-direction: column;
+	padding: 16px 16px 18px;
+	border-radius: 16px;
+}
+
+.beepti-pw__plan--pro {
+	transform: scale(1.04);
+	transform-origin: center;
+}
+
+.beepti-pw__why {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 8px 18px;
+}
+
+@media (max-width: 640px) {
+
+	.beepti-pw__section {
+		padding-right: 20px !important;
+		padding-left: 20px !important;
+	}
+
+	.beepti-pw__plans {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+	}
+
+	.beepti-pw__plan--pro {
+		order: 1;
+		transform: none;
+	}
+
+	.beepti-pw__plan--starter {
+		order: 2;
+	}
+
+	.beepti-pw__why {
+		grid-template-columns: 1fr;
+	}
+
+	.beepti-pw__plan--free {
+		display: none;
+	}
+}
+
+#beepti-root button {
+	font: inherit;
+	color: inherit;
+}
+
+#beepti-root a {
+	color: var(--primary-ink);
+	text-decoration: none;
+}
+
+#beepti-root pre {
+	overflow-wrap: anywhere;
+}
+
+/* Form placeholders */
+#beepti-root input::placeholder,
+#beepti-root textarea::placeholder {
+	color: var(--text-3);
+	opacity: 0.7;
+	font-weight: 400;
+}
+
+#beepti-root input:focus::placeholder,
+#beepti-root textarea:focus::placeholder {
+	opacity: 0.45;
+	transition: opacity 0.18s ease;
+}
+
+/* Shared form control — used by the ui/ Input, Textarea and Field primitives.
+   Focus ring lives here (a CSS class) instead of inline onFocus/onBlur handlers. */
+.bbt-input {
+	width: 100%;
+	box-sizing: border-box;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--r-md);
+	padding: 11px 13px;
+	font-size: 14px;
+	font-family: var(--font-sans);
+	color: var(--text);
+	outline: none;
+	box-shadow: 0 1px 2px rgba(15, 23, 42, 0.025) inset;
+	transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+.bbt-input:focus {
+	border-color: var(--primary);
+	box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+}
+.bbt-input--sm {
+	padding: 9px 12px;
+	font-size: 13px;
+}
+.bbt-input--area {
+	resize: vertical;
+	line-height: 1.5;
+}
+.bbt-field__label {
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--text-3);
 }
 
 /* Utility classes */
-.mono { font-family: var(--font-mono); font-feature-settings: "tnum","zero"; }
-.tnum { font-variant-numeric: tabular-nums; }
+.mono {
+	font-family: var(--font-mono);
+	font-feature-settings: "tnum", "zero";
+	overflow-wrap: anywhere;
+}
+
+.tnum {
+	font-variant-numeric: tabular-nums;
+}
 
 /* ----------------------------------------------------------------
-   Logged-out dashboard micro-interactions (scoped to .bbt-audit so
-   dense connected screens are unaffected). Subtle, premium-SaaS only.
+   Logged-out dashboard micro-interactions (scoped to .beepti-audit so
+   dense connected screens are unaffected).
    ---------------------------------------------------------------- */
-.bbt-audit .bbt-card { transition: transform .16s ease, box-shadow .16s ease, border-color .15s ease; }
-.bbt-audit .bbt-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
-.bbt-audit .bbt-card--locked:hover { box-shadow: 0 0 0 3px rgba(37,99,235,0.10), var(--shadow-md); border-color: var(--primary-border); }
+.beepti-audit .beepti-card {
+	transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.15s ease;
+}
+
+.beepti-audit .beepti-card:hover {
+	transform: translateY(-2px);
+	box-shadow: var(--shadow-md);
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .bbt-audit .bbt-card:hover { transform: none; }
+
+	.beepti-audit .beepti-card:hover {
+		transform: none;
+	}
 }
 
 /* ----------------------------------------------------------------
    Pulse dot — ambient "active" indicator
    ---------------------------------------------------------------- */
 .pulse-dot {
-  display: inline-block;
-  width: 8px; height: 8px;
-  border-radius: 999px;
-  background: var(--ok);
-  position: relative;
-  box-shadow: 0 0 0 0 rgba(16,185,129,0.45);
-  animation: bbt-pulse 2.4s ease-out infinite;
+	display: inline-block;
+	width: 8px;
+	height: 8px;
+	border-radius: 999px;
+	background: var(--ok);
+	position: relative;
+	box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.45);
+	animation: beepti-pulse 2.4s ease-out infinite;
 }
-.pulse-dot.warn   { background: var(--warn);   box-shadow: 0 0 0 0 rgba(217,119,6,0.45);  animation-name: bbt-pulse-warn; }
-.pulse-dot.danger { background: var(--danger); box-shadow: 0 0 0 0 rgba(239,68,68,0.45);  animation-name: bbt-pulse-danger; }
 
-@keyframes bbt-pulse        { 0%{box-shadow:0 0 0 0 rgba(16,185,129,0.45)} 70%{box-shadow:0 0 0 8px rgba(16,185,129,0)} 100%{box-shadow:0 0 0 0 rgba(16,185,129,0)} }
-@keyframes bbt-pulse-warn   { 0%{box-shadow:0 0 0 0 rgba(217,119,6,0.45)}  70%{box-shadow:0 0 0 8px rgba(217,119,6,0)}  100%{box-shadow:0 0 0 0 rgba(217,119,6,0)} }
-@keyframes bbt-pulse-danger { 0%{box-shadow:0 0 0 0 rgba(239,68,68,0.45)}  70%{box-shadow:0 0 0 8px rgba(239,68,68,0)}  100%{box-shadow:0 0 0 0 rgba(239,68,68,0)} }
+.pulse-dot.warn {
+	background: var(--warn);
+	box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.45);
+	animation-name: beepti-pulse-warn;
+}
+
+.pulse-dot.danger {
+	background: var(--danger);
+	box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.45);
+	animation-name: beepti-pulse-danger;
+}
+
+@keyframes beepti-pulse {
+
+	0% {
+		box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.45);
+	}
+
+	70% {
+		box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+	}
+
+	100% {
+		box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+	}
+}
+
+@keyframes beepti-pulse-warn {
+
+	0% {
+		box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.45);
+	}
+
+	70% {
+		box-shadow: 0 0 0 8px rgba(217, 119, 6, 0);
+	}
+
+	100% {
+		box-shadow: 0 0 0 0 rgba(217, 119, 6, 0);
+	}
+}
+
+@keyframes beepti-pulse-danger {
+
+	0% {
+		box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.45);
+	}
+
+	70% {
+		box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+	}
+
+	100% {
+		box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+	}
+}
 
 /* ----------------------------------------------------------------
    Animations
    ---------------------------------------------------------------- */
-@keyframes bbt-slide-up   { from{transform:translateY(8px);opacity:0} to{transform:translateY(0);opacity:1} }
-@keyframes bbt-fade-in    { from{opacity:0} to{opacity:1} }
-@keyframes bbt-scale-in   { from{transform:scale(0.96);opacity:0} to{transform:scale(1);opacity:1} }
-@keyframes bbt-shimmer    { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
-@keyframes bbt-gen-row    { from{transform:translateY(6px);opacity:0} to{transform:translateY(0);opacity:1} }
-@keyframes bbt-gen-check  { 0%{transform:scale(0.4);opacity:0} 60%{transform:scale(1.18);opacity:1} 100%{transform:scale(1);opacity:1} }
-@keyframes bbt-phrase-in  { from{opacity:0;transform:translateY(2px)} to{opacity:1;transform:translateY(0)} }
-@keyframes bbt-success-pop{ 0%{transform:scale(0.6);opacity:0} 60%{transform:scale(1.06);opacity:1} 100%{transform:scale(1);opacity:1} }
-@keyframes bbt-success-pulse { 0%{box-shadow:0 0 0 0 rgba(16,185,129,0.32)} 60%{box-shadow:0 0 0 14px rgba(16,185,129,0)} 100%{box-shadow:0 0 0 0 rgba(16,185,129,0)} }
-@keyframes bbt-ambient    { 0%,100%{transform:scale(1);opacity:.85;box-shadow:0 0 0 0 rgba(16,185,129,0)} 50%{transform:scale(1.15);opacity:1;box-shadow:0 0 0 4px rgba(16,185,129,0.16)} }
-@keyframes bbt-slide-right{ from{transform:translateX(16px);opacity:0} to{transform:translateX(0);opacity:1} }
-@keyframes bbt-fade-down  { from{opacity:0;transform:translateY(-2px)} to{opacity:1;transform:translateY(0)} }
+@keyframes beepti-slide-up {
 
-.fade-in          { animation: bbt-fade-down   .22s ease-out 1 both; }
-.signedout-in     { animation: bbt-slide-up    .34s cubic-bezier(.2,.8,.2,1) 1 both; }
-.gen-row-in       { animation: bbt-gen-row     .32s cubic-bezier(.2,.8,.2,1) 1 both; }
-.gen-check        { animation: bbt-gen-check   .36s cubic-bezier(.2,.8,.2,1) 1 both; }
-.phrase-in        { animation: bbt-phrase-in   .28s ease-out 1 both; }
-.success-pulse    { animation: bbt-success-pulse 1.6s ease-out 1; border-radius: var(--r-lg); }
-.onboarding-success{animation: bbt-success-pop .45s cubic-bezier(.2,.8,.2,1) 1 both; }
-.ambient-pulse    { animation: bbt-ambient     3.2s ease-in-out infinite; }
+	from {
+		transform: translateY(8px);
+		opacity: 0;
+	}
+
+	to {
+		transform: translateY(0);
+		opacity: 1;
+	}
+}
+
+@keyframes beepti-fade-in {
+
+	from {
+		opacity: 0;
+	}
+
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes beepti-scale-in {
+
+	from {
+		transform: scale(0.96);
+		opacity: 0;
+	}
+
+	to {
+		transform: scale(1);
+		opacity: 1;
+	}
+}
+
+@keyframes beepti-shimmer {
+
+	0% {
+		background-position: -200% 0;
+	}
+
+	100% {
+		background-position: 200% 0;
+	}
+}
+
+@keyframes beepti-gen-row {
+
+	from {
+		transform: translateY(6px);
+		opacity: 0;
+	}
+
+	to {
+		transform: translateY(0);
+		opacity: 1;
+	}
+}
+
+@keyframes beepti-gen-check {
+
+	0% {
+		transform: scale(0.4);
+		opacity: 0;
+	}
+
+	60% {
+		transform: scale(1.18);
+		opacity: 1;
+	}
+
+	100% {
+		transform: scale(1);
+		opacity: 1;
+	}
+}
+
+@keyframes beepti-phrase-in {
+
+	from {
+		opacity: 0;
+		transform: translateY(2px);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes beepti-success-pop {
+
+	0% {
+		transform: scale(0.6);
+		opacity: 0;
+	}
+
+	60% {
+		transform: scale(1.06);
+		opacity: 1;
+	}
+
+	100% {
+		transform: scale(1);
+		opacity: 1;
+	}
+}
+
+@keyframes beepti-success-pulse {
+
+	0% {
+		box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.32);
+	}
+
+	60% {
+		box-shadow: 0 0 0 14px rgba(16, 185, 129, 0);
+	}
+
+	100% {
+		box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+	}
+}
+
+@keyframes beepti-ambient {
+
+	0%,
+	100% {
+		transform: scale(1);
+		opacity: 0.85;
+		box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+	}
+
+	50% {
+		transform: scale(1.15);
+		opacity: 1;
+		box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.16);
+	}
+}
+
+@keyframes beepti-slide-right {
+
+	from {
+		transform: translateX(16px);
+		opacity: 0;
+	}
+
+	to {
+		transform: translateX(0);
+		opacity: 1;
+	}
+}
+
+@keyframes beepti-fade-down {
+
+	from {
+		opacity: 0;
+		transform: translateY(-2px);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.fade-in {
+	animation: beepti-fade-down   0.22s ease-out 1 both;
+}
+
+.signedout-in {
+	animation: beepti-slide-up    0.34s cubic-bezier(0.2, 0.8, 0.2, 1) 1 both;
+}
+
+.gen-row-in {
+	animation: beepti-gen-row     0.32s cubic-bezier(0.2, 0.8, 0.2, 1) 1 both;
+}
+
+.gen-check {
+	animation: beepti-gen-check   0.36s cubic-bezier(0.2, 0.8, 0.2, 1) 1 both;
+}
+
+.phrase-in {
+	animation: beepti-phrase-in   0.28s ease-out 1 both;
+}
+
+.success-pulse {
+	animation: beepti-success-pulse 1.6s ease-out 1;
+	border-radius: var(--r-lg);
+}
+
+.onboarding-success {
+	animation: beepti-success-pop 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) 1 both;
+}
+
+.ambient-pulse {
+	animation: beepti-ambient     3.2s ease-in-out infinite;
+}
 
 .shimmer-bar {
-  background: linear-gradient(90deg,transparent 0%,rgba(255,255,255,0.6) 50%,transparent 100%);
-  background-size: 200% 100%;
-  animation: bbt-shimmer 1.4s linear infinite;
+	background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.6) 50%, transparent 100%);
+	background-size: 200% 100%;
+	animation: beepti-shimmer 1.4s linear infinite;
 }
 
 /* Scrollbar */
-#bbt-root ::-webkit-scrollbar       { width:10px; height:10px; }
-#bbt-root ::-webkit-scrollbar-thumb { background:#D2D8E2; border-radius:999px; border:2px solid var(--bg); }
-#bbt-root ::-webkit-scrollbar-thumb:hover { background:#B7BFCB; }
+#beepti-root ::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+}
+
+#beepti-root ::-webkit-scrollbar-thumb {
+	background: #d2d8e2;
+	border-radius: 999px;
+	border: 2px solid var(--bg);
+}
+
+#beepti-root ::-webkit-scrollbar-thumb:hover {
+	background: #b7bfcb;
+}
 
 /* Focus */
-#bbt-root :focus-visible { outline:2px solid var(--primary); outline-offset:2px; border-radius:4px; }
+#beepti-root :focus-visible {
+	outline: 2px solid var(--primary);
+	outline-offset: 2px;
+	border-radius: 4px;
+}
 
 /* Selection */
-#bbt-root ::selection { background:var(--primary-soft); color:var(--primary-ink); }
+#beepti-root ::selection {
+	background: var(--primary-soft);
+	color: var(--primary-ink);
+}
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  .pulse-dot, .shimmer-bar, .success-pulse, .onboarding-success,
-  .fade-in, .gen-row-in, .gen-check, .phrase-in, .ambient-pulse {
-    animation: none !important;
-  }
+
+	.pulse-dot,
+	.shimmer-bar,
+	.success-pulse,
+	.onboarding-success,
+	.fade-in,
+	.gen-row-in,
+	.gen-check,
+	.phrase-in,
+	.ambient-pulse {
+		animation: none !important;
+	}
+}
+
+/*
+ * Scope WordPress admin overrides to the plugin screen, where this stylesheet
+ * is enqueued.
+ */
+#wpwrap,
+#wpcontent {
+	background: #f6f8fb;
+}
+
+#wpcontent,
+#wpbody,
+#wpbody-content {
+	padding-top: 0 !important;
+}
+
+#wpcontent {
+	padding-right: 0 !important;
+	padding-left: 0 !important;
+}
+
+#wpbody-content {
+	padding-bottom: 0 !important;
+	overflow-x: hidden;
+}
+
+#wpbody-content .wrap {
+	overflow-x: hidden;
+}
+
+#wpbody-content > :not(#beepti-root) {
+	display: none !important;
 }

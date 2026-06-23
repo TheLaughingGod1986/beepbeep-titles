@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Icon, Pill, Button } from './components';
+import { Field, Input } from './ui';
 import { Modal } from './modals/Modal';
 import { loginWithPassword, registerAccount, setLicense } from './api';
 
@@ -212,15 +213,12 @@ export const SignedOutScreen = ({ lastEmail, onConnected, onToast }) => {
                 {mode === 'password' && (
                     <form onSubmit={submitPassword} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                         <Field label="Email">
-                            <input
+                            <Input
                                 type="email"
                                 autoFocus={! email}
                                 value={email}
                                 onChange={e => { setEmail( e.target.value ); setError( null ); }}
                                 placeholder="you@yoursite.com"
-                                style={inputStyle}
-                                onFocus={focusInput}
-                                onBlur={blurInput}
                             />
                         </Field>
                         <Field
@@ -239,14 +237,12 @@ export const SignedOutScreen = ({ lastEmail, onConnected, onToast }) => {
                 {mode === 'license' && (
                     <form onSubmit={submitLicense} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                         <Field label="License key">
-                            <input
+                            <Input
                                 autoFocus
                                 value={license}
                                 onChange={e => { setLicenseKey( e.target.value ); setError( null ); }}
                                 placeholder="BBT-XXXX-XXXX-XXXX"
-                                style={{ ...inputStyle, fontFamily: 'var(--font-mono)', letterSpacing: '0.02em' }}
-                                onFocus={focusInput}
-                                onBlur={blurInput}
+                                style={{ fontFamily: 'var(--font-mono)', letterSpacing: '0.02em' }}
                             />
                         </Field>
                         {error && <AuthError>{error}</AuthError>}
@@ -259,10 +255,10 @@ export const SignedOutScreen = ({ lastEmail, onConnected, onToast }) => {
                 {mode === 'signup' && (
                     <form onSubmit={submitSignup} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                         <Field label="Name">
-                            <input autoFocus value={name} onChange={e => setName( e.target.value )} placeholder="Your name" style={inputStyle} onFocus={focusInput} onBlur={blurInput}/>
+                            <Input autoFocus value={name} onChange={e => setName( e.target.value )} placeholder="Your name"/>
                         </Field>
                         <Field label="Email">
-                            <input type="email" value={email} onChange={e => { setEmail( e.target.value ); setError( null ); }} placeholder="you@yoursite.com" style={inputStyle} onFocus={focusInput} onBlur={blurInput}/>
+                            <Input type="email" value={email} onChange={e => { setEmail( e.target.value ); setError( null ); }} placeholder="you@yoursite.com"/>
                         </Field>
                         <Field label="Password" right={<span style={{ fontSize: 11, color: 'var(--text-3)' }}>At least 8 characters</span>}>
                             <PasswordInput value={password} onChange={v => { setPassword( v ); setError( null ); }} show={showPw} onToggle={() => setShowPw( s => ! s )} placeholder="Create a password"/>
@@ -343,15 +339,13 @@ export const SignedOutScreen = ({ lastEmail, onConnected, onToast }) => {
 
 const PasswordInput = ({ value, onChange, show, onToggle, autoFocus, placeholder }) => (
     <div style={{ position: 'relative' }}>
-        <input
+        <Input
             type={show ? 'text' : 'password'}
             autoFocus={autoFocus}
             value={value}
             onChange={e => onChange( e.target.value )}
             placeholder={placeholder}
-            style={{ ...inputStyle, paddingRight: 44 }}
-            onFocus={focusInput}
-            onBlur={blurInput}
+            style={{ paddingRight: 44 }}
         />
         <button
             type="button"
@@ -438,30 +432,3 @@ const quietLinkStyle = {
     color: 'var(--text-3)', fontSize: 12, fontWeight: 500, cursor: 'pointer',
 };
 
-const Field = ({ label, right, children }) => (
-    <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-            <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{label}</span>
-            {right}
-        </div>
-        {children}
-    </label>
-);
-
-const focusInput = e => { e.target.style.borderColor = 'var(--primary)'; e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.18)'; };
-const blurInput  = e => { e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = '0 1px 2px rgba(15,23,42,0.025) inset'; };
-
-const inputStyle = {
-    background: 'var(--surface)',
-    border: '1px solid var(--border)',
-    borderRadius: 'var(--r-md)',
-    padding: '11px 13px',
-    fontSize: 14,
-    fontFamily: 'var(--font-sans)',
-    color: 'var(--text)',
-    width: '100%',
-    outline: 'none',
-    transition: 'border-color .18s ease, box-shadow .18s ease, background .18s ease',
-    boxShadow: '0 1px 2px rgba(15,23,42,0.025) inset',
-    boxSizing: 'border-box',
-};

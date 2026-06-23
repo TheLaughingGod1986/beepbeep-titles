@@ -22,4 +22,5 @@ export {
     Toggle,
 } from '../components';
 
+export { Field, Input, Textarea } from './Field';
 export { COLOR, FEATURE_COLORS } from './tokens';

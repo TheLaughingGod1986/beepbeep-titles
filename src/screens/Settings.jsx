@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Icon, Card, Pill, Button, Progress, Toggle, Divider } from '../components';
+import { Input, Textarea } from '../ui';
 import { saveSettings, setLicense, clearLicense, submitSupport } from '../api';
 import { creditUsageRows } from '../usage';
 
@@ -391,12 +392,7 @@ const ContactSupport = ({ user, onToast }) => {
         }
     };
 
-    const inputStyle = {
-        width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--r-md)',
-        fontSize: 13, color: 'var(--text)', background: 'var(--surface)', outline: 0, fontFamily: 'inherit',
-    };
-    const focus = e => { e.target.style.borderColor = 'var(--primary)'; e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.18)'; };
-    const blur  = e => { e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = 'none'; };
+    const labelStyle = { fontSize: 11, color: 'var(--text-3)', fontWeight: 600, display: 'block', marginBottom: 4 };
 
     return (
         <SettingsSection title="Contact support" eyebrow="Help">
@@ -407,24 +403,16 @@ const ContactSupport = ({ user, onToast }) => {
                 </div>
                 <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
                     <div style={{ flex: 1 }}>
-                        <label style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, display: 'block', marginBottom: 4 }}>Name</label>
-                        <input value={name} onChange={e => setName( e.target.value )} placeholder="Your name" autoComplete="name" style={inputStyle} onFocus={focus} onBlur={blur}/>
+                        <label style={labelStyle}>Name</label>
+                        <Input size="sm" value={name} onChange={e => setName( e.target.value )} placeholder="Your name" autoComplete="name"/>
                     </div>
                     <div style={{ flex: 1 }}>
-                        <label style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, display: 'block', marginBottom: 4 }}>Email</label>
-                        <input value={email} onChange={e => setEmail( e.target.value )} type="email" placeholder="you@example.com" autoComplete="email" style={inputStyle} onFocus={focus} onBlur={blur}/>
+                        <label style={labelStyle}>Email</label>
+                        <Input size="sm" type="email" value={email} onChange={e => setEmail( e.target.value )} placeholder="you@example.com" autoComplete="email"/>
                     </div>
                 </div>
-                <label style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, display: 'block', marginBottom: 4 }}>Message</label>
-                <textarea
-                    value={message}
-                    onChange={e => setMessage( e.target.value )}
-                    placeholder="Tell us what's going on…"
-                    rows={4}
-                    style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }}
-                    onFocus={focus}
-                    onBlur={blur}
-                />
+                <label style={labelStyle}>Message</label>
+                <Textarea size="sm" value={message} onChange={e => setMessage( e.target.value )} placeholder="Tell us what's going on…" rows={4}/>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, gap: 12 }}>
                     <span style={{ fontSize: 11.5, color: 'var(--text-3)', lineHeight: 1.4 }}>
                         Diagnostics &amp; recent activity are included automatically.

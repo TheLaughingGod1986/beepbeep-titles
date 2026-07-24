@@ -33,7 +33,7 @@ class Plugin {
         add_action( 'deactivated_plugin', [ MetaWriter::class, 'refresh' ] );
 
         // Auto-generate on publish when enabled; remote generation may require
-        // an account and available BeepBeep AI service credits.
+        // an account and available OpptiAI service credits.
         add_action( 'save_post', [ $this, 'maybe_auto_generate' ], 20, 3 );
 
         // Keep the cached stats (Home's "Today's Pass") in step with the live
@@ -138,7 +138,7 @@ class Plugin {
             $this->queue_admin_notice(
                 sprintf(
                     /* translators: 1: post title, 2: error message */
-                    __( 'BeepBeep Titles could not auto-generate SEO for “%1$s”: %2$s', 'beepbeep-titles' ),
+                    __( 'OpptiAI Titles could not auto-generate SEO for “%1$s”: %2$s', 'beepbeep-titles' ),
                     $post->post_title,
                     $result->get_error_message()
                 ),

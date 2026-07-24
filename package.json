@@ -1,13 +1,13 @@
 {
   "name": "beepbeep-titles",
-  "version": "1.0.0",
+  "version": "1.0.16",
   "description": "AI title and meta description generator for WordPress",
   "private": true,
   "scripts": {
     "build": "wp-scripts build",
     "start": "wp-scripts start",
     "lint:js": "wp-scripts lint-js src",
-    "lint:css": "wp-scripts lint-style src",
+    "lint:css": "wp-scripts lint-style 'src/**/*.css'",
     "test:unit": "wp-scripts test-unit-js",
     "smoke": "bash scripts/smoke.sh",
     "plugin-check": "bash scripts/plugin-check-release.sh",

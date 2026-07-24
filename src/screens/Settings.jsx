@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Icon, Card, Pill, Button, Progress, Toggle, Divider } from '../components';
-import { Input, Textarea, Row } from '../ui';
+import { Input, PageShell, Textarea, Row } from '../ui';
 import { saveSettings, setLicense, clearLicense, submitSupport } from '../api';
 import { creditUsageRows } from '../usage';
 
@@ -67,7 +67,7 @@ export const SettingsScreen = ({ plan, quota, user, settings, connected, onUpgra
     };
 
     return (
-        <div style={{ padding: '24px 32px 56px', maxWidth: 880, margin: '0 auto' }}>
+        <PageShell style={{ paddingTop: 24, paddingBottom: 56 }}>
             <div style={{ marginBottom: 18 }}>
                 <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 5 }}>Settings</div>
                 <h1 style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em', margin: 0, lineHeight: 1.2 }}>Plan & preferences</h1>
@@ -92,11 +92,11 @@ export const SettingsScreen = ({ plan, quota, user, settings, connected, onUpgra
                 />
             </SettingsSection>
 
-            <SettingsSection title="BeepBeep license" eyebrow="Connection">
+            <SettingsSection title="OpptiAI license" eyebrow="Connection">
                 {connected ? (
                     <SettingsRow
                         label="License key"
-                        desc="Your site is connected to BeepBeep. Generations draw from your plan's quota."
+                        desc="Your site is connected to OpptiAI. Generations draw from your plan's quota."
                         right={
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                 <Pill tone="ok"><span className="pulse-dot" style={{ width: 6, height: 6 }}/> Connected</Pill>
@@ -109,7 +109,7 @@ export const SettingsScreen = ({ plan, quota, user, settings, connected, onUpgra
                     <div style={{ padding: '14px 20px' }}>
                         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', lineHeight: 1.3 }}>License key</div>
                         <div style={{ fontSize: 12, color: 'var(--text-3)', margin: '2px 0 10px', lineHeight: 1.45 }}>
-                            Connect your BeepBeep license to start generating. Find your key in your BeepBeep account dashboard.
+                            Connect your OpptiAI license to start generating. Find your key in your OpptiAI account dashboard.
                         </div>
                         <div style={{ display: 'flex', gap: 8 }}>
                             <input
@@ -175,17 +175,17 @@ export const SettingsScreen = ({ plan, quota, user, settings, connected, onUpgra
             <SettingsSection title="Danger zone" eyebrow="Destructive">
                 <SettingsRow
                     label="Reset generated title & meta"
-                    desc="Clear all BeepBeep Titles-generated titles and meta descriptions from your site. This cannot be undone."
+                    desc="Clear all OpptiAI Titles-generated titles and meta descriptions from your site. This cannot be undone."
                     right={<Button variant="secondary" size="sm">Reset…</Button>}
                 />
                 <SettingsRow
                     label="Delete data on uninstall"
-                    desc="Remove all BeepBeep Titles settings and history when the plugin is uninstalled."
+                    desc="Remove all OpptiAI Titles settings and history when the plugin is uninstalled."
                     right={<Toggle on={uninstallData} onChange={setUninstallData}/>}
                     last
                 />
             </SettingsSection>
-        </div>
+        </PageShell>
     );
 };
 
@@ -197,11 +197,11 @@ const PlanCard = ({ isPro, monthlyUsed, monthlyLimit, pct, resetDate, onUpgrade,
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-                    <span style={{ fontSize: 14, fontWeight: 600 }}>{isPro ? 'BeepBeep AI Pro service' : 'BeepBeep AI Free service'}</span>
+                    <span style={{ fontSize: 14, fontWeight: 600 }}>{isPro ? 'OpptiAI Pro service' : 'OpptiAI Free service'}</span>
                     <Pill tone={isPro ? 'primary' : 'neutral'}>{isPro ? 'Pro' : 'Free'}</Pill>
                 </div>
                 <div style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.45 }}>
-                    {monthlyLimit} AI service credits per cycle · shared across your BeepBeep plugins · usable manually, in bulk, or with Autopilot.
+                    {monthlyLimit} AI service credits per cycle · shared across your OpptiAI plugins · usable manually, in bulk, or with Autopilot.
                 </div>
             </div>
             <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
@@ -243,7 +243,7 @@ const CreditUsageCard = ({ quota, used, limit, resetDate }) => {
         <Card padding={0} style={{ marginBottom: 18, overflow: 'hidden' }}>
             <Row gap={16} justify="between" style={{ padding: '14px 20px', borderBottom: '1px solid var(--hairline)' }}>
                 <div>
-                    <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 2 }}>Shared across BeepBeep AI</div>
+                    <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 2 }}>OpptiAI Credit Wallet</div>
                     <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Credit usage</div>
                 </div>
                 <div className="tnum" style={{ fontSize: 13, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
@@ -253,7 +253,7 @@ const CreditUsageCard = ({ quota, used, limit, resetDate }) => {
             <Row align="start" gap={9} style={{ padding: '11px 20px', background: 'var(--surface-2)', borderBottom: '1px solid var(--hairline)', fontSize: 12, color: 'var(--text-2)', lineHeight: 1.45 }}>
                 <Icon name="info" size={14} style={{ color: 'var(--text-3)', flexShrink: 0, marginTop: 1 }}/>
                 <span>
-                    One credit pool is shared by every BeepBeep AI plugin on this site. {showBreakdown
+                    One monthly credit balance shared across every OpptiAI solution on this site. {showBreakdown
                         ? `The breakdown below shows which plugin consumed each credit · resets ${resetDate}.`
                         : `Per-plugin credits aren't itemised yet — the total above is shared across these plugins · resets ${resetDate}.`}
                 </span>
@@ -326,14 +326,14 @@ const SettingsRow = ({ label, desc, right, last }) => (
 const AdvancedPanel = ({ settings, connected, plan }) => {
     const [copied, setCopied] = useState( false );
     const handleCopy = () => {
-        const info = `Plugin: BeepBeep Titles\nWordPress: ${window.beeptiAdminData?.wpVersion || '6.x'}\nPHP: ${window.beeptiAdminData?.phpVersion || '8.x'}\nLicense: ${connected ? 'Connected' : 'Not connected'}\nSEO plugin: ${window.beeptiAdminData?.seoPlugin || 'fallback'}\nPlan: ${plan || 'free'}\nSite: ${window.location.hostname}`;
+        const info = `Plugin: OpptiAI Titles ${window.beeptiAdminData?.version || ''}\nWordPress: ${window.beeptiAdminData?.wpVersion || '6.x'}\nPHP: ${window.beeptiAdminData?.phpVersion || '8.x'}\nLicense: ${connected ? 'Connected' : 'Not connected'}\nSEO plugin: ${window.beeptiAdminData?.seoPlugin || 'fallback'}\nPlan: ${plan || 'free'}\nSite: ${window.location.hostname}`;
         navigator.clipboard?.writeText( info ).catch( () => {} );
         setCopied( true );
         setTimeout( () => setCopied( false ), 1800 );
     };
 
     const sysRows = [
-        { k: 'Plugin',     v: 'BeepBeep Titles 1.0.0' },
+        { k: 'Plugin',     v: `OpptiAI Titles ${window.beeptiAdminData?.version || ''}`.trim() },
         { k: 'WordPress',  v: window.beeptiAdminData?.wpVersion || '6.x' },
         { k: 'PHP',        v: window.beeptiAdminData?.phpVersion || '8.x' },
         { k: 'License',    v: connected ? 'Connected' : 'Not connected', tone: connected ? 'ok' : undefined },

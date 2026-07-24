@@ -20,7 +20,7 @@ export const Toast = ({ message, sub, onDismiss, action, icon = 'check', tone = 
             boxShadow: 'var(--shadow-lg)',
             display: 'flex', alignItems: 'center', gap: 12,
             fontSize: 13, fontWeight: 500,
-            animation: 'bbt-slide-up .25s cubic-bezier(.2,.8,.2,1)',
+            animation: 'beepti-slide-up .25s cubic-bezier(.2,.8,.2,1)',
             maxWidth: 480,
         }}>
             <div style={{ width: 28, height: 28, borderRadius: 999, background: 'rgba(255,255,255,0.1)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: tc.ic }}>

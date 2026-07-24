@@ -4,10 +4,10 @@
  * Records the last checkout attempt / success / failure (with a sanitized
  * reason) in localStorage so the Billing diagnostics page and the support
  * report can show "what happened last time" without server logs. This is the
- * single telemetry path — it layers on the existing checkout funnel events and
+ * single telemetry path — it is stored only in the browser's localStorage and
  * reuses classifyCheckoutError() for failure reasons (no separate classifier).
  *
- * Stored shape (key `bbt_checkout_telemetry`):
+ * Stored shape (key `beepti_checkout_telemetry`):
  *   { last_attempt, last_success, last_failure }  // each: { plan, price_id, ... , ts }
  *
  * Contains no Stripe secrets — plan id, price id, error code/category and a
@@ -16,7 +16,7 @@
 
 import { classifyCheckoutError } from './errors';
 
-const KEY = 'bbt_checkout_telemetry';
+const KEY = 'beepti_checkout_telemetry';
 
 function read() {
     try {
@@ -55,7 +55,7 @@ export function recordCheckoutSuccess( { plan, priceId } = {} ) {
 /**
  * Record a checkout failure. `reason` is an ApiError or a non-error response
  * body; it's run through the shared classifier so the stored reason matches the
- * checkout_failed analytics event.
+ * shape used elsewhere in billing diagnostics.
  */
 export function recordCheckoutFailure( { plan, priceId, reason } = {} ) {
     const { error_code, error_category, error_message } = classifyCheckoutError( reason );

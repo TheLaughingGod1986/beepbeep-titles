@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Icon, Card, Pill, Button, Divider } from '../components';
-import { Row } from '../ui';
+import { PageShell, Row } from '../ui';
 import { fetchBillingHealth, fetchBillingInfo } from '../api';
 import { readCheckoutTelemetry } from '../billingTelemetry';
 
@@ -121,7 +121,7 @@ export const BillingScreen = ({ quota, initial, onRefreshQuota, onToast }) => {
     };
 
     return (
-        <div style={{ padding: '24px 32px 56px', maxWidth: 980, margin: '0 auto' }}>
+        <PageShell style={{ paddingTop: 24, paddingBottom: 56 }}>
             <div style={{ marginBottom: 18 }}>
                 <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 5 }}>Diagnostics</div>
                 <h1 style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em', margin: 0, lineHeight: 1.2 }}>Billing</h1>
@@ -211,7 +211,7 @@ export const BillingScreen = ({ quota, initial, onRefreshQuota, onToast }) => {
                     [ 'Last failure', lastFailure ? `${ lastFailure.error_category }: ${ lastFailure.error_message } · ${ fmtTs( lastFailure.ts ) }` : '—' ],
                 ]}/>
             </Card>
-        </div>
+        </PageShell>
     );
 };
 

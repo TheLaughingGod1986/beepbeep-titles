@@ -4,6 +4,8 @@ namespace BeepBeep_Titles;
 use BeepBeep_Titles\Api\Client;
 use BeepBeep_Titles\Seo\MetaWriter;
 
+defined( 'ABSPATH' ) || exit;
+
 class Admin {
 
     public function __construct( private readonly Plugin $plugin ) {}
@@ -11,7 +13,6 @@ class Admin {
     public function init(): void {
         add_action( 'admin_menu',             [ $this, 'register_menus' ] );
         add_action( 'admin_enqueue_scripts',  [ $this, 'enqueue_assets' ] );
-        add_action( 'admin_head',             [ $this, 'inject_head_styles' ] );
     }
 
     // ----------------------------------------------------------------
@@ -20,10 +21,10 @@ class Admin {
 
     public function register_menus(): void {
         add_menu_page(
-            __( 'BeepBeep Titles', 'beepbeep-titles' ),
-            __( 'BB Titles', 'beepbeep-titles' ),
+            __( 'OpptiAI Titles', 'beepbeep-titles' ),
+            __( 'OpptiAI Titles', 'beepbeep-titles' ),
             'edit_posts',
-            BBT_SLUG,
+            BEEPTI_SLUG,
             [ $this, 'render_page' ],
             $this->get_menu_icon(),
             30
@@ -36,7 +37,7 @@ class Admin {
         // left) so the sticky tab bar sits flush under the WP admin bar with
         // no white gap. The earlier content-overlap issue was a duplicate
         // in-page header (since removed), not this offset.
-        echo '<div id="bbt-root" style="margin:0;min-height:calc(100vh - 32px);"></div>';
+        echo '<div id="beepti-root"></div>';
     }
 
     // ----------------------------------------------------------------
@@ -44,34 +45,25 @@ class Admin {
     // ----------------------------------------------------------------
 
     public function enqueue_assets( string $hook ): void {
-        if ( $hook !== 'toplevel_page_' . BBT_SLUG ) {
+        if ( $hook !== 'toplevel_page_' . BEEPTI_SLUG ) {
             return;
         }
 
-        // Google Fonts — Geist (sans + mono). Loaded here so it works
-        // inside wp-admin without a separate <head> injection.
-        wp_enqueue_style(
-            'beepbeep-titles-fonts',
-            'https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap',
-            [],
-            BBT_VERSION
-        );
-
-        $asset_file = BBT_DIR . 'build/index.asset.php';
+        $asset_file = BEEPTI_DIR . 'build/index.asset.php';
         $asset      = file_exists( $asset_file )
             ? require $asset_file
-            : [ 'dependencies' => [], 'version' => BBT_VERSION ];
+            : [ 'dependencies' => [], 'version' => BEEPTI_VERSION ];
 
         wp_enqueue_style(
-            'beepbeep-titles',
-            BBT_URL . 'build/index.css',
-            [ 'beepbeep-titles-fonts' ],
+            'beepti-admin',
+            BEEPTI_URL . 'build/index.css',
+            [],
             $asset['version']
         );
 
         wp_enqueue_script(
-            'beepbeep-titles',
-            BBT_URL . 'build/index.js',
+            'beepti-admin',
+            BEEPTI_URL . 'build/index.js',
             $asset['dependencies'],
             $asset['version'],
             true
@@ -82,15 +74,16 @@ class Admin {
         // seed identity, settings, and the license-connected flag here.
         global $wp_version;
         $user_id  = get_current_user_id();
-        $settings = get_option( 'bbt_settings', [] );
+        $settings = get_option( 'beepti_settings', [] );
         $settings = is_array( $settings ) ? $settings : [];
         $settings = SettingsSanitizer::normalize_settings( $settings );
         $client = new Client();
-        // If another BeepBeep plugin on this site already stores a license
+        // If another OpptiAI plugin on this site already stores a license
         // (same key works across all of them), connect with it automatically.
         $adopted = $client->adopt_shared_license();
+        $alt_text_companion = $this->get_alt_text_companion();
 
-        wp_localize_script( 'beepbeep-titles', 'bbtData', [
+        wp_localize_script( 'beepti-admin', 'beeptiAdminData', [
             'nonce'      => wp_create_nonce( 'wp_rest' ),
             'apiBase'    => get_rest_url( null, 'beepbeep-titles/v1' ),
             'siteUrl'    => get_site_url(),
@@ -106,49 +99,56 @@ class Admin {
             'settings'   => $settings,
             'wpVersion'  => (string) $wp_version,
             'phpVersion' => PHP_VERSION,
-            'version'    => BBT_VERSION,
+            'version'    => BEEPTI_VERSION,
             // Admin-only billing diagnostics gating + environment display.
             'isAdmin'    => current_user_can( 'manage_options' ),
-            'backendUrl' => BBT_API_BASE,
-            'lastScan'   => (string) get_option( 'bbt_last_scan', '' ),
+            'backendUrl' => BEEPTI_API_BASE,
+            'lastScan'   => (string) get_option( 'beepti_last_scan', '' ),
+            'altTextCompanion' => $alt_text_companion,
         ] );
-    }
-
-    // ----------------------------------------------------------------
-    // Head styles — override WP admin defaults on our page only.
-    // ----------------------------------------------------------------
-
-    public function inject_head_styles(): void {
-        $screen = get_current_screen();
-        if ( ! $screen || $screen->id !== 'toplevel_page_' . BBT_SLUG ) {
-            return;
-        }
-        ?>
-        <style>
-            /* Let our app control its own background + spacing */
-            #wpwrap, #wpcontent { background: #F6F8FB; }
-            #wpbody-content, #wpbody-content .wrap { overflow-x: hidden; }
-            /* Full-bleed: the app fills the whole content column (right of the
-               admin sidebar) with no white gap on any side. Zero #wpcontent
-               padding — we keep its margin-left (the sidebar offset) — and the
-               #wpbody* top padding, and hide anything WP injects above our
-               mount point (admin notices / screen-meta created the top gap). */
-            #wpcontent { padding: 0 !important; }
-            #wpbody { padding-top: 0 !important; }
-            #wpbody-content { padding-top: 0 !important; padding-bottom: 0 !important; }
-            #wpbody-content > :not(#bbt-root) { display: none !important; }
-            #bbt-root { font-family: "Geist", "Helvetica Neue", system-ui, sans-serif; max-width: 100%; overflow-x: hidden; }
-            /* Keep WP admin bar + sidebar unchanged */
-        </style>
-        <?php
     }
 
     // ----------------------------------------------------------------
     // Helpers
     // ----------------------------------------------------------------
 
+    private function get_alt_text_companion(): array {
+        $basename = 'beepbeep-ai-alt-text-generator/beepbeep-ai-alt-text-generator.php';
+        if ( ! function_exists( 'is_plugin_active' ) ) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+
+        if ( is_plugin_active( $basename ) ) {
+            return [
+                'state' => 'active',
+                'label' => __( 'Open ALT Text', 'beepbeep-titles' ),
+                'url'   => admin_url( 'admin.php?page=bbai' ),
+            ];
+        }
+
+        if ( file_exists( WP_PLUGIN_DIR . '/' . $basename ) ) {
+            return [
+                'state' => 'installed',
+                'label' => __( 'Activate ALT Text', 'beepbeep-titles' ),
+                'url'   => add_query_arg(
+                    [ 'plugin_status' => 'inactive', 's' => 'OpptiAI Alt Text' ],
+                    admin_url( 'plugins.php' )
+                ),
+            ];
+        }
+
+        return [
+            'state' => 'missing',
+            'label' => __( 'Add ALT Text', 'beepbeep-titles' ),
+            'url'   => add_query_arg(
+                [ 'tab' => 'search', 's' => 'OpptiAI Alt Text' ],
+                admin_url( 'plugin-install.php' )
+            ),
+        ];
+    }
+
     private function get_menu_icon(): string {
-        // Inline SVG data URI — BeepBeep lightning bolt logo.
+        // Inline SVG data URI — OpptiAI lightning bolt logo.
         $svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/></svg>';
         return 'data:image/svg+xml;base64,' . base64_encode( $svg );
     }

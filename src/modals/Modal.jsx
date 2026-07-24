@@ -14,7 +14,7 @@ export const Modal = ({ open, onClose, children, width = 560, dismissable = true
                 width, maxWidth: '100%', maxHeight: '90vh', overflow: 'auto',
                 background: 'var(--surface)', borderRadius: 'var(--r-xl)',
                 boxShadow: 'var(--shadow-lg)', border: '1px solid var(--border)',
-                animation: 'bbt-scale-in .2s cubic-bezier(.2,.8,.2,1)',
+                animation: 'beepti-scale-in .2s cubic-bezier(.2,.8,.2,1)',
             }}>{children}</div>
         </div>
     );

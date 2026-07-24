@@ -102,6 +102,9 @@ class GenerateController {
         foreach ( $items as $i => &$item ) {
             $post_id = $this->resolve_item_post_id( $item, $ordered, $i );
             if ( $post_id > 0 ) {
+                if ( ! current_user_can( 'edit_post', $post_id ) ) {
+                    continue;
+                }
                 $item['wp_post_id'] = $post_id;
                 $post               = get_post( $post_id );
                 if ( $post ) {

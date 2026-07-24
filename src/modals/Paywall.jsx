@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Icon, Button } from '../components';
 import { Modal } from './Modal';
-import { fetchPlans, track } from '../api';
-
-const PLUGIN = 'beepbeep-titles';
+import { fetchPlans } from '../api';
 
 /* Format a plan amount in its own currency (e.g. gbp 12.99 -> "£12.99"). */
 const fmtPrice = ( amount, currency = 'gbp' ) => {
@@ -27,7 +25,7 @@ const fmtCount = ( n ) => ( typeof n === 'number' ? n.toLocaleString() : n );
    ("Fix N SEO issues automatically") → trust → social proof. Alternative
    purchase paths (Starter, credit pack) stay quiet so they never dilute the
    primary CTA. Prices come live from /billing/plans so they always match Stripe. */
-export const Paywall = ({ open, onClose, entitlement, stats, connected = true, onCheckout, onUpgrade, onBuyCredits, onConnect, sourceScreen }) => {
+export const Paywall = ({ open, onClose, entitlement, stats, connected = true, onCheckout, onUpgrade, onBuyCredits, onConnect }) => {
     const [plans, setPlans] = useState( null );
     const [showMore, setShowMore] = useState( false );
 
@@ -43,41 +41,8 @@ export const Paywall = ({ open, onClose, entitlement, stats, connected = true, o
 
     const missingTitles = Number.isFinite( stats?.missing_title ) ? stats.missing_title : null;
     const missingMeta   = Number.isFinite( stats?.missing_meta ) ? stats.missing_meta : null;
-    const siteSize      = Number.isFinite( stats?.total ) ? stats.total : null;
-    const currentPlan   = entitlement?.plan || 'free';
-
-    const siteUrl   = ( typeof window !== 'undefined' && ( window.bbtData?.siteUrl || window.location?.origin ) ) || '';
-    const userState = entitlement ? currentPlan : 'signed_out';
-
-    const eventProps = {
-        missing_titles_count: missingTitles,
-        missing_meta_count:   missingMeta,
-        site_size:            siteSize,
-        current_plan:         currentPlan,
-        plugin_name:          PLUGIN,
-    };
-
-    // Properties for the pricing_* funnel events.
-    const pricingProps = ( planSelected = null ) => ( {
-        plan_selected: planSelected,
-        plugin_name:   PLUGIN,
-        site_url:      siteUrl,
-        pages_scanned: siteSize,
-        user_state:    userState,
-    } );
-
-    // One "opened" event per open (plus the comparison strip is in view).
-    useEffect( () => {
-        if ( open ) {
-            track( 'titles_upgrade_modal_viewed', eventProps );
-            track( 'pricing_modal_opened', pricingProps() );
-            track( 'pricing_comparison_viewed', pricingProps() );
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open] );
 
     const handleClose = () => {
-        track( 'pricing_modal_closed', pricingProps() );
         onClose?.();
     };
 
@@ -120,25 +85,10 @@ export const Paywall = ({ open, onClose, entitlement, stats, connected = true, o
         if ( planId === 'credits' && onBuyCredits ) { onBuyCredits(); return; }
         if ( onUpgrade ) onUpgrade();
     };
-    // Canonical funnel event (kept alongside the legacy CTA events for compat).
-    // user_state here is auth-state (anonymous|authenticated), distinct from the
-    // plan-flavoured user_state the legacy pricing_* events carry.
-    const authState = connected ? 'authenticated' : 'anonymous';
     const needsSignIn = ! connected;
-    const upgradeProps = ( planId ) => {
-        const plan = ( plans || [] ).find( p => p.id === planId );
-        return {
-            ...pricingProps( planId ),
-            plan:             planId,
-            price_id:         plan?.priceId,
-            source_screen:    sourceScreen || 'modal',
-            source_component: 'upgrade_modal',
-            user_state:       authState,
-        };
-    };
-    const onPro     = () => { track( 'titles_pro_cta_clicked', eventProps ); track( 'pro_cta_clicked', pricingProps( 'pro' ) ); track( 'upgrade_clicked', upgradeProps( 'pro' ) ); checkout( 'pro' ); };
-    const onStarter = () => { track( 'titles_starter_link_clicked', eventProps ); track( 'starter_cta_clicked', pricingProps( 'starter' ) ); track( 'upgrade_clicked', upgradeProps( 'starter' ) ); checkout( 'starter' ); };
-    const onCredits = () => { track( 'titles_credit_pack_clicked', eventProps ); checkout( 'credits' ); };
+    const onPro     = () => checkout( 'pro' );
+    const onStarter = () => checkout( 'starter' );
+    const onCredits = () => checkout( 'credits' );
 
     const showScanGaps = ( missingTitles !== null || missingMeta !== null )
         && ( ( missingTitles || 0 ) > 0 || ( missingMeta || 0 ) > 0 );
@@ -153,7 +103,7 @@ export const Paywall = ({ open, onClose, entitlement, stats, connected = true, o
         'Generate SEO titles and descriptions in seconds',
         'Save hours of manual editing',
         'Improve search visibility',
-        'Fix metadata across your site automatically',
+        'Use credits with manual, bulk, or Autopilot requests',
     ];
     // Risk reducers kept beside the purchase button.
     const trust = [
@@ -165,37 +115,20 @@ export const Paywall = ({ open, onClose, entitlement, stats, connected = true, o
 
     return (
         <Modal open={open} onClose={handleClose} width={760}>
-            <div className="bbt-pw" style={{ position: 'relative' }}>
-                <style>{`
-                    .bbt-pw__plans { display:grid; grid-template-columns: 0.92fr 0.92fr 1.22fr; gap:14px; align-items:stretch; }
-                    .bbt-pw__plan { border-radius:${R}px; padding:16px 16px 18px; display:flex; flex-direction:column; }
-                    .bbt-pw__plan--pro { transform: scale(1.04); transform-origin:center; }
-                    .bbt-pw__why { display:grid; grid-template-columns:1fr 1fr; gap:8px 18px; }
-                    @media (max-width: 640px) {
-                        .bbt-pw__section { padding-left:20px !important; padding-right:20px !important; }
-                        .bbt-pw__plans { display:flex; flex-direction:column; gap:16px; }
-                        .bbt-pw__plan--pro { order:1; transform:none; }
-                        .bbt-pw__plan--starter { order:2; }
-                        .bbt-pw__why { grid-template-columns:1fr; }
-                        /* Free (current plan) is contextual only and has no CTA — hide it on
-                           mobile so the Pro CTA stays reachable without excess scrolling. */
-                        .bbt-pw__plan--free { display:none; }
-                    }
-                `}</style>
-
+            <div className="beepti-pw" style={{ position: 'relative' }}>
                 <button onClick={handleClose} aria-label="Close" style={{ position: 'absolute', top: 18, right: 18, background: 'var(--bg-sunken)', border: '1px solid var(--border)', borderRadius: 999, width: 32, height: 32, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-2)', zIndex: 2 }}>
                     <Icon name="x" size={14}/>
                 </button>
 
                 {/* ── Section 1: Headline → Issue Summary → SEO Impact → CTA (above the fold) ── */}
-                <div className="bbt-pw__section" style={{ padding: '36px 40px 4px' }}>
+                <div className="beepti-pw__section" style={{ padding: '36px 40px 4px' }}>
                     <h2 style={{ fontSize: 25, fontWeight: 600, letterSpacing: '-0.025em', lineHeight: 1.15, margin: '0 0 8px', maxWidth: 560 }}>
-                        {showScanGaps ? 'We found SEO issues on your site' : 'Fix missing SEO metadata in minutes'}
+                        {showScanGaps ? 'We found SEO issues on your site' : 'Add OpptiAI service credits'}
                     </h2>
                     <p style={{ fontSize: 14.5, color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 16px', maxWidth: 580 }}>
                         {showScanGaps
-                            ? <>Some of your content is missing SEO metadata, which may reduce visibility in Google Search. Fix every detected issue automatically — <strong style={{ color: 'var(--text)', fontWeight: 600 }}>in under 60 seconds</strong>.</>
-                            : <>Many pages and posts are missing the titles and meta descriptions search engines rely on. BeepBeep generates them automatically and fixes your whole site in under 60 seconds.</> }
+                            ? <>Some of your content is missing SEO metadata. OpptiAI service credits can be used for manual, bulk, or Autopilot generation requests.</>
+                            : <>Choose the external-service credit allowance that fits your expected AI generation volume. Local scanning, editing, and Autopilot configuration remain available on every plan.</> }
                     </p>
 
                     {showScanGaps && (
@@ -234,17 +167,15 @@ export const Paywall = ({ open, onClose, entitlement, stats, connected = true, o
                             : needsSignIn
                                 ? 'Sign in to upgrade'
                                 : totalIssues > 0
-                                    ? `Fix All ${fmtCount( totalIssues )} SEO ${issuePlural} Now`
-                                    : `Fix My SEO Issues Automatically · ${proPrice}/month` }
+                                    ? `Choose Pro Service Capacity · ${proPrice}/month`
+                                    : `Choose Pro Service Capacity · ${proPrice}/month` }
                     </Button>
                     <p style={{ textAlign: 'center', fontSize: 12.5, color: 'var(--text-3)', margin: '8px 0 0', lineHeight: 1.5 }}>
                         {!proAvailable && !needsSignIn
                             ? 'This plan is being updated. Please try again shortly or contact support.'
                             : needsSignIn
                                 ? 'Create a free account or sign in, then choose Starter or Pro at checkout.'
-                                : totalIssues > 0
-                                    ? `Upgrade to Pro and generate the missing metadata now · ${proPrice}/month`
-                                    : `Upgrade to Pro and generate missing metadata across your site · ${proPrice}/month` }
+                                : 'Adds remote AI generation credits. All local plugin features remain available on every service plan.' }
                     </p>
 
                     {/* Checkout confidence signals — right beside the button */}
@@ -258,9 +189,9 @@ export const Paywall = ({ open, onClose, entitlement, stats, connected = true, o
                 </div>
 
                 {/* ── Section 2: Benefits + time-saving comparison ── */}
-                <div className="bbt-pw__section" style={{ padding: '20px 40px 4px' }}>
+                <div className="beepti-pw__section" style={{ padding: '20px 40px 4px' }}>
                     <div style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-3)', margin: '0 0 10px' }}>Why upgrade?</div>
-                    <div className="bbt-pw__why" style={{ marginBottom: 14 }}>
+                    <div className="beepti-pw__why" style={{ marginBottom: 14 }}>
                         {why.map( ( t, i ) => (
                             <span key={i} style={{ display: 'inline-flex', alignItems: 'flex-start', gap: 8, fontSize: 13, color: 'var(--text-2)', fontWeight: 500, lineHeight: 1.4 }}>
                                 <Icon name="check" size={14} strokeWidth={2.6} style={{ color: 'var(--ok-ink)', flexShrink: 0, marginTop: 1 }}/> {t}
@@ -268,24 +199,24 @@ export const Paywall = ({ open, onClose, entitlement, stats, connected = true, o
                         ) )}
                     </div>
 
-                    {/* Manual vs BeepBeep — the time-saving punchline */}
+                    {/* Manual vs OpptiAI — the time-saving punchline */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, borderRadius: R, overflow: 'hidden', border: '1px solid var(--border)' }}>
                         <div style={{ padding: '12px 16px', background: 'var(--surface-2)', borderRight: '1px solid var(--border)' }}>
                             <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 4 }}>Manual optimisation</div>
                             <div style={{ fontSize: 14, color: 'var(--text-2)', fontWeight: 600 }}>100 pages &amp; posts = 2–4 hours</div>
                         </div>
                         <div style={{ padding: '12px 16px', background: 'var(--ok-soft)' }}>
-                            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--ok-ink)', marginBottom: 4 }}>BeepBeep AI</div>
+                            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--ok-ink)', marginBottom: 4 }}>OpptiAI</div>
                             <div style={{ fontSize: 14, color: 'var(--ok-ink)', fontWeight: 700 }}>100 pages &amp; posts = under 2 minutes</div>
                         </div>
                     </div>
                 </div>
 
                 {/* ── Section 3: Pricing (Pro dominant) ── */}
-                <div className="bbt-pw__section" style={{ padding: '22px 40px 4px' }}>
-                    <div className="bbt-pw__plans">
+                <div className="beepti-pw__section" style={{ padding: '22px 40px 4px' }}>
+                    <div className="beepti-pw__plans">
                         {/* Free — current plan, intentionally quietest (trial tier) */}
-                        <div className="bbt-pw__plan bbt-pw__plan--free" style={{ border: '1px solid var(--hairline)', background: 'var(--bg-sunken)', opacity: 0.85 }}>
+                        <div className="beepti-pw__plan beepti-pw__plan--free" style={{ border: '1px solid var(--hairline)', background: 'var(--bg-sunken)', opacity: 0.85 }}>
                             <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 8 }}>Current plan</div>
                             <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-3)' }}>Free</div>
                             <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -296,12 +227,12 @@ export const Paywall = ({ open, onClose, entitlement, stats, connected = true, o
                         </div>
 
                         {/* Starter — lower-friction entry point, deliberately quieter */}
-                        <div className="bbt-pw__plan bbt-pw__plan--starter" style={{ border: '1px solid var(--border)', background: 'var(--surface)', position: 'relative' }}>
+                        <div className="beepti-pw__plan beepti-pw__plan--starter" style={{ border: '1px solid var(--border)', background: 'var(--surface)', position: 'relative' }}>
                             <div style={{ position: 'absolute', top: -10, left: 16, background: 'var(--bg-sunken)', color: 'var(--text-3)', border: '1px solid var(--border)', fontSize: 9.5, fontWeight: 700, padding: '3px 8px', borderRadius: 999, letterSpacing: '0.04em' }}>GOOD FOR SMALL SITES</div>
                             <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 8, marginTop: 4 }}>Starter</div>
                             <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.02em' }}>{starterPrice}<span style={{ fontSize: 12.5, color: 'var(--text-3)', fontWeight: 400 }}> /mo</span></div>
                             <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                {[ `${ fmtCount( starterQuota ) } SEO generations every month`, 'No daily limits', 'Great for bloggers and small business sites' ].map( ( f, i ) => (
+                                {[ `${ fmtCount( starterQuota ) } SEO generations every month`, 'Use credits manually, in bulk, or with Autopilot', 'Great for bloggers and small business sites' ].map( ( f, i ) => (
                                     <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.4 }}>
                                         <Icon name="check" size={12} strokeWidth={2.4} style={{ color: 'var(--text-3)', flexShrink: 0, marginTop: 2 }}/> {f}
                                     </div>
@@ -310,7 +241,7 @@ export const Paywall = ({ open, onClose, entitlement, stats, connected = true, o
                         </div>
 
                         {/* Pro — dominant, recommended */}
-                        <div className="bbt-pw__plan bbt-pw__plan--pro" style={{ border: '2.5px solid var(--primary)', background: 'var(--surface)', boxShadow: '0 14px 36px rgba(37,99,235,0.18)', position: 'relative' }}>
+                        <div className="beepti-pw__plan beepti-pw__plan--pro" style={{ border: '2.5px solid var(--primary)', background: 'var(--surface)', boxShadow: '0 14px 36px rgba(37,99,235,0.18)', position: 'relative' }}>
                             <div style={{ position: 'absolute', top: -12, left: 18, background: 'var(--primary)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 999, letterSpacing: '0.05em' }}>⭐ MOST POPULAR</div>
                             <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--primary-ink)', marginBottom: 8 }}>Pro</div>
                             <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em' }}>{proPrice}<span style={{ fontSize: 13, color: 'var(--text-3)', fontWeight: 400 }}> /mo</span></div>
@@ -319,7 +250,7 @@ export const Paywall = ({ open, onClose, entitlement, stats, connected = true, o
                                 For only {monthlyExtra} more than Starter
                             </div>
                             <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 9 }}>
-                                {[ `${ capacityMult }× more SEO generations (${ fmtCount( proQuota ) }/mo)`, 'Auto-generate SEO metadata on publish', 'Bulk optimise your entire website', 'Priority processing', 'Shared across all BeepBeep plugins' ].map( ( f, i ) => (
+                                {[ `${ capacityMult }× more SEO generations (${ fmtCount( proQuota ) }/mo)`, 'Use credits manually, in bulk, or with Autopilot', 'Priority processing', 'Shared across all OpptiAI plugins' ].map( ( f, i ) => (
                                     <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12.5, color: 'var(--text)', fontWeight: i === 0 ? 600 : 500, lineHeight: 1.4 }}>
                                         <Icon name="check" size={13} strokeWidth={2.6} style={{ color: 'var(--primary-ink)', flexShrink: 0, marginTop: 1 }}/> {f}
                                     </div>
@@ -330,7 +261,7 @@ export const Paywall = ({ open, onClose, entitlement, stats, connected = true, o
                 </div>
 
                 {/* ── Section 3: Starter → Pro comparison banner (large, visual) ── */}
-                <div className="bbt-pw__section" style={{ padding: '20px 40px 4px' }}>
+                <div className="beepti-pw__section" style={{ padding: '20px 40px 4px' }}>
                     <div style={{ borderRadius: R, background: 'var(--primary-soft)', border: '1px solid var(--primary-border)', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 22, flexWrap: 'wrap' }}>
                         <div style={{ textAlign: 'center' }}>
                             <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Starter</div>
@@ -351,7 +282,7 @@ export const Paywall = ({ open, onClose, entitlement, stats, connected = true, o
                 </div>
 
                 {/* ── Section 4: Secondary actions — quieter Starter + credit top-up ── */}
-                <div className="bbt-pw__section" style={{ padding: '20px 40px 0' }}>
+                <div className="beepti-pw__section" style={{ padding: '20px 40px 0' }}>
                     {starterPlan && (
                         <Button variant="secondary" size="md" full onClick={onStarter} disabled={!starterAvailable && !needsSignIn} style={{ background: 'var(--surface)', color: 'var(--text-2)', border: '1px solid var(--border-strong)', fontSize: 13.5 }}>
                             {needsSignIn
@@ -379,7 +310,7 @@ export const Paywall = ({ open, onClose, entitlement, stats, connected = true, o
                 </div>
 
                 {/* ── Section 5: Social proof ── */}
-                <div className="bbt-pw__section" style={{ padding: '18px 40px 32px', marginTop: 16, borderTop: '1px solid var(--hairline)', textAlign: 'center' }}>
+                <div className="beepti-pw__section" style={{ padding: '18px 40px 32px', marginTop: 16, borderTop: '1px solid var(--hairline)', textAlign: 'center' }}>
                     <div aria-hidden="true" style={{ fontSize: 14, letterSpacing: 2, color: '#F59E0B', marginBottom: 6 }}>★★★★★</div>
                     <div style={{ fontSize: 12.5, color: 'var(--text-3)', lineHeight: 1.5, maxWidth: 460, margin: '0 auto' }}>
                         Trusted by WordPress site owners, bloggers and WooCommerce stores to automate SEO optimisation.

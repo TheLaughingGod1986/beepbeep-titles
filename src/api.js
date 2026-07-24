@@ -1,7 +1,7 @@
 import { QUOTA_DEFAULTS } from './quota';
 
 /**
- * BeepBeep Titles — WordPress REST client.
+ * OpptiAI Titles — WordPress REST client.
  *
  * Talks only to the plugin's own /wp-json/beepbeep-titles/v1 proxy, which
  * injects the license + identity headers server-side. The browser never sees
@@ -12,7 +12,7 @@ import { QUOTA_DEFAULTS } from './quota';
  * can map errors to the right paywall / toast.
  */
 
-const data  = window.bbtData ?? {};
+const data  = window.beeptiAdminData ?? {};
 const BASE  = data.apiBase ?? '/wp-json/beepbeep-titles/v1';
 const NONCE = data.nonce   ?? '';
 
@@ -203,20 +203,6 @@ export async function fetchBillingHealth() {
     return request( 'GET', '/billing/health' );
 }
 
-// ── Analytics ───────────────────────────────────────────────────────
-/**
- * Fire a PostHog event when the library is present on the page; no-op
- * otherwise (the plugin doesn't bundle PostHog — it piggybacks on a host
- * `window.posthog` if the site has one). Never throws.
- */
-export function track( event, props = {} ) {
-    try {
-        if ( typeof window !== 'undefined' && window.posthog && typeof window.posthog.capture === 'function' ) {
-            window.posthog.capture( event, props );
-        }
-    } catch ( e ) { /* analytics must never break the UI */ }
-}
-
 // ── Scan ────────────────────────────────────────────────────────────
 export async function runScan() {
     return request( 'POST', '/scan' );
@@ -255,6 +241,7 @@ export function getInitialData() {
         phpVersion: data.phpVersion ?? '',
         version:    data.version    ?? '',
         siteUrl:    data.siteUrl    ?? ( typeof window !== 'undefined' ? window.location?.origin : '' ),
+        altTextCompanion: data.altTextCompanion ?? { state: 'missing', label: 'Add ALT Text', url: '' },
         // Quota is fetched on mount; this is just a neutral placeholder so the
         // first render doesn't crash before /quota resolves.
         quota:     { plan: 'free', connected: data.connected ?? false },

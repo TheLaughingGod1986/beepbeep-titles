@@ -1,9 +1,9 @@
 <?php
 /**
- * Backend API client for BeepBeep Titles.
+ * Backend API client for OpptiAI Titles.
  *
  * Thin wrapper around wp_remote_request that injects the license + identity
- * headers every BeepBeep backend request needs, and normalises error
+ * headers every OpptiAI backend request needs, and normalises error
  * responses into WP_Error objects whose error_data preserves the backend
  * `code` and `entitlement_state` so the REST proxy can pass them to JS.
  *
@@ -19,20 +19,26 @@ defined( 'ABSPATH' ) || exit;
 
 class Client {
 
-    private const OPT_LICENSE       = 'bbt_license_key';
-    private const OPT_ACCOUNT_EMAIL = 'bbt_account_email';
-    private const OPT_INSTALL_HASH  = 'bbt_install_hash';
-    private const OPT_FINGERPRINT   = 'bbt_site_fingerprint';
-    private const OPT_DISCONNECTED  = 'bbt_license_disconnected';
+    private const OPT_LICENSE       = 'beepti_license_key';
+    private const OPT_ACCOUNT_EMAIL = 'beepti_account_email';
+    private const OPT_INSTALL_HASH  = 'beepti_install_hash';
+    private const OPT_FINGERPRINT   = 'beepti_site_fingerprint';
+    private const OPT_ENCRYPTION_KEY = 'beepti_encryption_key';
+    private const OPT_DISCONNECTED  = 'beepti_license_disconnected';
+    private const OPT_SITE_ID       = 'beepti_site_id';
     private const ENC_PREFIX        = 'enc:';
 
     /**
-     * License options written by sibling BeepBeep plugins on this site.
-     * They use the identical enc: AES-256-CBC scheme keyed on wp_salt('auth'),
-     * so maybe_decrypt() reads them directly.
+     * License options written by sibling OpptiAI plugins on this site.
+     * Plain keys in sibling user data can be adopted. Encrypted sibling values
+     * are not decrypted here because this plugin does not access WordPress auth
+     * salts or keys for local encryption.
      */
     private const SIBLING_LICENSE_OPTIONS = [
-        'beepbeepai_license_key', // BeepBeep AI Alt Text
+        'beepbeepai_license_key', // OpptiAI Alt Text
+    ];
+    private const SIBLING_USER_OPTIONS = [
+        'beepbeepai_user_data',
     ];
 
     // ----------------------------------------------------------------
@@ -87,7 +93,7 @@ class Client {
     public function poll_job( string $job_id ): array|\WP_Error {
         $job_id = trim( $job_id );
         if ( $job_id === '' ) {
-            return new \WP_Error( 'bbt_invalid_job', __( 'Invalid job id.', 'beepbeep-titles' ), [ 'status' => 400 ] );
+            return new \WP_Error( 'beepti_invalid_job', __( 'Invalid job id.', 'beepbeep-titles' ), [ 'status' => 400 ] );
         }
         return $this->request( 'GET', '/api/titles/jobs/' . rawurlencode( $job_id ), null, 60 );
     }
@@ -104,7 +110,7 @@ class Client {
     // ----------------------------------------------------------------
     // Billing — shared account/wallet, same backend the alt-text plugin uses.
     // A Pro upgrade or credit pack bought here applies to the whole account,
-    // so credits/Pro are available to every BeepBeep plugin on this site.
+    // so credits/Pro are available to every OpptiAI plugin on this site.
     // ----------------------------------------------------------------
 
     /** Available plans + Stripe price ids ({ starter, pro, agency, credits }). */
@@ -123,7 +129,7 @@ class Client {
     }
 
     /**
-     * Resolve the BeepBeep account email for the stored license and cache it.
+     * Resolve the OpptiAI account email for the stored license and cache it.
      * Best-effort: returns the cached value on backend failure.
      */
     public function refresh_account_email(): string {
@@ -157,14 +163,19 @@ class Client {
             'cancelUrl'   => $cancel_url,
             'target_plan' => $plan,
             'source_page' => 'beepbeep_titles_admin',
-        ], 45 );
+        ], 45, false );
     }
 
     /** Create a Stripe billing-portal session for managing an existing plan. */
     public function billing_portal( string $return_url ): array|\WP_Error {
         return $this->request( 'POST', '/billing/portal', [
             'returnUrl' => $return_url,
-        ], 45 );
+        ], 45, false );
+    }
+
+    /** Send a support/contact request through the OpptiAI backend mailer. */
+    public function support_contact( array $payload ): array|\WP_Error {
+        return $this->do_request( 'POST', '/api/contact', $payload, 30 );
     }
 
     // ----------------------------------------------------------------
@@ -203,14 +214,14 @@ class Client {
     }
 
     /**
-     * Adopt a license key already stored on this site by another BeepBeep
+     * Adopt a license key already stored on this site by another OpptiAI
      * plugin (the same key works across all of them). No-op when we already
      * have a key or the user explicitly signed out of this plugin.
      *
      * @return bool Whether a sibling license was adopted.
      */
-    public function adopt_shared_license(): bool {
-        if ( $this->has_license() || get_option( self::OPT_DISCONNECTED, '' ) !== '' ) {
+    public function adopt_shared_license( bool $force = false ): bool {
+        if ( $this->has_license() || ( ! $force && get_option( self::OPT_DISCONNECTED, '' ) !== '' ) ) {
             return false;
         }
         foreach ( self::SIBLING_LICENSE_OPTIONS as $option ) {
@@ -224,11 +235,26 @@ class Client {
                 return true;
             }
         }
+        foreach ( self::SIBLING_USER_OPTIONS as $option ) {
+            $user = get_option( $option, [] );
+            if ( ! is_array( $user ) ) {
+                continue;
+            }
+            $key = $user['license_key'] ?? ( $user['data']['user']['license_key'] ?? '' );
+            if ( is_string( $key ) && trim( $key ) !== '' ) {
+                $this->set_license_key( $key );
+                $email = $user['email'] ?? ( $user['data']['user']['email'] ?? '' );
+                if ( is_string( $email ) && sanitize_email( $email ) !== '' ) {
+                    update_option( self::OPT_ACCOUNT_EMAIL, sanitize_email( $email ), false );
+                }
+                return true;
+            }
+        }
         return false;
     }
 
     // ----------------------------------------------------------------
-    // Account login — exchange BeepBeep credentials for the license key.
+    // Account login — exchange OpptiAI credentials for the license key.
     // Same /auth/login route the alt-text plugin uses; the backend returns
     // the account's license key alongside the JWT, which is all we need.
     // ----------------------------------------------------------------
@@ -245,7 +271,10 @@ class Client {
             'blog_id'      => function_exists( 'get_current_blog_id' ) ? absint( get_current_blog_id() ) : 0,
             'network_id'   => function_exists( 'get_current_network_id' ) ? absint( get_current_network_id() ) : 0,
             'is_multisite' => is_multisite(),
-        ], 45 );
+            'plugin_id'    => BEEPTI_PLUGIN_ID,
+            'plugin_version' => BEEPTI_VERSION,
+            'wordpress_version' => get_bloginfo( 'version' ),
+        ], 45, false );
 
         if ( is_wp_error( $result ) ) {
             return $result;
@@ -255,7 +284,7 @@ class Client {
     }
 
     /**
-     * Create a BeepBeep account and store its returned license key.
+     * Create an OpptiAI account and store its returned license key.
      *
      * @return array|\WP_Error Backend user payload on success (license stored).
      */
@@ -267,12 +296,13 @@ class Client {
             'install_uuid'      => $this->install_hash(),
             'site_url'          => get_site_url(),
             'site_fingerprint'  => $this->fingerprint(),
-            'plugin_version'    => BBT_VERSION,
+            'plugin_version'    => BEEPTI_VERSION,
+            'plugin_id'         => BEEPTI_PLUGIN_ID,
             'wordpress_version' => get_bloginfo( 'version' ),
             'blog_id'           => function_exists( 'get_current_blog_id' ) ? absint( get_current_blog_id() ) : 0,
             'network_id'        => function_exists( 'get_current_network_id' ) ? absint( get_current_network_id() ) : 0,
             'is_multisite'      => is_multisite(),
-        ], 45 );
+        ], 45, false );
 
         if ( is_wp_error( $result ) ) {
             return $result;
@@ -296,13 +326,15 @@ class Client {
     }
 
     /**
-     * Site hash — the BeepBeep site identity SHARED with the alt-text plugin.
+     * Site hash — the OpptiAI site identity, ideally SHARED with the
+     * alt-text plugin.
      *
      * Credits are pooled per backend "canonical site", which is resolved from
-     * this hash. To share one wallet across both BeepBeep plugins, we reuse the
-     * same `beepbeepai_site_id` option the alt-text plugin stores. If neither
-     * plugin has established an id yet, we create one under that shared key so
-     * whichever plugin is installed later reuses it.
+     * this hash. To share one wallet across both OpptiAI plugins we adopt
+     * (read-only) the id the alt-text plugin stores under its own
+     * `beepbeepai_site_id` option and cache it under our prefixed option.
+     * We never write to another plugin's option names; if no sibling id
+     * exists yet we create our own under `beepti_site_id`.
      */
     public function site_hash(): string {
         $shared = $this->shared_site_id();
@@ -310,24 +342,31 @@ class Client {
     }
 
     private function shared_site_id(): string {
-        $keys = [];
-        if ( is_multisite() ) {
-            $keys[] = 'beepbeepai_site_id_' . get_current_blog_id();
+        $own = get_option( self::OPT_SITE_ID, '' );
+        if ( is_string( $own ) && strlen( $own ) === 32 ) {
+            return $own;
         }
-        $keys[] = 'beepbeepai_site_id';
 
-        foreach ( $keys as $key ) {
+        // Adopt the alt-text plugin's site id when it already established one.
+        $sibling_keys = [];
+        if ( is_multisite() ) {
+            $sibling_keys[] = 'beepbeepai_site_id_' . get_current_blog_id();
+        }
+        $sibling_keys[] = 'beepbeepai_site_id';
+
+        foreach ( $sibling_keys as $key ) {
             $value = get_option( $key, '' );
             if ( is_string( $value ) && strlen( $value ) === 32 ) {
+                update_option( self::OPT_SITE_ID, $value, true );
                 return $value;
             }
         }
 
-        // No shared identity yet — establish one under the shared key.
+        // No identity yet — establish one under our own prefixed option.
         $site_url = get_site_url();
         $network  = is_multisite() ? (string) get_current_site()->id : 'single';
         $id       = md5( md5( $site_url . '|' . $network ) . wp_generate_password( 32, false ) . time() );
-        update_option( 'beepbeepai_site_id', $id, true );
+        update_option( self::OPT_SITE_ID, $id, true );
         return $id;
     }
 
@@ -343,7 +382,7 @@ class Client {
         }
         $fp = get_option( self::OPT_FINGERPRINT, '' );
         if ( ! is_string( $fp ) || $fp === '' ) {
-            $fp = hash( 'sha256', get_site_url() . '|' . wp_salt( 'auth' ) );
+            $fp = hash( 'sha256', wp_generate_uuid4() . '|' . wp_generate_password( 32, false ) );
             update_option( self::OPT_FINGERPRINT, $fp, false );
         }
         return $fp;
@@ -365,11 +404,12 @@ class Client {
             'X-Site-URL'         => home_url(),
             'X-Install-Hash'     => $this->install_hash(),
             'X-Site-Fingerprint' => $this->fingerprint(),
-            'X-Plugin-Version'   => BBT_VERSION,
+            'X-Plugin-Version'   => BEEPTI_VERSION,
+            'X-Plugin-ID'        => BEEPTI_PLUGIN_ID,
+            'X-Plugin-Title'     => BEEPTI_PLUGIN_TITLE,
             'X-WP-Version'       => (string) $wp_version,
             'X-PHP-Version'      => PHP_VERSION,
-            'X-Plugin-Channel'   => BBT_PLUGIN_CHANNEL,
-            'X-Environment'      => BBT_PLUGIN_ENV,
+            'X-Plugin-Channel'   => BEEPTI_PLUGIN_CHANNEL,
             'X-Request-Source'   => 'beepbeep_titles',
         ];
     }
@@ -383,8 +423,8 @@ class Client {
     private function request( string $method, string $path, ?array $body, int $timeout ): array|\WP_Error {
         if ( ! $this->has_license() ) {
             return new \WP_Error(
-                'bbt_no_license',
-                __( 'No BeepBeep license key is configured.', 'beepbeep-titles' ),
+                'beepti_no_license',
+                __( 'No OpptiAI license key is configured.', 'beepbeep-titles' ),
                 [ 'status' => 401, 'code' => 'INVALID_LICENSE' ]
             );
         }
@@ -392,11 +432,14 @@ class Client {
     }
 
     /** Same plumbing as request() but without the license guard (auth routes). */
-    private function do_request( string $method, string $path, ?array $body, int $timeout ): array|\WP_Error {
-        $url  = BBT_API_BASE . '/' . ltrim( $path, '/' );
+    private function do_request( string $method, string $path, ?array $body, int $timeout, bool $include_context_headers = true ): array|\WP_Error {
+        $url  = BEEPTI_API_BASE . '/' . ltrim( $path, '/' );
         $args = [
             'method'    => $method,
-            'headers'   => $this->headers(),
+            'headers'   => $include_context_headers ? $this->headers() : [
+                'Content-Type' => 'application/json',
+                'Accept'       => 'application/json',
+            ],
             'timeout'   => $timeout,
             'sslverify' => true,
         ];
@@ -404,7 +447,7 @@ class Client {
         if ( $body !== null && in_array( $method, [ 'POST', 'PUT', 'PATCH' ], true ) ) {
             $json = wp_json_encode( $body );
             if ( $json === false ) {
-                return new \WP_Error( 'bbt_encode_error', __( 'Failed to encode request.', 'beepbeep-titles' ), [ 'status' => 500 ] );
+                return new \WP_Error( 'beepti_encode_error', __( 'Failed to encode request.', 'beepbeep-titles' ), [ 'status' => 500 ] );
             }
             $args['body'] = $json;
         }
@@ -414,7 +457,7 @@ class Client {
         // Transport-level failure (DNS, timeout, SSL, offline).
         if ( is_wp_error( $response ) ) {
             return new \WP_Error(
-                'bbt_network_error',
+                'beepti_network_error',
                 $response->get_error_message(),
                 [ 'status' => 502, 'code' => 'NETWORK_ERROR' ]
             );
@@ -427,11 +470,32 @@ class Client {
             $data = [];
         }
 
-        if ( $status >= 200 && $status < 300 ) {
+        if ( $status >= 200 && $status < 300 && ! ( isset( $data['success'] ) && $data['success'] === false ) ) {
             return $data;
         }
 
-        return $this->error_from_response( $status, $data );
+        return $this->error_from_response( $this->status_for_backend_error( $status, $data ), $data );
+    }
+
+    private function status_for_backend_error( int $http_status, array $data ): int {
+        if ( $http_status >= 400 ) {
+            return $http_status;
+        }
+
+        $code = $data['error']['code']
+            ?? $data['code']
+            ?? ( is_string( $data['error'] ?? null ) ? $data['error'] : '' );
+        $code = strtoupper( (string) $code );
+
+        return match ( $code ) {
+            'USER_EXISTS', 'SITE_HAS_LICENSE' => 409,
+            'INVALID_CREDENTIALS', 'INVALID_LICENSE', 'NO_PASSWORD' => 401,
+            'ACCOUNT_INACTIVE', 'DEVELOPMENT_SITE_NOT_ALLOWED' => 403,
+            'QUOTA_EXCEEDED' => 402,
+            'SERVICE_UNAVAILABLE' => 503,
+            'SERVER_ERROR', 'REGISTRATION_FAILED' => 500,
+            default => 400,
+        };
     }
 
     /**
@@ -459,10 +523,19 @@ class Client {
         $message = $data['error']['message']
             ?? $data['message']
             ?? ( is_string( $data['error'] ?? null ) ? $data['error'] : '' );
+        if ( $message === 'Invalid request data' && isset( $data['details']['fieldErrors'] ) && is_array( $data['details']['fieldErrors'] ) ) {
+            $field_errors = array_filter( array_map(
+                static fn( $errors ) => is_array( $errors ) && isset( $errors[0] ) && is_string( $errors[0] ) ? $errors[0] : '',
+                $data['details']['fieldErrors']
+            ) );
+            if ( ! empty( $field_errors ) ) {
+                $message .= ': ' . implode( ' ', $field_errors );
+            }
+        }
         if ( $message === '' ) {
             $message = sprintf(
                 /* translators: %d: HTTP status code */
-                __( 'The generator returned an error (HTTP %d).', 'beepbeep-titles' ),
+                __( 'The OpptiAI service returned an error (HTTP %d).', 'beepbeep-titles' ),
                 $status
             );
         }
@@ -476,7 +549,7 @@ class Client {
             $error_data['entitlement_state'] = $entitlement;
         }
 
-        return new \WP_Error( 'bbt_api_error', $message, $error_data );
+        return new \WP_Error( 'beepti_api_error', $message, $error_data );
     }
 
     private function store_account_license_from_auth_result( array $result, string $email, string $action ): array|\WP_Error {
@@ -489,10 +562,10 @@ class Client {
 
         if ( $key === '' ) {
             return new \WP_Error(
-                'bbt_no_account_license',
+                'beepti_no_account_license',
                 $action === 'register'
-                    ? __( 'Account created, but no license key was returned. Visit your BeepBeep dashboard to claim one.', 'beepbeep-titles' )
-                    : __( 'Signed in, but no license key is attached to this account yet. Visit your BeepBeep dashboard to claim one.', 'beepbeep-titles' ),
+                    ? __( 'Account created, but no license key was returned. Visit your OpptiAI dashboard to claim one.', 'beepbeep-titles' )
+                    : __( 'Signed in, but no license key is attached to this account yet. Visit your OpptiAI dashboard to claim one.', 'beepbeep-titles' ),
                 [ 'status' => 422, 'code' => 'NO_ACCOUNT_LICENSE' ]
             );
         }
@@ -519,14 +592,17 @@ class Client {
     }
 
     // ----------------------------------------------------------------
-    // Encryption (AES-256-CBC, keyed on wp_salt) — ported from alt-text.
+    // Encryption (AES-256-CBC, keyed with a plugin-owned random option).
     // ----------------------------------------------------------------
 
     private function encrypt( string $value ): string {
         if ( $value === '' || ! function_exists( 'openssl_encrypt' ) ) {
             return $value;
         }
-        $key = substr( hash( 'sha256', wp_salt( 'auth' ) ), 0, 32 );
+        $key = $this->encryption_key();
+        if ( $key === '' ) {
+            return $value;
+        }
         $iv  = function_exists( 'random_bytes' ) ? random_bytes( 16 ) : openssl_random_pseudo_bytes( 16 );
         if ( $iv === false ) {
             return $value;
@@ -551,8 +627,24 @@ class Client {
         }
         $iv     = substr( $payload, 0, 16 );
         $cipher = substr( $payload, 16 );
-        $key    = substr( hash( 'sha256', wp_salt( 'auth' ) ), 0, 32 );
+        $key    = $this->encryption_key( false );
+        if ( $key === '' ) {
+            return '';
+        }
         $plain  = openssl_decrypt( $cipher, 'AES-256-CBC', $key, OPENSSL_RAW_DATA, $iv );
         return $plain !== false ? $plain : '';
+    }
+
+    private function encryption_key( bool $create = true ): string {
+        $stored = get_option( self::OPT_ENCRYPTION_KEY, '' );
+        if ( is_string( $stored ) && $stored !== '' ) {
+            return substr( hash( 'sha256', $stored ), 0, 32 );
+        }
+        if ( ! $create ) {
+            return '';
+        }
+        $raw = wp_generate_uuid4() . '|' . wp_generate_password( 64, true, true );
+        update_option( self::OPT_ENCRYPTION_KEY, $raw, false );
+        return substr( hash( 'sha256', $raw ), 0, 32 );
     }
 }

@@ -18,6 +18,27 @@ const JUSTIFY = {
     around: 'space-around',
 };
 
+// Matches the shared OpptiAI design system (and OpptiAI Alt Text): content
+// column caps at 1180px so both products read identically on wide screens.
+export const PAGE_MAX_WIDTH = 1180;
+
+/** Shared page frame for admin screens. */
+export const PageShell = ( { children, style = {}, ...rest } ) => (
+    <div
+        style={{
+            width: '100%',
+            maxWidth: PAGE_MAX_WIDTH,
+            margin: '0 auto',
+            padding: '28px 32px 64px',
+            boxSizing: 'border-box',
+            ...style,
+        }}
+        {...rest}
+    >
+        {children}
+    </div>
+);
+
 /** Horizontal flex row. Defaults to vertically-centered with an 8px gap. */
 export const Row = ( { gap = 8, align = 'center', justify, wrap = false, style = {}, children, ...rest } ) => (
     <div

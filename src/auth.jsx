@@ -4,6 +4,20 @@ import { Field, Input } from './ui';
 import { Modal } from './modals/Modal';
 import { loginWithPassword, registerAccount, setLicense } from './api';
 
+const isValidEmail = ( value ) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test( value );
+
+const signupValidationMessage = ( email, password ) => {
+    if ( ! isValidEmail( email.trim() ) ) {
+        return 'Enter a valid email address.';
+    }
+
+    if ( password.length < 8 ) {
+        return 'Use at least 8 characters for your password.';
+    }
+
+    return null;
+};
+
 export const UserMenu = ({ user, plan, onSignOut, onAccount, onHelp }) => {
     const [open, setOpen] = useState( false );
     const wrapRef = useRef( null );
@@ -126,7 +140,7 @@ export const SignOutConfirm = ({ open, onCancel, onConfirm }) => (
             <div style={{ width: 38, height: 38, borderRadius: 999, background: 'var(--bg-sunken)', border: '1px solid var(--border)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
                 <Icon name="logout" size={17} style={{ color: 'var(--text-2)' }}/>
             </div>
-            <h2 style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.015em', margin: '0 0 6px' }}>Sign out of BeepBeep Titles?</h2>
+            <h2 style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.015em', margin: '0 0 6px' }}>Sign out of OpptiAI Titles?</h2>
             <p style={{ fontSize: 13, color: 'var(--text-2)', margin: 0, lineHeight: 1.55 }}>
                 Autopilot will pause and no new pages will be optimised until you reconnect your account.
                 All previously generated titles & meta descriptions stay on your site.
@@ -181,7 +195,11 @@ export const SignedOutScreen = ({ lastEmail, onConnected, onToast }) => {
     };
     const submitSignup = ( e ) => {
         e?.preventDefault?.();
-        if ( ! email.trim() || password.length < 8 ) return;
+        const validation = signupValidationMessage( email, password );
+        if ( validation ) {
+            setError( validation );
+            return;
+        }
         run( () => registerAccount( email.trim(), password ), 'Couldn\'t create that account. Try again.' );
     };
 
@@ -196,7 +214,7 @@ export const SignedOutScreen = ({ lastEmail, onConnected, onToast }) => {
                 {/* Brand mark — tighter, single line */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 36 }}>
                     <Icon name="logo" size={26} style={{ color: 'var(--primary-strong)' }}/>
-                    <span style={{ fontWeight: 700, fontSize: 16, letterSpacing: '-0.01em', lineHeight: 1 }}>BeepBeep AI</span>
+                    <span style={{ fontWeight: 700, fontSize: 16, letterSpacing: '-0.01em', lineHeight: 1 }}>OpptiAI</span>
                     <span aria-hidden="true" style={{ width: 1, height: 12, background: 'var(--border-strong)', opacity: 0.7 }}/>
                     <span style={{ fontSize: 11.5, color: 'var(--text-3)', letterSpacing: '0.04em', fontWeight: 500 }}>Title &amp; Meta SEO</span>
                 </div>
@@ -268,7 +286,7 @@ export const SignedOutScreen = ({ lastEmail, onConnected, onToast }) => {
                             {submitting ? 'Creating account…' : 'Create account'}
                         </Button>
                         <p style={{ fontSize: 11, color: 'var(--text-3)', margin: '4px 0 0', textAlign: 'center', lineHeight: 1.5 }}>
-                            By creating an account you agree to BeepBeep AI&rsquo;s{' '}
+                            By creating an account you agree to OpptiAI&rsquo;s{' '}
                             <button type="button" style={quietLinkStyle}>Terms</button> and{' '}
                             <button type="button" style={quietLinkStyle}>Privacy Policy</button>.
                         </p>
@@ -319,7 +337,7 @@ export const SignedOutScreen = ({ lastEmail, onConnected, onToast }) => {
                         </>
                     ) : (
                         <>
-                            New to BeepBeep AI?{' '}
+                            New to OpptiAI?{' '}
                             <button type="button" onClick={() => { setMode( 'signup' ); setError( null ); }} style={authLinkStyle}>Create an account</button>
                             <span style={{ margin: '0 8px', opacity: 0.5 }}>·</span>
                             <WhatIsNai/>
@@ -396,7 +414,7 @@ const WhatIsNai = () => {
                 }}
                 onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-2)'; e.currentTarget.style.borderBottomColor = 'var(--text-3)'; }}
                 onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.borderBottomColor = 'var(--border-strong)'; }}
-            >What is BeepBeep AI?</button>
+            >What is OpptiAI?</button>
             {open && (
                 <span role="tooltip" className="fade-in" style={{
                     position: 'absolute', bottom: 'calc(100% + 10px)', left: '50%',
@@ -406,7 +424,7 @@ const WhatIsNai = () => {
                     borderRadius: 8, textAlign: 'left', letterSpacing: '-0.003em',
                     boxShadow: '0 8px 24px rgba(0,0,0,0.18)', zIndex: 50, pointerEvents: 'none',
                 }}>
-                    BeepBeep Titles automatically scans your pages and improves their SEO
+                    OpptiAI Titles automatically scans your pages and improves their SEO
                     <span style={{ whiteSpace: 'nowrap' }}> titles &amp; meta descriptions</span>
                     {' '}for search and click-through. Runs quietly in the background.
                     <span style={{
@@ -431,4 +449,3 @@ const quietLinkStyle = {
     background: 'transparent', border: 'none', padding: 0,
     color: 'var(--text-3)', fontSize: 12, fontWeight: 500, cursor: 'pointer',
 };
-

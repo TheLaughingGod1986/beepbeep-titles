@@ -44,6 +44,56 @@ const FieldError = ({ children }) => (
     </Row>
 );
 
+const isValidEmail = ( value ) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test( value );
+
+const validateAuthInput = ( mode, email, password, confirmPassword ) => {
+    if ( ! isValidEmail( email.trim() ) ) {
+        return 'Enter a valid email address.';
+    }
+
+    if ( mode !== 'register' ) {
+        return null;
+    }
+
+    if ( password.length < 8 ) {
+        return 'Use at least 8 characters for your password.';
+    }
+
+    if ( password !== confirmPassword ) {
+        return 'Passwords do not match.';
+    }
+
+    return null;
+};
+
+const authErrorMessage = ( err, mode, fallback ) => {
+    const code = String( err?.code || '' ).toLowerCase();
+
+    if ( mode === 'register' ) {
+        if ( err?.status === 409 || [ 'user_exists', 'site_has_license' ].includes( code ) ) {
+            return 'That account already exists. Sign in to connect this site.';
+        }
+
+        if ( err?.status === 400 || code === 'invalid_request' || code === 'weak_password' ) {
+            return err?.message || 'Couldn\'t create that account. Check the email address and password.';
+        }
+    }
+
+    if ( mode === 'password' && ( err?.status === 400 || err?.status === 401 ) ) {
+        if ( code === 'no_password' ) {
+            return err?.message || 'This account uses license key authentication. Connect with your license key or use the existing Alt Text plugin connection on this site.';
+        }
+
+        if ( code === 'invalid_credentials' ) {
+            return 'Couldn\'t sign in with those details. Check the email and password.';
+        }
+
+        return 'Couldn\'t sign in with those details. Check the email and password.';
+    }
+
+    return err?.message || fallback;
+};
+
 export const ConnectModal = ({ open, onClose, onSuccess, initialMode = 'register' }) => {
     const [mode, setMode]         = useState( initialMode ); // 'register' | 'password'
     const [email, setEmail]       = useState( '' );
@@ -92,8 +142,9 @@ export const ConnectModal = ({ open, onClose, onSuccess, initialMode = 'register
         if ( ! canSubmit || connecting ) return;
         setError( null );
 
-        if ( mode === 'register' && password !== confirmPassword ) {
-            setError( 'Passwords do not match.' );
+        const validationError = validateAuthInput( mode, email, password, confirmPassword );
+        if ( validationError ) {
+            setError( validationError );
             return;
         }
 
@@ -107,10 +158,11 @@ export const ConnectModal = ({ open, onClose, onSuccess, initialMode = 'register
             const fallback = mode === 'register'
                 ? 'Couldn\'t create that account. Check the details and try again.'
                 : 'Couldn\'t sign in with those details. Check them and try again.';
-            setError( err?.message || fallback );
             const code = String( err?.code || '' ).toLowerCase();
+            setError( authErrorMessage( err, mode, fallback ) );
             if ( mode === 'register' && ( err?.status === 409 || ['user_exists', 'site_has_license'].includes( code ) ) ) {
                 setMode( 'password' );
+                setError( null );
             }
             setConnecting( false );
         }
@@ -144,11 +196,11 @@ export const ConnectModal = ({ open, onClose, onSuccess, initialMode = 'register
                         <div>
                             <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.015em', lineHeight: 1.2 }}>
                                 {mode === 'register'
-                                    ? 'Create your BeepBeep account'
-                                    : 'Sign in to BeepBeep'}
+                                    ? 'Create your OpptiAI account'
+                                    : 'Sign in to OpptiAI'}
                             </div>
                             <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
-                                BeepBeep Titles
+                                OpptiAI Titles
                             </div>
                         </div>
                     </Row>
@@ -168,10 +220,10 @@ export const ConnectModal = ({ open, onClose, onSuccess, initialMode = 'register
                     <>
                         <p style={{ fontSize: 13.5, color: 'var(--text-2)', lineHeight: 1.6, margin: '0 0 20px' }}>
                             {mode === 'register' ? (
-                                <>Create a <strong style={{ color: 'var(--text)', fontWeight: 600 }}>BeepBeep account</strong> to connect this site,
+                                <>Create a <strong style={{ color: 'var(--text)', fontWeight: 600 }}>OpptiAI account</strong> to connect this site,
                                 use the external AI title and meta generation service.</>
                             ) : (
-                                <>Sign in with your <strong style={{ color: 'var(--text)', fontWeight: 600 }}>BeepBeep account</strong> and
+                                <>Sign in with your <strong style={{ color: 'var(--text)', fontWeight: 600 }}>OpptiAI account</strong> and
                                 we&rsquo;ll connect this site automatically.</>
                             )}
                         </p>
@@ -310,7 +362,7 @@ const SuccessState = () => (
             Account connected
         </div>
         <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.55 }}>
-            Your BeepBeep account is live. Heading to your dashboard…
+            Your OpptiAI account is live. Heading to your dashboard…
         </div>
     </div>
 );

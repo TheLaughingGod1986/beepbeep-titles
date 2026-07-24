@@ -43,7 +43,7 @@ class PagesController {
     public function get_page( \WP_REST_Request $req ): \WP_REST_Response|\WP_Error {
         $post = get_post( (int) $req['id'] );
         if ( ! $post || ! in_array( $post->post_status, self::EDITABLE_STATUSES, true ) ) {
-            return new \WP_Error( 'not_found', __( 'Page not found.', 'beepbeep-titles' ), [ 'status' => 404 ] );
+            return new \WP_Error( 'beepti_not_found', __( 'Page not found.', 'beepbeep-titles' ), [ 'status' => 404 ] );
         }
         return new \WP_REST_Response( ( new Scanner() )->format_post( $post ) );
     }
@@ -51,7 +51,7 @@ class PagesController {
     public function update_page( \WP_REST_Request $req ): \WP_REST_Response|\WP_Error {
         $post = get_post( (int) $req['id'] );
         if ( ! $post || ! in_array( $post->post_status, self::EDITABLE_STATUSES, true ) ) {
-            return new \WP_Error( 'not_found', __( 'Page not found.', 'beepbeep-titles' ), [ 'status' => 404 ] );
+            return new \WP_Error( 'beepti_not_found', __( 'Page not found.', 'beepbeep-titles' ), [ 'status' => 404 ] );
         }
 
         $title = $req->get_param( 'seo_title' );
@@ -74,6 +74,15 @@ class PagesController {
     public function get_activity( \WP_REST_Request $req ): \WP_REST_Response {
         $limit  = (int) $req->get_param( 'limit' );
         $now    = time();
+        $events = array_values( array_filter(
+            ActivityLog::all(),
+            static function ( array $e ): bool {
+                $post_id = (int) ( $e['post_id'] ?? 0 );
+                return $post_id > 0 && current_user_can( 'edit_post', $post_id );
+            }
+        ) );
+        $events = array_slice( $events, 0, $limit > 0 ? $limit : 8 );
+
         $events = array_map(
             static function ( array $e ) use ( $now ): array {
                 $time = (int) ( $e['time'] ?? 0 );
@@ -88,7 +97,7 @@ class PagesController {
                         : '',
                 ];
             },
-            ActivityLog::recent( $limit > 0 ? $limit : 8 )
+            $events
         );
 
         return new \WP_REST_Response( [ 'events' => $events ] );
@@ -99,7 +108,7 @@ class PagesController {
     }
 
     public function get_settings( \WP_REST_Request $req ): \WP_REST_Response {
-        $settings               = get_option( 'bbt_settings', [] );
+        $settings               = get_option( 'beepti_settings', [] );
         $settings               = is_array( $settings ) ? $settings : [];
         $settings               = SettingsSanitizer::normalize_settings( $settings );
         $settings['seo_plugin'] = MetaWriter::active();
@@ -108,7 +117,7 @@ class PagesController {
     }
 
     public function update_settings( \WP_REST_Request $req ): \WP_REST_Response {
-        $current  = get_option( 'bbt_settings', [] );
+        $current  = get_option( 'beepti_settings', [] );
         $current  = is_array( $current ) ? $current : [];
         $current  = SettingsSanitizer::normalize_settings( $current );
         $incoming = $req->get_json_params() ?? [];
@@ -119,11 +128,11 @@ class PagesController {
         }
 
         $current = SettingsSanitizer::normalize_settings( $current );
-        update_option( 'bbt_settings', $current );
+        update_option( 'beepti_settings', $current );
         return new \WP_REST_Response( $current );
     }
 
     private function bust_stats(): void {
-        delete_transient( 'bbt_stats' );
+        delete_transient( 'beepti_stats' );
     }
 }

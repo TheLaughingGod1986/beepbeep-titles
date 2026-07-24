@@ -1,6 +1,6 @@
 <?php
 /**
- * Sanitises bbt_settings patches before they are stored.
+ * Sanitises beepti_settings patches before they are stored.
  *
  * @package BeepBeep_Titles
  */

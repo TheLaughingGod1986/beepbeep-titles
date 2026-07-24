@@ -57,9 +57,9 @@ export const Onboarding = ({ open, onClose, onComplete, onScan }) => {
             {step === 0 && (
                 <div style={{ padding: '16px 28px 28px' }}>
                     <Icon name="logo" size={44} style={{ color: 'var(--primary-strong)', marginBottom: 14 }}/>
-                    <h2 style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em', margin: '0 0 8px' }}>Welcome to BeepBeep Titles.</h2>
+                    <h2 style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em', margin: '0 0 8px' }}>Welcome to OpptiAI Titles.</h2>
                     <p style={{ fontSize: 14, color: 'var(--text-2)', margin: 0, lineHeight: 1.55 }}>
-                        Page SEO that runs continuously in the background. BeepBeep Titles crawls your published pages, writes title tags and meta descriptions, and keeps your coverage climbing.
+                        Page SEO that runs continuously in the background. OpptiAI Titles crawls your published pages, writes title tags and meta descriptions, and keeps your coverage climbing.
                     </p>
                     <Stack gap={12} style={{ marginTop: 20, padding: 16, background: 'var(--bg-sunken)', borderRadius: 'var(--r-md)' }}>
                         {[
@@ -154,7 +154,7 @@ export const Onboarding = ({ open, onClose, onComplete, onScan }) => {
                             <Stack className="fade-in" gap={10} style={{ marginTop: 10, padding: '12px 14px', background: 'var(--surface)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)' }}>
                                 <Stack gap={2}>
                                     <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Bulk catch-up</div>
-                                    <div style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.45 }}>Use available BeepBeep AI service credits to optimise multiple pages, then let Autopilot handle new pages.</div>
+                                    <div style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.45 }}>Use available OpptiAI service credits to optimise multiple pages, then let Autopilot handle new pages.</div>
                                 </Stack>
                                 <div style={{ height: 1, background: 'var(--hairline)' }}/>
                                 <Stack gap={2}>

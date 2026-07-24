@@ -7,7 +7,7 @@ export const WPChrome = ({ children, activeTab, onTab, plan, onUpgrade, user, co
 
     return (
         <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
-            {/* BeepBeep Titles tab strip — sticky below the 32px WP admin bar */}
+            {/* OpptiAI Titles tab strip — sticky below the 32px WP admin bar */}
             <div style={{
                 background: 'var(--surface)',
                 borderBottom: '1px solid var(--border)',
@@ -21,7 +21,7 @@ export const WPChrome = ({ children, activeTab, onTab, plan, onUpgrade, user, co
                 position: 'sticky', top: 0, zIndex: 50,
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', marginRight: 22 }}>
-                    <span style={{ fontWeight: 700, fontSize: 14.5, letterSpacing: '-0.015em', color: 'var(--text)' }}>BeepBeep Titles</span>
+                    <span style={{ fontWeight: 700, fontSize: 14.5, letterSpacing: '-0.015em', color: 'var(--text)' }}>OpptiAI Titles</span>
                 </div>
                 <nav style={{ display: 'flex', alignItems: 'center', gap: 2, height: '100%' }}>
                     {tabs.map( t => {
@@ -52,7 +52,7 @@ export const WPChrome = ({ children, activeTab, onTab, plan, onUpgrade, user, co
                     } )}
                 </nav>
                 <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                    <Tooltip content="BeepBeep Titles is monitoring your site in the background" placement="bottom">
+                    <Tooltip content="OpptiAI Titles is monitoring your site in the background" placement="bottom">
                         <span style={{
                             display: 'inline-flex', alignItems: 'center', gap: 6,
                             padding: '3px 9px',
@@ -68,7 +68,7 @@ export const WPChrome = ({ children, activeTab, onTab, plan, onUpgrade, user, co
                     </Tooltip>
                     {plan === 'free' ? (
                         <Button variant="pro" size="sm" icon={connected ? 'crown' : 'arrow-right'} onClick={connected ? onUpgrade : onConnect}>
-                            {connected ? 'Upgrade to Pro' : 'Create Account'}
+                            {connected ? 'Get more credits' : 'Create Account'}
                         </Button>
                     ) : (
                         <span style={{

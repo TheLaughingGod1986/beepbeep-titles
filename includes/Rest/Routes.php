@@ -1,6 +1,6 @@
 <?php
 /**
- * Registers BeepBeep Titles REST routes.
+ * Registers OpptiAI Titles REST routes.
  *
  * @package BeepBeep_Titles
  */
@@ -43,7 +43,7 @@ class Routes {
         register_rest_route( $ns, '/generate', [
             'methods'             => 'POST',
             'callback'            => [ $g, 'generate' ],
-            'permission_callback' => [ $this, 'require_editor' ],
+            'permission_callback' => [ $this, 'can_edit_requested_post' ],
             'args'                => [
                 'post_id'  => [ 'required' => true, 'type' => 'integer', 'sanitize_callback' => 'absint' ],
                 'previous' => [ 'type' => 'object' ],
@@ -54,7 +54,7 @@ class Routes {
         register_rest_route( $ns, '/jobs', [
             'methods'             => 'POST',
             'callback'            => [ $g, 'submit_job' ],
-            'permission_callback' => [ $this, 'require_editor' ],
+            'permission_callback' => [ $this, 'can_edit_requested_posts' ],
             'args'                => [
                 'post_ids' => [
                     'required'          => true,
@@ -69,7 +69,7 @@ class Routes {
         register_rest_route( $ns, '/jobs/(?P<id>[A-Za-z0-9\-_]+)', [
             'methods'             => 'GET',
             'callback'            => [ $g, 'poll_job' ],
-            'permission_callback' => [ $this, 'require_editor' ],
+            'permission_callback' => [ $this, 'can_poll_job' ],
         ] );
 
         // ── Quota ──────────────────────────────────────────────────
@@ -123,10 +123,12 @@ class Routes {
             'permission_callback' => [ $this, 'require_editor' ],
         ] );
 
+        // Account-level billing/subscription details (Stripe customer &
+        // subscription IDs, plan status). Restricted to administrators.
         register_rest_route( $ns, '/billing/info', [
             'methods'             => 'GET',
             'callback'            => [ $b, 'billing_info' ],
-            'permission_callback' => [ $this, 'require_editor' ],
+            'permission_callback' => [ $this, 'require_admin' ],
         ] );
 
         // Admin-only billing diagnostics probe (booleans only).
@@ -156,7 +158,7 @@ class Routes {
         register_rest_route( $ns, '/pages', [
             'methods'             => 'GET',
             'callback'            => [ $p, 'get_pages' ],
-            'permission_callback' => [ $this, 'require_editor' ],
+            'permission_callback' => [ $this, 'can_list_pages' ],
             'args'                => [
                 'filter'   => [ 'type' => 'string', 'default' => 'needs', 'sanitize_callback' => 'sanitize_text_field' ],
                 'search'   => [ 'type' => 'string', 'default' => '',      'sanitize_callback' => 'sanitize_text_field' ],
@@ -169,12 +171,12 @@ class Routes {
             [
                 'methods'             => 'GET',
                 'callback'            => [ $p, 'get_page' ],
-                'permission_callback' => [ $this, 'require_editor' ],
+                'permission_callback' => [ $this, 'can_edit_route_post' ],
             ],
             [
                 'methods'             => 'PATCH',
                 'callback'            => [ $p, 'update_page' ],
-                'permission_callback' => [ $this, 'require_editor' ],
+                'permission_callback' => [ $this, 'can_edit_route_post' ],
                 'args'                => [
                     'seo_title' => [ 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ],
                     'meta_desc' => [ 'type' => 'string', 'sanitize_callback' => 'sanitize_textarea_field' ],
@@ -186,7 +188,7 @@ class Routes {
         register_rest_route( $ns, '/activity', [
             'methods'             => 'GET',
             'callback'            => [ $p, 'get_activity' ],
-            'permission_callback' => [ $this, 'require_editor' ],
+            'permission_callback' => [ $this, 'can_read_activity' ],
             'args'                => [
                 'limit' => [ 'type' => 'integer', 'default' => 8, 'minimum' => 1, 'maximum' => 30 ],
             ],
@@ -203,7 +205,7 @@ class Routes {
         register_rest_route( $ns, '/support/contact', [
             'methods'             => 'POST',
             'callback'            => [ $s, 'contact' ],
-            'permission_callback' => [ $this, 'require_editor' ],
+            'permission_callback' => [ $this, 'require_admin' ],
             'args'                => [
                 'name'    => [ 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ],
                 'email'   => [ 'type' => 'string', 'sanitize_callback' => 'sanitize_email' ],
@@ -232,5 +234,58 @@ class Routes {
 
     public function require_admin(): bool {
         return current_user_can( 'manage_options' );
+    }
+
+    public function can_list_pages(): bool {
+        // The handler filters every returned post with current_user_can( 'edit_post', $post_id ).
+        return current_user_can( 'edit_posts' );
+    }
+
+    public function can_read_activity(): bool {
+        // The handler filters every returned activity item by edit_post for its post_id.
+        return current_user_can( 'edit_posts' );
+    }
+
+    public function can_edit_requested_post( \WP_REST_Request $request ): bool {
+        return current_user_can( 'edit_post', absint( $request->get_param( 'post_id' ) ) );
+    }
+
+    public function can_edit_requested_posts( \WP_REST_Request $request ): bool {
+        $post_ids = array_values( array_filter( array_map( 'absint', (array) $request->get_param( 'post_ids' ) ) ) );
+        if ( empty( $post_ids ) || ! current_user_can( 'edit_posts' ) ) {
+            return false;
+        }
+
+        foreach ( $post_ids as $post_id ) {
+            if ( ! current_user_can( 'edit_post', $post_id ) ) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public function can_edit_route_post( \WP_REST_Request $request ): bool {
+        return current_user_can( 'edit_post', absint( $request['id'] ) );
+    }
+
+    public function can_poll_job( \WP_REST_Request $request ): bool {
+        $job_id = preg_replace( '/[^A-Za-z0-9\-_]/', '', (string) $request['id'] );
+        if ( $job_id === '' || ! current_user_can( 'edit_posts' ) ) {
+            return false;
+        }
+
+        $post_ids = get_transient( 'beepti_job_' . $job_id );
+        if ( ! is_array( $post_ids ) || empty( $post_ids ) ) {
+            return false;
+        }
+
+        foreach ( array_map( 'absint', $post_ids ) as $post_id ) {
+            if ( $post_id <= 0 || ! current_user_can( 'edit_post', $post_id ) ) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

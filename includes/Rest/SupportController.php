@@ -30,7 +30,7 @@ class SupportController {
         $message = trim( (string) $req->get_param( 'message' ) );
         if ( $message === '' ) {
             return new \WP_Error(
-                'empty_message',
+                'beepti_empty_message',
                 __( 'Please enter a message before sending.', 'beepbeep-titles' ),
                 [ 'status' => 400 ]
             );
@@ -48,14 +48,25 @@ class SupportController {
         }
 
         $diagnostics = $this->diagnostics( $email );
-        $emailed     = $this->send_email( $name, $email, $message, $diagnostics );
+        $backend     = $this->send_backend_contact( $name, $email, $message, $diagnostics );
+        if ( is_wp_error( $backend ) ) {
+            $error_data = $backend->get_error_data();
+            $error_data = is_array( $error_data ) ? $error_data : [];
+            $status     = (int) ( $error_data['status'] ?? 500 );
+            if ( $status < 500 ) {
+                SupportLog::record( $name, $email, $message, false );
+                return ErrorResponder::from_wp_error( $backend );
+            }
+        }
+
+        $emailed = ! is_wp_error( $backend ) || $this->send_email( $name, $email, $message, $diagnostics );
 
         SupportLog::record( $name, $email, $message, $emailed );
 
         if ( ! $emailed ) {
             // We logged it locally, but couldn't hand it to the mail server.
             return new \WP_Error(
-                'mail_failed',
+                'beepti_mail_failed',
                 __( "We couldn't send your message right now. It's been saved — please try again shortly or email support directly.", 'beepbeep-titles' ),
                 [ 'status' => 502 ]
             );
@@ -63,7 +74,9 @@ class SupportController {
 
         return new \WP_REST_Response( [
             'sent'    => true,
-            'message' => __( 'Thanks! Your message has been sent to support.', 'beepbeep-titles' ),
+            'message' => ! is_wp_error( $backend ) && isset( $backend['message'] )
+                ? (string) $backend['message']
+                : __( 'Thanks! Your message has been sent to support.', 'beepbeep-titles' ),
         ] );
     }
 
@@ -80,7 +93,7 @@ class SupportController {
         $masked = $key !== '' ? '…' . substr( $key, -4 ) : '';
 
         return [
-            'Plugin'        => 'BeepBeep Titles ' . BBT_VERSION,
+            'Plugin'        => 'OpptiAI Titles ' . BEEPTI_VERSION,
             'Site'          => get_bloginfo( 'name' ) . ' (' . get_site_url() . ')',
             'WordPress'     => (string) $wp_version,
             'PHP'           => PHP_VERSION,
@@ -95,8 +108,8 @@ class SupportController {
                 wp_get_current_user()->user_email,
                 implode( ', ', (array) wp_get_current_user()->roles )
             ),
-            'Backend'       => BBT_API_BASE,
-            'Environment'   => BBT_PLUGIN_ENV,
+            'Backend'       => BEEPTI_API_BASE,
+            'Environment'   => BEEPTI_PLUGIN_ENV,
         ];
     }
 
@@ -108,7 +121,7 @@ class SupportController {
         $site    = get_bloginfo( 'name' );
         $subject = sprintf(
             /* translators: %s: site name. */
-            __( '[BeepBeep Titles] Support request from %s', 'beepbeep-titles' ),
+            __( '[OpptiAI Titles] Support request from %s', 'beepbeep-titles' ),
             $site
         );
 
@@ -123,7 +136,7 @@ class SupportController {
             $lines[] = sprintf( '%-14s %s', $label . ':', $value );
         }
 
-        $events = ActivityLog::recent( 10 );
+        $events = $this->recent_visible_activity( 10 );
         if ( $events ) {
             $now     = time();
             $lines[] = '';
@@ -148,5 +161,76 @@ class SupportController {
         $headers = [ sprintf( 'Reply-To: %s <%s>', $name, $email ) ];
 
         return (bool) wp_mail( self::SUPPORT_INBOX, $subject, $body, $headers );
+    }
+
+    private function send_backend_contact( string $name, string $email, string $message, array $diagnostics ): array|\WP_Error {
+        global $wp_version;
+
+        $body_message = $message;
+        if ( strlen( trim( $body_message ) ) < 10 ) {
+            $body_message .= "\n\n(Short support message.)";
+        }
+
+        return $this->client->support_contact( [
+            'name'              => $name,
+            'email'             => $email,
+            'subject'           => '[OpptiAI Titles] Support request',
+            'message'           => $body_message,
+            'wp_version'        => (string) $wp_version,
+            'plugin_version'    => BEEPTI_VERSION,
+            'support_recipient' => self::SUPPORT_INBOX,
+            'include_logs'      => '1',
+            'diagnostic_bundle' => $this->diagnostic_bundle( $diagnostics ),
+        ] );
+    }
+
+    private function diagnostic_bundle( array $diagnostics ): string {
+        $lines = [ 'Diagnostics' ];
+        foreach ( $diagnostics as $label => $value ) {
+            $lines[] = sprintf( '%s: %s', $label, $value );
+        }
+
+        $events = $this->recent_visible_activity( 10 );
+        if ( $events ) {
+            $lines[] = '';
+            $lines[] = 'Recent activity';
+            $now     = time();
+            foreach ( $events as $event ) {
+                $when = isset( $event['time'] ) && (int) $event['time'] > 0
+                    ? human_time_diff( (int) $event['time'], $now ) . ' ago'
+                    : '';
+                $lines[] = sprintf(
+                    '[%s] %s%s',
+                    (string) ( $event['kind'] ?? '' ),
+                    (string) ( $event['title'] ?? '' ),
+                    $when !== '' ? ' (' . $when . ')' : ''
+                );
+            }
+        }
+
+        return substr( implode( "\n", $lines ), 0, 20000 );
+    }
+
+    /**
+     * Recent activity entries the current administrator is allowed to inspect.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    private function recent_visible_activity( int $limit ): array {
+        $visible = [];
+
+        foreach ( ActivityLog::all() as $event ) {
+            $post_id = absint( $event['post_id'] ?? 0 );
+            if ( $post_id <= 0 || ! current_user_can( 'edit_post', $post_id ) ) {
+                continue;
+            }
+
+            $visible[] = $event;
+            if ( count( $visible ) >= $limit ) {
+                break;
+            }
+        }
+
+        return $visible;
     }
 }

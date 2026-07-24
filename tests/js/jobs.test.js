@@ -15,6 +15,7 @@ const { pollUntilComplete } = require( '../../src/jobs' );
 
 const running = ( items = [] ) => ( { status: 'running', items } );
 const completed = ( items = [] ) => ( { status: 'completed', items } );
+const failed = ( items = [] ) => ( { status: 'failed', items } );
 
 beforeEach( () => {
 	jest.useFakeTimers();
@@ -63,6 +64,21 @@ describe( 'pollUntilComplete', () => {
 		expect( onItem ).toHaveBeenCalledTimes( 2 );
 		expect( onItem.mock.calls[ 0 ][ 0 ] ).toMatchObject( { wp_post_id: 1, status: 'completed' } );
 		expect( onItem.mock.calls[ 1 ][ 0 ] ).toMatchObject( { wp_post_id: 2, status: 'failed' } );
+	} );
+
+	test( 'returns successful and failed items when a mixed job ends as failed', async () => {
+		const items = [
+			{ wp_post_id: 1, status: 'completed' },
+			{ wp_post_id: 2, status: 'failed', errorCode: 'GENERATION_ERROR' },
+		];
+		pollJob.mockResolvedValueOnce( failed( items ) );
+
+		const onItem = jest.fn();
+		await expect( pollUntilComplete( 'job-mixed', { onItem } ) )
+			.resolves.toMatchObject( { status: 'failed', items } );
+		expect( onItem ).toHaveBeenCalledTimes( 2 );
+		expect( onItem.mock.calls.map( call => call[ 0 ].status ) )
+			.toEqual( [ 'completed', 'failed' ] );
 	} );
 
 	test( 'backs off and keeps polling after a rate-limit error', async () => {

@@ -4,7 +4,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SLUG="beepbeep-titles"
-VERSION="$(grep "define( 'BBT_VERSION'" "$ROOT/beepbeep-titles.php" | sed -E "s/.*'([0-9.]+)'.*/\1/")"
+VERSION="$(grep "define( 'BEEPTI_VERSION'" "$ROOT/beepbeep-titles.php" | sed -E "s/.*'([0-9.]+)'.*/\1/")"
 DIST="$ROOT/dist"
 STAGE="$DIST/$SLUG"
 ZIP="$DIST/${SLUG}-${VERSION}.zip"
@@ -34,6 +34,11 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 done < "$ROOT/.distignore"
 
 rsync -a "${EXCLUDES[@]}" --exclude='dist' "$ROOT/" "$STAGE/"
+
+if find "$STAGE" -type f \( -name 'screenshot-*.png' -o -name '.DS_Store' -o -name '.env' -o -name '.env.*' \) -print -quit | grep -q .; then
+	echo "Release staging contains a forbidden file" >&2
+	exit 1
+fi
 
 rm -f "$ZIP"
 (

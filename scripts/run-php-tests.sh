@@ -3,13 +3,13 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-export BBT_ROOT="$(pwd)"
+export BEEPTI_ROOT="$(pwd)"
 
 php <<'PHP'
 <?php
-$root = getenv( 'BBT_ROOT' );
+$root = getenv( 'BEEPTI_ROOT' );
 if ( ! is_string( $root ) || $root === '' ) {
-	fwrite( STDERR, "FAIL: BBT_ROOT not set\n" );
+	fwrite( STDERR, "FAIL: BEEPTI_ROOT not set\n" );
 	exit( 1 );
 }
 
@@ -28,7 +28,7 @@ require $root . '/includes/SettingsSanitizer.php';
 
 use BeepBeep_Titles\SettingsSanitizer;
 
-function bbt_test_assert_eq( mixed $expected, mixed $actual, string $label ): void {
+function beepti_test_assert_eq( mixed $expected, mixed $actual, string $label ): void {
 	if ( $expected !== $actual ) {
 		fwrite( STDERR, "FAIL: {$label}\n  expected: " . var_export( $expected, true ) . "\n  actual:   " . var_export( $actual, true ) . "\n" );
 		exit( 1 );
@@ -42,14 +42,14 @@ $patch = SettingsSanitizer::sanitize_patch( [
 	'unknown_key'         => 'ignored',
 ] );
 
-bbt_test_assert_eq( null, $patch['tone'] ?? null, 'invalid tone skipped' );
-bbt_test_assert_eq( true, $patch['auto_generate'], 'auto_generate coerced to bool' );
-bbt_test_assert_eq( 'hello world', $patch['custom_instructions'], 'custom_instructions trimmed' );
-bbt_test_assert_eq( null, $patch['unknown_key'] ?? null, 'unknown key ignored' );
+beepti_test_assert_eq( null, $patch['tone'] ?? null, 'invalid tone skipped' );
+beepti_test_assert_eq( true, $patch['auto_generate'], 'auto_generate coerced to bool' );
+beepti_test_assert_eq( 'hello world', $patch['custom_instructions'], 'custom_instructions trimmed' );
+beepti_test_assert_eq( null, $patch['unknown_key'] ?? null, 'unknown key ignored' );
 
 $valid = SettingsSanitizer::sanitize_patch( [ 'tone' => 'direct', 'title_length' => 'standard' ] );
-bbt_test_assert_eq( 'direct', $valid['tone'], 'valid tone kept' );
-bbt_test_assert_eq( 'standard', $valid['title_length'], 'valid title_length kept' );
+beepti_test_assert_eq( 'direct', $valid['tone'], 'valid tone kept' );
+beepti_test_assert_eq( 'standard', $valid['title_length'], 'valid title_length kept' );
 
 $legacy = SettingsSanitizer::normalize_settings( [
 	'notifications' => [
@@ -58,16 +58,16 @@ $legacy = SettingsSanitizer::normalize_settings( [
 		'limit_warn' => false,
 	],
 ] );
-bbt_test_assert_eq( true, $legacy['notify_new_pages'], 'legacy new_page → notify_new_pages' );
-bbt_test_assert_eq( true, $legacy['weekly_digest'], 'legacy digest → weekly_digest' );
-bbt_test_assert_eq( false, $legacy['notify_quota_warning'], 'legacy limit_warn → notify_quota_warning' );
-bbt_test_assert_eq( null, $legacy['notifications'] ?? null, 'legacy notifications key removed' );
+beepti_test_assert_eq( true, $legacy['notify_new_pages'], 'legacy new_page → notify_new_pages' );
+beepti_test_assert_eq( true, $legacy['weekly_digest'], 'legacy digest → weekly_digest' );
+beepti_test_assert_eq( false, $legacy['notify_quota_warning'], 'legacy limit_warn → notify_quota_warning' );
+beepti_test_assert_eq( null, $legacy['notifications'] ?? null, 'legacy notifications key removed' );
 
 $flat_wins = SettingsSanitizer::normalize_settings( [
 	'notify_new_pages' => false,
 	'notifications'    => [ 'new_page' => true ],
 ] );
-bbt_test_assert_eq( false, $flat_wins['notify_new_pages'], 'flat key wins over legacy nested' );
+beepti_test_assert_eq( false, $flat_wins['notify_new_pages'], 'flat key wins over legacy nested' );
 
 echo "OK: SettingsSanitizer\n";
 
@@ -78,14 +78,14 @@ if ( $contents === false ) {
 }
 
 $required = [
-	'bbt_license_key',
-	'bbt_account_email',
-	'bbt_install_hash',
-	'bbt_site_fingerprint',
-	'bbt_settings',
-	'bbt_seo_plugin',
-	'bbt_last_scan',
-	'bbt_db_version',
+	'beepti_license_key',
+	'beepti_account_email',
+	'beepti_install_hash',
+	'beepti_site_fingerprint',
+	'beepti_settings',
+	'beepti_seo_plugin',
+	'beepti_last_scan',
+	'beepti_db_version',
 ];
 
 foreach ( $required as $option ) {

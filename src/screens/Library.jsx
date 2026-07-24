@@ -2,9 +2,10 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { Icon, Card, Pill, Button, KBD, PageAvatar, SerpPreview } from '../components';
 import { fetchPages, updatePage } from '../api';
 import { contentSubtitle } from '../contentType';
-import { dailyRemainingForLibrary, hasDailyCap, isBulkOverLimit, isGenerationLocked } from '../quota';
+import { dailyRemainingForLibrary, hasDailyCap, isBulkOverLimit, isGenerationUnavailable } from '../quota';
+import { PageShell } from '../ui';
 
-export const PagesLibrary = ({ plan, quota, connected = true, onConnect, onGenerate, onBulkGenerate, onUpgrade }) => {
+export const PagesLibrary = ({ quota, connected = true, onConnect, onGenerate, onBulkGenerate, onUpgrade }) => {
     const [filter, setFilter]     = useState( 'needs' );
     const [selected, setSelected] = useState( new Set() );
     const [search, setSearch]     = useState( '' );
@@ -20,13 +21,13 @@ export const PagesLibrary = ({ plan, quota, connected = true, onConnect, onGener
     const [scanning, setScanning] = useState( false );
     const sentinelRef = useRef( null );
 
-    const dailyRemaining = dailyRemainingForLibrary( quota, plan );
+    const dailyRemaining = dailyRemainingForLibrary( quota );
 
-    // Locked-out state: generation CTAs render as locks but stay clickable —
-    // they route to connect/upgrade. Review and manual editing stay available.
+    // Local review and editing stay available. Only the remote AI action
+    // depends on a service connection and available service credits.
     const signedOut = !connected;
-    const genLocked = isGenerationLocked( connected, plan, dailyRemaining );
-    const onUnlock  = signedOut ? ( onConnect || onUpgrade ) : onUpgrade;
+    const generationUnavailable = isGenerationUnavailable( connected, dailyRemaining );
+    const onServiceAction = signedOut ? ( onConnect || onUpgrade ) : onUpgrade;
 
     useEffect( () => {
         loadPages();
@@ -80,9 +81,9 @@ export const PagesLibrary = ({ plan, quota, connected = true, onConnect, onGener
     const toggleAll = () => selected.size === pages.length && pages.length > 0 ? setSelected( new Set() ) : setSelected( new Set( pages.map( p => p.id ) ) );
 
     const tryBulk = () => {
-        if ( genLocked ) { onUnlock(); return; }
+        if ( generationUnavailable ) { onServiceAction(); return; }
         const selectedPages = pages.filter( p => selected.has( p.id ) );
-        if ( isBulkOverLimit( plan, selectedPages.length, dailyRemaining ) ) {
+        if ( isBulkOverLimit( selectedPages.length, dailyRemaining ) ) {
             if ( dailyRemaining > 0 ) onBulkGenerate( selectedPages.slice( 0, dailyRemaining ) );
             onUpgrade();
             return;
@@ -100,7 +101,7 @@ export const PagesLibrary = ({ plan, quota, connected = true, onConnect, onGener
         setTimeout( () => setSavedFlash( curr => curr === id ? null : curr ), 1800 );
     };
 
-    const overLimit = isBulkOverLimit( plan, selected.size, dailyRemaining );
+    const overLimit = isBulkOverLimit( selected.size, dailyRemaining );
 
     const filterTabs = [
         { id: 'needs',         label: 'Needs attention', count: counts.needs },
@@ -113,7 +114,7 @@ export const PagesLibrary = ({ plan, quota, connected = true, onConnect, onGener
     ];
 
     return (
-        <div style={{ padding: '28px 32px 64px', maxWidth: 1280, margin: '0 auto' }}>
+        <PageShell>
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 20, gap: 24 }}>
                 <div>
                     <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>Library</div>
@@ -125,7 +126,7 @@ export const PagesLibrary = ({ plan, quota, connected = true, onConnect, onGener
                 </Button>
             </div>
 
-            {genLocked && <LockedNotice signedOut={signedOut} hasDaily={hasDailyCap( quota )} onUnlock={onUnlock}/>}
+            {generationUnavailable && <ServiceNotice signedOut={signedOut} hasDaily={hasDailyCap( quota )} onAction={onServiceAction}/>}
 
             <div ref={sentinelRef} style={{ height: 1, marginBottom: -1 }}/>
 
@@ -195,8 +196,8 @@ export const PagesLibrary = ({ plan, quota, connected = true, onConnect, onGener
                                 onGenerate={() => onGenerate( pg )}
                                 onEdit={() => setEditing( merged )}
                                 justSaved={savedFlash === pg.id}
-                                locked={genLocked}
-                                onUnlock={onUnlock}
+                                generationUnavailable={generationUnavailable}
+                                onServiceAction={onServiceAction}
                                 last={i === pages.length - 1}/>
                         );
                     } )}
@@ -204,7 +205,7 @@ export const PagesLibrary = ({ plan, quota, connected = true, onConnect, onGener
 
                 <div style={{ borderTop: '1px solid var(--hairline)', padding: '10px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--surface-2)', fontSize: 11.5, color: 'var(--text-3)' }}>
                     <span>Showing <span className="mono tnum" style={{ color: 'var(--text-2)', fontWeight: 500 }}>{pages.length}</span> of <span className="mono tnum">{total}</span></span>
-                    {plan === 'free' && <span><span className="mono tnum">{quota?.monthly_used ?? 0}</span> of <span className="mono tnum">{quota?.monthly_limit ?? 50}</span> credits used this cycle</span>}
+                    <span><span className="mono tnum">{quota?.monthly_used ?? 0}</span> of <span className="mono tnum">{quota?.monthly_limit ?? 50}</span> service credits used this cycle</span>
                 </div>
             </Card>
 
@@ -213,30 +214,30 @@ export const PagesLibrary = ({ plan, quota, connected = true, onConnect, onGener
                     count={selected.size}
                     allowed={Math.max( 0, dailyRemaining === Infinity ? selected.size : dailyRemaining )}
                     overLimit={overLimit}
-                    locked={genLocked}
-                    lockedLabel={signedOut ? 'Connect to generate' : 'Upgrade to generate'}
+                    generationUnavailable={generationUnavailable}
+                    serviceLabel={signedOut ? 'Connect service' : 'Add service credits'}
                     onClear={() => setSelected( new Set() )}
                     onOptimise={tryBulk}
-                    onUpgrade={onUnlock}
+                    onUpgrade={onServiceAction}
                 />
             )}
 
-            {plan === 'free' && selected.size === 0 && (
+            {selected.size === 0 && (
                 <div style={{ marginTop: 14, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--text-3)' }}>
                     <Icon name="info" size={13} style={{ color: 'var(--text-3)', flexShrink: 0 }}/>
-                    <span style={{ flex: 1 }}>On Free, you get <span className="mono">{quota?.monthly_limit ?? 50}</span> AI generations per month (shared with your other BeepBeep plugins). Pro unlocks unlimited generation and bulk site optimisation.</span>
+                    <span style={{ flex: 1 }}>The OpptiAI service includes <span className="mono">{quota?.monthly_limit ?? 50}</span> generations per cycle on this service plan. Local scanning, bulk selection, review, and editing remain available.</span>
                     <button onClick={onUpgrade} style={{ background: 'transparent', border: 'none', padding: 0, color: 'var(--primary-ink)', fontSize: 12.5, fontWeight: 500, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        See Pro <Icon name="arrow-right" size={11}/>
+                        View service credits <Icon name="arrow-right" size={11}/>
                     </button>
                 </div>
             )}
 
             <EditPageSEOModal page={editing} onClose={() => setEditing( null )} onSave={handleSave}/>
-        </div>
+        </PageShell>
     );
 };
 
-const PageRow = ({ pg, selected, onToggle, onGenerate, onEdit, justSaved, locked, onUnlock, last }) => {
+const PageRow = ({ pg, selected, onToggle, onGenerate, onEdit, justSaved, generationUnavailable, onServiceAction, last }) => {
     const [hover, setHover] = useState( false );
     const statusConfig = {
         'missing-both':  { tone: 'danger', label: 'Missing both' },
@@ -289,9 +290,9 @@ const PageRow = ({ pg, selected, onToggle, onGenerate, onEdit, justSaved, locked
 
             <div style={{ textAlign: 'right' }}>
                 {!isOk ? (
-                    locked ? (
-                        <span aria-disabled="true" title="Generation is locked — click to unlock">
-                            <Button variant="secondary" size="sm" icon="lock" onClick={onUnlock} style={{ color: 'var(--text-3)' }}>
+                    generationUnavailable ? (
+                        <span title="AI generation requires a connected OpptiAI service account with available credits">
+                            <Button variant="secondary" size="sm" icon="external" onClick={onServiceAction} style={{ color: 'var(--text-3)' }}>
                                 Generate
                             </Button>
                         </span>
@@ -336,7 +337,7 @@ const EditPageSEOModal = ({ page, onClose, onSave }) => {
 
     return (
         <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,23,42,0.45)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-            <div onClick={e => e.stopPropagation()} style={{ width: 620, maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-xl)', boxShadow: 'var(--shadow-lg)', animation: 'bbt-scale-in .2s cubic-bezier(0.16,1,0.3,1)' }}>
+            <div onClick={e => e.stopPropagation()} style={{ width: 620, maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-xl)', boxShadow: 'var(--shadow-lg)', animation: 'beepti-scale-in .2s cubic-bezier(0.16,1,0.3,1)' }}>
                 <div style={{ padding: '18px 22px 12px', display: 'flex', gap: 14, alignItems: 'flex-start' }}>
                     <PageAvatar type={page.type} section={page.section} hue={hue} fontSize={14} style={{ flexShrink: 0 }}/>
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -404,46 +405,46 @@ const EditPageSEOModal = ({ page, onClose, onSave }) => {
     );
 };
 
-const LockedNotice = ({ signedOut, hasDaily = true, onUnlock }) => (
+const ServiceNotice = ({ signedOut, hasDaily = true, onAction }) => (
     <Card padding={0} style={{ marginBottom: 16 }}>
         <div style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)', color: 'var(--text-3)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Icon name="lock" size={14}/>
+                <Icon name="external" size={14}/>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                    {signedOut ? 'License not connected' : hasDaily ? 'Daily allowance used' : 'Monthly credits used'}
+                    {signedOut ? 'AI service not connected' : hasDaily ? 'Daily service credits used' : 'Monthly service credits used'}
                 </div>
                 <p style={{ margin: '4px 0 0', fontSize: 13, lineHeight: 1.45, color: 'var(--text-2)' }}>
                     {signedOut
-                        ? 'You can still review and edit titles & meta descriptions. Connect your BeepBeep account to generate with AI.'
+                        ? 'You can still review and edit titles & meta descriptions. Connect your OpptiAI account to generate with AI.'
                         : hasDaily
-                            ? "You can still review and edit titles & meta descriptions. Upgrade to keep generating today — your free allowance resets overnight."
-                            : "You can still review and edit titles & meta descriptions. Upgrade to keep generating — your free credits reset next month."}
+                            ? 'Local scanning, review, and editing remain available. More AI generation requires OpptiAI service credits.'
+                            : 'Local scanning, review, and editing remain available. More AI generation requires OpptiAI service credits.'}
                 </p>
             </div>
-            <Button variant={signedOut ? 'primary' : 'pro'} size="sm" icon={signedOut ? 'arrow-right' : 'crown'} onClick={onUnlock}>
-                {signedOut ? 'Connect account' : 'Upgrade'}
+            <Button variant={signedOut ? 'primary' : 'pro'} size="sm" icon={signedOut ? 'arrow-right' : 'crown'} onClick={onAction}>
+                {signedOut ? 'Connect service' : 'View service plans'}
             </Button>
         </div>
     </Card>
 );
 
-const BulkActionBar = ({ count, allowed = 0, overLimit, locked, lockedLabel = 'Unlock', onClear, onOptimise, onUpgrade }) => (
-    <div style={{ position: 'sticky', bottom: 16, zIndex: 6, marginTop: 16, background: 'var(--text)', color: '#fff', borderRadius: 'var(--r-md)', padding: '10px 12px 10px 16px', display: 'flex', alignItems: 'center', gap: 12, boxShadow: 'var(--shadow-lg)', animation: 'bbt-slide-up .22s cubic-bezier(.2,.8,.2,1)' }}>
+const BulkActionBar = ({ count, allowed = 0, overLimit, generationUnavailable, serviceLabel = 'Service options', onClear, onOptimise, onUpgrade }) => (
+    <div style={{ position: 'sticky', bottom: 16, zIndex: 6, marginTop: 16, background: 'var(--text)', color: '#fff', borderRadius: 'var(--r-md)', padding: '10px 12px 10px 16px', display: 'flex', alignItems: 'center', gap: 12, boxShadow: 'var(--shadow-lg)', animation: 'beepti-slide-up .22s cubic-bezier(.2,.8,.2,1)' }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
             <span className="mono tnum" style={{ background: 'rgba(255,255,255,0.14)', color: '#fff', padding: '2px 9px', borderRadius: 999, fontSize: 12, fontWeight: 600 }}>{count}</span>
             <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.92)' }}>{count === 1 ? 'item selected' : 'items selected'}</span>
-            {locked
-                ? <span style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.7)', display: 'inline-flex', alignItems: 'center', gap: 5 }}><Icon name="lock" size={12}/>Generation locked</span>
-                : overLimit && <span style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.7)', display: 'inline-flex', alignItems: 'center', gap: 5 }}><Icon name="alert" size={12}/>Over your free limit</span>}
+            {generationUnavailable
+                ? <span style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.7)', display: 'inline-flex', alignItems: 'center', gap: 5 }}><Icon name="external" size={12}/>AI service unavailable</span>
+                : overLimit && <span style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.7)', display: 'inline-flex', alignItems: 'center', gap: 5 }}><Icon name="alert" size={12}/>Selection exceeds available service credits</span>}
         </div>
         <button onClick={onClear} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.7)', padding: '6px 10px', fontSize: 12.5, fontWeight: 500, cursor: 'pointer' }}
             onMouseEnter={e => e.currentTarget.style.color = '#fff'}
             onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.7)'}>Clear</button>
-        {locked ? (
+        {generationUnavailable ? (
             <button onClick={onUpgrade} style={{ background: '#fff', color: 'var(--text)', border: 'none', padding: '7px 14px', borderRadius: 'var(--r-md)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <Icon name="lock" size={13}/> {lockedLabel}
+                <Icon name="external" size={13}/> {serviceLabel}
             </button>
         ) : overLimit ? (
             <div style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
@@ -451,7 +452,7 @@ const BulkActionBar = ({ count, allowed = 0, overLimit, locked, lockedLabel = 'U
                     <Icon name="sparkles" size={13}/> Generate first {allowed}
                 </button>
                 <button onClick={onUpgrade} style={{ background: '#fff', color: 'var(--text)', border: 'none', padding: '7px 14px', borderRadius: 'var(--r-md)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    <Icon name="crown" size={13}/> Unlock bulk
+                    <Icon name="crown" size={13}/> Get service credits
                 </button>
             </div>
         ) : (

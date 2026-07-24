@@ -49,7 +49,7 @@ const itemToResult = ( item, pageById ) => {
     };
 };
 
-export const GenerationDrawer = ({ open, pages, plan, onClose, onComplete, onPaywall, onApiError, onEntitlement, onToast }) => {
+export const GenerationDrawer = ({ open, pages, onClose, onComplete, onPaywall, onApiError, onEntitlement, onToast }) => {
     const [phase, setPhase]     = useState( 'idle' ); // idle | thinking | done
     const [results, setResults] = useState( [] );
 
@@ -84,10 +84,24 @@ export const GenerationDrawer = ({ open, pages, plan, onClose, onComplete, onPay
                     // ── Bulk → /jobs + poll ──
                     const job = await submitJob( pages.map( p => p.id ) );
                     if ( controller.signal.aborted ) return;
-                    await pollUntilComplete( job.jobId, {
+                    const terminalJob = await pollUntilComplete( job.jobId, {
                         signal: controller.signal,
                         onItem: ( item ) => pushResult( itemToResult( item, pageById ) ),
                     } );
+                    if ( terminalJob.status === 'failed' ) {
+                        const resolvedIds = new Set(
+                            ( terminalJob.items || [] )
+                                .map( item => item.wp_post_id ?? ( /^\d+$/.test( String( item.id ) ) ? Number( item.id ) : null ) )
+                                .filter( id => id != null )
+                        );
+                        pages.filter( page => !resolvedIds.has( page.id ) ).forEach( page => {
+                            pushResult( {
+                                key: page.id, postId: page.id, url: page.url, section: page.section, type: page.type,
+                                hue: page.hue ?? 220, status: 'failed',
+                                errorCode: 'JOB_FAILED', error: 'Generation did not complete for this page.',
+                            } );
+                        } );
+                    }
                 }
                 if ( !controller.signal.aborted ) setPhase( 'done' );
             } catch ( err ) {
@@ -128,50 +142,58 @@ export const GenerationDrawer = ({ open, pages, plan, onClose, onComplete, onPay
     const total      = pages.length;
     const done       = results.length;
     const allDone    = phase === 'done';
-    const isPro      = plan === 'pro';
+    const successfulCount = results.filter( r => r.status === 'completed' ).length;
+    const failedCount = results.filter( r => r.status === 'failed' ).length;
+    const hasFailures = allDone && failedCount > 0;
     const revealedIds = new Set( results.map( r => r.postId ) );
     const upcoming   = !allDone ? pages.find( p => !revealedIds.has( p.id ) ) : null;
 
     const headlinePrimary = allDone
-        ? `${total} page${total === 1 ? '' : 's'} processed`
-        : isPro
-            ? `${done} page${done === 1 ? '' : 's'} improved`
-            : `${done} of ${total} complete`;
+        ? hasFailures
+            ? successfulCount > 0
+                ? `${successfulCount} of ${total} pages improved`
+                : 'No pages improved'
+            : `${total} page${total === 1 ? '' : 's'} processed`
+        : `${done} of ${total} complete`;
+
+    const completionLabel = hasFailures
+        ? ( successfulCount > 0 ? 'Completed with issues' : 'Generation failed' )
+        : 'Pass complete';
 
     const remaining = total - done;
     const footerStatus = allDone
-        ? ( isPro ? 'Optimisation complete · Autopilot active.' : 'Title & meta descriptions are live in your site.' )
+        ? 'Title & meta descriptions are live in your site.'
         : remaining === 1 ? 'Wrapping up the last page…'
-        : done === 0 ? ( isPro ? 'Optimising your latest pages…' : 'Working through today\'s pages…' )
+        : done === 0 ? 'Working through today\'s pages…'
         : `${remaining} page${remaining === 1 ? '' : 's'} to go`;
 
     return (
         <div
             role="dialog"
             aria-modal="true"
-            aria-label="BeepBeep Titles assistant"
+            aria-label="OpptiAI Titles assistant"
             style={{
                 position: 'fixed', inset: 0, zIndex: 1000,
                 background: 'rgba(15,23,42,0.22)',
                 backdropFilter: 'blur(1.5px)',
                 display: 'flex', justifyContent: 'flex-end',
-                animation: 'bbt-fade-in .18s ease',
+                animation: 'beepti-fade-in .18s ease',
             }}
             onClick={onClose}
         >
             <div onClick={e => e.stopPropagation()} style={{
                 width: 420, maxWidth: '100%', background: 'var(--surface)',
                 boxShadow: 'var(--shadow-lg)', display: 'flex', flexDirection: 'column',
-                animation: 'bbt-slide-right .25s cubic-bezier(.2,.8,.2,1)',
+                animation: 'beepti-slide-right .25s cubic-bezier(.2,.8,.2,1)',
                 height: '100%', overflow: 'hidden',
                 borderLeft: '1px solid var(--border)',
             }}>
                 <div style={{ padding: '18px 22px 14px', borderBottom: '1px solid var(--hairline)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                     <div style={{ minWidth: 0 }}>
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                            <Icon name={allDone ? 'check' : 'sparkles'} size={13} style={{ color: allDone ? 'var(--ok-ink)' : 'var(--primary)' }}/>
+                            <Icon name={hasFailures ? 'alert' : allDone ? 'check' : 'sparkles'} size={13} style={{ color: hasFailures ? 'var(--warn-ink)' : allDone ? 'var(--ok-ink)' : 'var(--primary)' }}/>
                             <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                                {allDone ? ( isPro ? 'Optimisation complete' : 'Pass complete' ) : ( isPro ? 'Optimisation' : 'Today\'s pass' )}
+                                {allDone ? completionLabel : 'Today\'s pass'}
                             </span>
                         </div>
                         <div style={{ fontSize: 17, fontWeight: 600, letterSpacing: '-0.01em' }}>{headlinePrimary}</div>
@@ -182,7 +204,7 @@ export const GenerationDrawer = ({ open, pages, plan, onClose, onComplete, onPay
                 </div>
 
                 <div style={{ padding: '10px 22px', borderBottom: '1px solid var(--hairline)' }}>
-                    <Progress value={done} max={total} tone={allDone ? 'ok' : 'primary'} height={6}/>
+                    <Progress value={done} max={total} tone={hasFailures ? 'warn' : allDone ? 'ok' : 'primary'} height={6}/>
                 </div>
 
                 <div aria-live="polite" style={{ flex: 1, overflowY: 'auto', padding: '4px 22px 12px' }}>
@@ -198,11 +220,15 @@ export const GenerationDrawer = ({ open, pages, plan, onClose, onComplete, onPay
                 <div style={{ padding: '12px 22px', borderTop: '1px solid var(--hairline)', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                     {allDone ? (
                         <>
-                            <div style={{ fontSize: 12, color: 'var(--ok-ink)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                                <Icon name="trend" size={13}/>
-                                <span>Coverage <strong>+{results.filter( r => r.status === 'completed' ).length} page{results.filter( r => r.status === 'completed' ).length !== 1 ? 's' : ''}</strong> · streak extended</span>
+                            <div style={{ fontSize: 12, color: hasFailures ? 'var(--warn-ink)' : 'var(--ok-ink)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                <Icon name={hasFailures ? 'alert' : 'trend'} size={13}/>
+                                {hasFailures ? (
+                                    <span><strong>{successfulCount} succeeded</strong> · {failedCount} need{failedCount === 1 ? 's' : ''} retry</span>
+                                ) : (
+                                    <span>Coverage <strong>+{successfulCount} page{successfulCount !== 1 ? 's' : ''}</strong> · streak extended</span>
+                                )}
                             </div>
-                            <Button variant="primary" size="sm" iconRight="arrow-right" onClick={onComplete}>Done</Button>
+                            <Button variant="primary" size="sm" iconRight="arrow-right" onClick={() => onComplete?.( { total, successfulCount, failedCount } )}>Done</Button>
                         </>
                     ) : (
                         <>

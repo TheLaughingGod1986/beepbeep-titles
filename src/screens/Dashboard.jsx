@@ -1,387 +1,465 @@
-import { Icon, Card, Button, Progress } from '../components';
+import { useState, useEffect, useRef } from 'react';
+import { Icon, Card, Pill, Button, Progress, Ring, PageAvatar } from '../components';
 import { QUOTA_DEFAULTS } from '../quota';
+import { PageShell } from '../ui';
 
-const MINUTES_PER_PAGE = 3;
-const MILESTONE_75 = 75;
-
-const weeklyPagesImproved = ( activity, total ) => {
-    if ( ! total ) return 0;
-    const weekAgo = Math.floor( Date.now() / 1000 ) - 7 * 86400;
-    const unique = new Set(
-        ( activity || [] )
-            .filter( e => ( e.time || 0 ) >= weekAgo && [ 'generated', 'edited', 'auto' ].includes( e.kind ) )
-            .map( e => e.post_id )
-    );
-    return unique.size;
+const useCountUp = ( target, { duration = 900, decimals = 0 } = {} ) => {
+    const [value, setValue] = useState( target );
+    const startRef = useRef( { from: target, to: target, t0: 0 } );
+    useEffect( () => {
+        const reduced = window.matchMedia && window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches;
+        if ( reduced ) { setValue( target ); return; }
+        const from = startRef.current.to;
+        if ( from === target ) return;
+        startRef.current = { from, to: target, t0: performance.now() };
+        let raf;
+        const tick = ( now ) => {
+            const t = Math.min( 1, ( now - startRef.current.t0 ) / duration );
+            const eased = 1 - Math.pow( 1 - t, 3 );
+            const v = startRef.current.from + ( startRef.current.to - startRef.current.from ) * eased;
+            setValue( decimals ? +v.toFixed( decimals ) : Math.round( v ) );
+            if ( t < 1 ) raf = requestAnimationFrame( tick );
+        };
+        raf = requestAnimationFrame( tick );
+        return () => raf && cancelAnimationFrame( raf );
+    }, [target, duration, decimals] );
+    return value;
 };
 
-const pageLabel = ( pg ) => {
-    const raw = pg.title?.trim() || pg.url?.replace( /^\//, '' ) || 'Page';
-    return raw.length > 36 ? `${ raw.slice( 0, 36 ) }…` : raw;
-};
-
-const opportunityLabel = ( pg ) => {
-    const name = pageLabel( pg );
-    switch ( pg.status ) {
-        case 'missing-title': return `${ name } missing title`;
-        case 'missing-meta':  return `${ name } missing description`;
-        case 'missing-both':  return `${ name } missing title and description`;
-        default:              return `${ name } needs review`;
-    }
-};
-
-const activitySummary = ( e ) => {
-    const title = e.title?.trim() || 'Page';
-    const short = title.length > 40 ? `${ title.slice( 0, 40 ) }…` : title;
-    switch ( e.kind ) {
-        case 'generated': return `${ short } metadata generated`;
-        case 'auto':      return `${ short } — autopilot optimised`;
-        case 'edited':    return `${ short } metadata updated`;
-        default:          return `${ short } reviewed`;
-    }
-};
-
-export const Dashboard = ({ quota, quotaReady, stats, activity, queuePages, autoOptimise, onAutoToggle, onUpgrade, onView }) => {
-    const plan = quota?.plan || 'free';
+export const Dashboard = ({ quota, quotaReady, stats, activity, queuePages, autoOptimise, onAutoToggle, onGenerate, onUpgrade, onView, altTextCompanion }) => {
+    const dailyUsed = quota?.daily_used || 0;
+    const dailyLimit = quota?.daily_limit || QUOTA_DEFAULTS.daily_limit;
     const monthlyUsed = quota?.monthly_used || 0;
     const monthlyLimit = quota?.monthly_limit || QUOTA_DEFAULTS.monthly_limit;
-    const hasDailyLimit = ( quota?.daily_limit ?? null ) !== null;
+    const hasDailyLimit  = ( quota?.daily_limit ?? null ) !== null; // backend has no daily cap on the shared wallet
     const monthlyRemaining = Math.max( 0, monthlyLimit - monthlyUsed );
-    const dailyRemaining = hasDailyLimit ? ( quota?.daily_remaining ?? ( ( quota?.daily_limit || QUOTA_DEFAULTS.daily_limit ) - ( quota?.daily_used || 0 ) ) ) : monthlyRemaining;
-    const creditsRemaining = hasDailyLimit ? dailyRemaining : monthlyRemaining;
-    const creditsExhausted = quotaReady && creditsRemaining <= 0;
-    const autopilotLocked = plan === 'free';
+    // Without a daily cap, what's "left today" is simply the monthly credits.
+    const dailyRemaining = hasDailyLimit ? ( quota?.daily_remaining ?? ( dailyLimit - dailyUsed ) ) : monthlyRemaining;
+    const streak = stats?.streak || 0;
 
-    const total     = stats?.total || 0;
-    const optimised = stats?.optimised || 0;
-    const coverage  = stats?.coverage ?? ( total > 0 ? Math.round( ( optimised / total ) * 100 ) : 0 );
-    const needsAttn = stats?.needs_attention || 0;
-    const remaining = Math.max( 0, total - optimised );
-    const minutesSaved = optimised * MINUTES_PER_PAGE;
-    const weekGain = weeklyPagesImproved( activity, total );
-    const healthLabel = coverage >= 75 ? 'Good' : coverage > 0 ? 'Improving' : 'Getting started';
-    const ready = quotaReady && stats != null;
+    const total      = stats?.total      || 0;
+    const optimised  = stats?.optimised  || 0;
+    const coverage   = total > 0 ? Math.round( ( optimised / total ) * 100 ) : 0;
+    const needsAttn  = stats?.needs_attention || 0;
+    const newSince   = stats?.new_since_last_visit || 0;
+
+    const coverageTone = coverage >= 90 ? 'ok' : coverage >= 50 ? 'warn' : 'primary';
+    const totalGenerated = optimised;
+    const minutesSaved = Math.round( ( totalGenerated * 55 ) / 60 );
+    const hoursSaved = ( minutesSaved / 60 ).toFixed( 1 );
+    const nextMilestone = Math.min( 100, Math.ceil( ( coverage + 1 ) / 15 ) * 15 );
+    const projectionTarget = coverage >= 75 ? 95 : 75;
+    const weeksToTarget = Math.max( 1, Math.round( ( projectionTarget - coverage ) / 8.4 ) );
 
     return (
-        <div style={{ padding: '24px 32px 48px', maxWidth: 1080, margin: '0 auto' }}>
-            <StatusBanner
-                ready={ready}
+        <PageShell style={{ paddingTop: 24, paddingBottom: 48 }}>
+            <TodaysPassHero
+                ready={quotaReady && stats != null}
+                queuePages={queuePages}
+                dailyUsed={dailyUsed}
+                dailyLimit={dailyLimit}
+                dailyRemaining={dailyRemaining}
+                hasDailyLimit={hasDailyLimit}
+                monthlyRemaining={monthlyRemaining}
+                newSince={newSince}
                 needsAttn={needsAttn}
-                total={total}
-                creditsRemaining={creditsRemaining}
-                minutesSaved={minutesSaved}
-                creditsExhausted={creditsExhausted}
-                onView={onView}
+                onGenerate={onGenerate}
                 onUpgrade={onUpgrade}
             />
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 14, marginTop: 16 }}>
-                <MetricCard
-                    label="SEO health"
-                    value={ready ? `${ coverage }%` : '—'}
-                    foot={healthLabel}
+            <div style={{ display: 'grid', gridTemplateColumns: '1.25fr 1fr', gap: 14, marginTop: 20, alignItems: 'stretch' }}>
+                <LibraryHealthCard
+                    coverage={coverage}
+                    tone={coverageTone}
+                    nextMilestone={nextMilestone}
+                    hoursSaved={hoursSaved}
+                    totalGenerated={totalGenerated}
+                    projectionTarget={projectionTarget}
+                    weeksToTarget={weeksToTarget}
                 />
-                <MetricCard
-                    label="Pages improved"
-                    value={ready ? String( optimised ) : '—'}
-                    foot={weekGain > 0 ? `+${ weekGain } this week` : optimised > 0 ? 'All time' : 'None yet'}
-                />
-                <MetricCard
-                    label="Credits remaining"
-                    value={ready ? String( creditsRemaining ) : '—'}
-                    foot={ready
-                        ? creditsRemaining > 0
-                            ? `${ monthlyRemaining } left this cycle`
-                            : `Used ${ monthlyUsed } of ${ monthlyLimit }`
-                        : 'Loading…'}
-                    tone={creditsExhausted ? 'warn' : 'default'}
-                />
+                <AutopilotActiveCard autoOptimise={autoOptimise} onToggle={onAutoToggle}/>
             </div>
 
-            <TopOpportunitiesCard
-                queuePages={queuePages}
-                needsAttn={needsAttn}
-                ready={ready}
-                onView={onView}
-            />
-
-            <CoverageCard total={total} optimised={optimised} remaining={remaining}/>
-
-            <RecentActivity activity={activity}/>
-
-            <UsageCard
+            <LibraryCoverageCard total={total} optimised={optimised}/>
+            <CompanionBanner companion={altTextCompanion}/>
+            <ActivityStrip onView={onView} newSince={newSince} activity={activity}/>
+            <FooterMetrics
+                streak={streak}
+                dailyUsed={dailyUsed}
+                dailyLimit={dailyLimit}
+                hasDailyLimit={hasDailyLimit}
                 monthlyUsed={monthlyUsed}
                 monthlyLimit={monthlyLimit}
-                creditsExhausted={creditsExhausted}
-                onUpgrade={onUpgrade}
-            />
-
-            <AutopilotCompactCard
                 autoOptimise={autoOptimise}
-                autopilotLocked={autopilotLocked}
-                onToggle={onAutoToggle}
-                onUpgrade={onUpgrade}
             />
-        </div>
+        </PageShell>
     );
 };
 
-const StatusBanner = ({ ready, needsAttn, total, creditsRemaining, minutesSaved, creditsExhausted, onView, onUpgrade }) => (
-    <Card padding={0}>
-        <div style={{ padding: '20px 22px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap' }}>
-            <div style={{ minWidth: 0, flex: 1 }}>
-                <h1 style={{ margin: '0 0 6px', fontSize: 22, fontWeight: 600, letterSpacing: '-0.02em', lineHeight: 1.25 }}>
-                    {! ready
-                        ? 'Loading dashboard…'
-                        : needsAttn > 0
-                            ? <><span className="mono tnum">{needsAttn}</span> page{needsAttn === 1 ? '' : 's'} need attention</>
-                            : 'No pages need attention'}
-                </h1>
-                <p style={{ margin: '0 0 14px', fontSize: 14, color: 'var(--text-2)', lineHeight: 1.5 }}>
-                    {needsAttn > 0
-                        ? <><span className="mono tnum">{needsAttn}</span> metadata opportunit{needsAttn === 1 ? 'y is' : 'ies are'} waiting for review.</>
-                        : 'Your library metadata is up to date.'}
-                </p>
-                {ready && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 20px', fontSize: 13, color: 'var(--text-2)' }}>
-                        <StatInline label="Pages scanned" value={total}/>
-                        <StatInline label="Credits remaining" value={creditsRemaining} tone={creditsExhausted ? 'warn' : undefined}/>
-                        <StatInline label="Time saved" value={`${ minutesSaved } mins`}/>
-                    </div>
-                )}
-                {creditsExhausted && needsAttn > 0 && (
-                    <p style={{ margin: '12px 0 0', fontSize: 13, color: 'var(--warn-ink)', lineHeight: 1.45 }}>
-                        Out of credits. Upgrade to continue generating metadata.
-                    </p>
-                )}
-            </div>
-            <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
-                <Button variant="primary" size="md" icon="library" onClick={() => onView?.( 'library' )}>Open Library</Button>
-                {creditsExhausted && (
-                    <Button variant="secondary" size="md" icon="crown" onClick={onUpgrade}>Upgrade Plan</Button>
-                )}
-            </div>
-        </div>
-    </Card>
-);
-
-const StatInline = ({ label, value, tone }) => (
-    <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6 }}>
-        <span style={{ color: 'var(--text-3)' }}>{label}</span>
-        <span className="mono tnum" style={{ fontWeight: 600, color: tone === 'warn' ? 'var(--warn-ink)' : 'var(--text)' }}>{value}</span>
-    </span>
-);
-
-const MetricCard = ({ label, value, foot, tone = 'default' }) => (
-    <Card padding={0} style={{ padding: '16px 18px 14px' }}>
-        <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>{label}</div>
-        <div className="mono tnum" style={{
-            fontSize: 28, fontWeight: 600, letterSpacing: '-0.03em', lineHeight: 1.1,
-            color: tone === 'warn' ? 'var(--warn-ink)' : 'var(--text)',
-        }}>{value}</div>
-        <div style={{ fontSize: 12.5, color: tone === 'warn' ? 'var(--warn-ink)' : 'var(--text-3)', marginTop: 6 }}>{foot}</div>
-    </Card>
-);
-
-const TopOpportunitiesCard = ({ queuePages, needsAttn, ready, onView }) => {
-    const items = ( queuePages || [] ).slice( 0, 3 );
-    const extra = Math.max( 0, needsAttn - items.length );
+const CompanionBanner = ({ companion }) => {
+    const label = companion?.label || 'Add ALT Text';
+    const url = companion?.url || '';
+    const openCompanion = () => {
+        if ( url ) window.location.href = url;
+    };
 
     return (
-        <Card padding={0} style={{ marginTop: 16 }}>
-            <div style={{ padding: '18px 20px 16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
-                    <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600, letterSpacing: '-0.015em' }}>Top opportunities</h2>
-                    <Button variant="secondary" size="sm" icon="library" onClick={() => onView?.( 'library' )}>Open Library</Button>
+        <Card padding={0} style={{ marginTop: 20 }}>
+            <div style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: '#ECFDF5', color: '#059669', border: '1px solid #A7F3D0', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Icon name="image" size={19} strokeWidth={1.9}/>
                 </div>
-                {! ready ? (
-                    <p style={{ margin: 0, fontSize: 13, color: 'var(--text-3)' }}>Loading opportunities…</p>
-                ) : needsAttn > 0 && items.length > 0 ? (
-                    <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
-                        {items.map( ( pg, i ) => (
-                            <li key={pg.id || i} style={{
-                                display: 'flex', alignItems: 'center', gap: 10,
-                                padding: '10px 0',
-                                borderTop: i ? '1px solid var(--hairline)' : 'none',
-                                fontSize: 13.5, color: 'var(--text)',
-                            }}>
-                                <Icon name="alert" size={14} style={{ color: 'var(--warn-ink)', flexShrink: 0 }}/>
-                                <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{opportunityLabel( pg )}</span>
-                            </li>
-                        ) )}
-                        {extra > 0 && (
-                            <li style={{ padding: '10px 0', borderTop: '1px solid var(--hairline)', fontSize: 13, color: 'var(--text-3)', fontWeight: 600 }}>
-                                +{extra} more page{extra === 1 ? '' : 's'}
-                            </li>
-                        )}
-                    </ul>
-                ) : (
-                    <p style={{ margin: 0, fontSize: 13.5, color: 'var(--text-2)', lineHeight: 1.5 }}>
-                        No pages need attention right now. Open the Library to review or generate metadata.
-                    </p>
-                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 3 }}>
+                        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Your credits also work on Image ALT Text</span>
+                        <Pill tone="neutral" style={{ padding: '1px 8px', fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase' }}>From OpptiAI</Pill>
+                    </div>
+                    <div style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.5 }}>
+                        The same shared credit pool powers <strong style={{ color: 'var(--text)', fontWeight: 600 }}>OpptiAI Alt Text</strong> — generate accessible, SEO-friendly ALT text for your media library. No extra subscription.
+                    </div>
+                </div>
+                <Button variant="secondary" size="md" icon="external" onClick={openCompanion} disabled={!url}>{label}</Button>
             </div>
         </Card>
     );
 };
 
-const CoverageCard = ({ total, optimised, remaining }) => {
-    const pct = total > 0 ? Math.round( ( optimised / total ) * 100 ) : 0;
-    const tone = pct >= 90 ? 'ok' : 'primary';
+const TodaysPassHero = ({ ready = true, queuePages, dailyUsed, dailyLimit, dailyRemaining, hasDailyLimit, monthlyRemaining, newSince, needsAttn, onGenerate, onUpgrade }) => {
+    const creditsRemaining = hasDailyLimit ? dailyRemaining : monthlyRemaining;
+    // Don't decide the pass state until quota + stats have loaded — otherwise the
+    // optimistic placeholder quota shows a queue that vanishes once the real
+    // (e.g. 0-credit) quota arrives, causing a flash.
+    const queueCount = ready ? Math.min( creditsRemaining, Math.min( needsAttn, 5 ), queuePages?.length || 0 ) : 0;
+    const showQueue = queueCount > 0;
+    // "Out of credits with work still pending" is NOT the same as "caught up".
+    const outOfCredits = ready && ! showQueue && needsAttn > 0 && creditsRemaining <= 0;
+    const [hover, setHover] = useState( false );
+    const [pressed, setPressed] = useState( false );
+
+    const handleActivate = () => { if ( showQueue ) onGenerate(); };
+    const handleKey = ( e ) => { if ( showQueue && ( e.key === 'Enter' || e.key === ' ' ) ) { e.preventDefault(); onGenerate(); } };
+
+    const displayPages = ( queuePages || [] ).slice( 0, queueCount );
 
     return (
-        <Card padding={0} style={{ marginTop: 16 }}>
-            <div style={{ padding: '16px 20px 18px' }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                        <span className="mono tnum" style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>{pct}%</span>
-                        <span style={{ fontSize: 13, color: 'var(--text-3)' }}>optimised</span>
+        <div
+            role={showQueue ? 'button' : undefined}
+            tabIndex={showQueue ? 0 : -1}
+            aria-label={showQueue ? `Start today's pass — ${queueCount} pages ready` : undefined}
+            onClick={showQueue ? handleActivate : undefined}
+            onKeyDown={handleKey}
+            onMouseEnter={() => setHover( true )}
+            onMouseLeave={() => { setHover( false ); setPressed( false ); }}
+            onMouseDown={() => showQueue && setPressed( true )}
+            onMouseUp={() => setPressed( false )}
+            style={{
+                background: 'var(--surface)', border: '1px solid var(--border)',
+                borderRadius: 'var(--r-lg)',
+                boxShadow: showQueue && hover ? 'var(--shadow-md)' : 'var(--shadow-sm)',
+                borderColor: showQueue && hover ? 'var(--border-strong)' : 'var(--border)',
+                transform: pressed ? 'scale(0.998)' : 'scale(1)',
+                transition: 'box-shadow .18s ease, border-color .18s ease, transform .08s ease',
+                cursor: showQueue ? 'pointer' : 'default',
+                overflow: 'hidden', outline: 'none',
+            }}
+        >
+            <div style={{ padding: '16px 20px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                        <Icon name="zap" size={13} style={{ color: 'var(--primary)' }}/>
+                        <span style={{ fontSize: 11, color: 'var(--primary-ink)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Today's pass</span>
                     </div>
-                    <span style={{ fontSize: 12.5, color: 'var(--text-3)' }}>
-                        <span className="mono tnum" style={{ color: 'var(--text-2)', fontWeight: 500 }}>{optimised}</span> pages completed
-                        <span> · </span>
-                        <span className="mono tnum" style={{ color: 'var(--text-2)', fontWeight: 500 }}>{remaining}</span> pages remaining
-                    </span>
+                    <div style={{ fontSize: 19, fontWeight: 600, letterSpacing: '-0.015em', lineHeight: 1.3 }}>
+                        {! ready
+                            ? <>Checking today's pass…</>
+                            : showQueue
+                                ? newSince > 0
+                                    ? <><span className="mono tnum">{newSince}</span> new page{newSince === 1 ? '' : 's'} detected since your last scan</>
+                                    : <><span className="mono tnum">{queueCount}</span> pages ready for today's pass</>
+                                : outOfCredits
+                                    ? <><span className="mono tnum">{needsAttn}</span> page{needsAttn === 1 ? '' : 's'} still need optimising</>
+                                    : <>Today's pass complete</>}
+                    </div>
                 </div>
-                <div style={{ position: 'relative', paddingBottom: 18 }}>
-                    <Progress value={optimised} max={Math.max( total, 1 )} tone={tone} height={6}/>
-                    {total > 0 && (
-                        <div style={{
-                            position: 'absolute', top: 0, bottom: 18,
-                            left: `${ Math.min( 100, MILESTONE_75 ) }%`,
-                            transform: 'translateX(-50%)',
-                            display: 'flex', flexDirection: 'column', alignItems: 'center',
-                            pointerEvents: 'none',
-                        }}>
-                            <div style={{ width: 2, height: 10, background: 'var(--border-strong)', borderRadius: 1, marginTop: -1 }}/>
-                            <span style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 600, marginTop: 4, whiteSpace: 'nowrap' }}>{MILESTONE_75}% Goal</span>
+            </div>
+
+            {showQueue ? (
+                <div style={{ padding: '12px 20px 0', display: 'grid', gridTemplateColumns: `repeat(${Math.min( queueCount, 5 )}, minmax(0, 1fr))`, gap: 8 }}>
+                    {displayPages.map( ( pg, i ) => (
+                        <div key={pg.id || i} style={{ padding: 10, background: 'var(--surface-2)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                            <PageAvatar type={pg.type} section={pg.section} hue={pg.hue ?? 220} size={36} style={{ flexShrink: 0 }}/>
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                                <div className="mono" style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pg.url}</div>
+                                <div style={{ marginTop: 3 }}>
+                                    <SignalChip tone={pg.status === 'missing-both' || pg.status === 'missing-title' ? 'danger' : 'warn'}>
+                                        {pg.status === 'missing-both' ? 'Missing both' : pg.status === 'missing-title' ? 'Missing title' : 'Missing meta'}
+                                    </SignalChip>
+                                </div>
+                            </div>
+                        </div>
+                    ) )}
+                </div>
+            ) : ! ready ? (
+                <div style={{ padding: '10px 20px 0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--surface-2)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)' }}>
+                        <span className="pulse-dot" style={{ width: 8, height: 8, background: 'var(--text-3)' }}/>
+                        <div style={{ flex: 1, fontSize: 13, color: 'var(--text-3)', lineHeight: 1.45 }}>Checking your library and credits…</div>
+                    </div>
+                </div>
+            ) : outOfCredits ? (
+                <div style={{ padding: '10px 20px 0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--warn-soft)', border: '1px solid var(--warn-border)', borderRadius: 'var(--r-md)' }}>
+                        <Icon name="alert" size={16} style={{ color: 'var(--warn-ink)' }}/>
+                        <div style={{ flex: 1, fontSize: 13, color: 'var(--warn-ink)', lineHeight: 1.45 }}>
+                            <strong>Out of credits.</strong> <span className="mono tnum">{needsAttn}</span> page{needsAttn === 1 ? '' : 's'} still need optimising — you've used all your credits this billing cycle.
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                <div style={{ padding: '10px 20px 0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--ok-soft)', border: '1px solid var(--ok-border)', borderRadius: 'var(--r-md)' }}>
+                        <Icon name="check" size={16} style={{ color: 'var(--ok-ink)' }}/>
+                        <div style={{ flex: 1, fontSize: 13, color: 'var(--ok-ink)', lineHeight: 1.45 }}>
+                            <><strong>All caught up.</strong> <span className="mono tnum">{monthlyRemaining}</span> credits left this billing cycle.</>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div style={{ padding: '12px 20px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+                <div className="tnum" style={{ fontSize: 12, color: 'var(--text-3)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    {! ready ? (
+                        <span style={{ color: 'var(--text-3)' }}>Checking your credits…</span>
+                    ) : showQueue ? (
+                        <>
+                            <span style={{ color: 'var(--text-2)', fontWeight: 500 }}>
+                                {hasDailyLimit
+                                    ? <><span className="mono tnum">{dailyUsed}</span> of <span className="mono tnum">{dailyLimit}</span> today's free generations</>
+                                    : <><span className="mono tnum">{monthlyRemaining}</span> credits left this billing cycle</>}
+                            </span>
+                        </>
+                    ) : outOfCredits ? (
+                        <span style={{ color: 'var(--warn-ink)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            <Icon name="alert" size={12} strokeWidth={2.6}/>
+                            <span><span className="mono tnum">{needsAttn}</span> page{needsAttn === 1 ? '' : 's'} waiting · 0 credits left</span>
+                        </span>
+                    ) : (
+                        <>
+                            <Icon name="check" size={12} style={{ color: 'var(--ok-ink)' }} strokeWidth={2.6}/>
+                            <span style={{ color: 'var(--text-2)', fontWeight: 500 }}>Library fully optimised</span>
+                        </>
+                    )}
+                </div>
+                <div onClick={e => e.stopPropagation()}>
+                    {! ready ? null : showQueue ? (
+                        <Button variant="primary" size="lg" icon="sparkles" onClick={onGenerate}>
+                            Start today's pass
+                        </Button>
+                    ) : outOfCredits ? (
+                        <Button variant="pro" size="sm" icon="crown" onClick={onUpgrade}>Get more credits</Button>
+                    ) : (
+                        <Button variant="secondary" size="md" disabled>All caught up</Button>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const SignalChip = ({ tone = 'neutral', children }) => {
+    const tones = {
+        primary: { bg: 'var(--primary-soft)', fg: 'var(--primary-ink)', bd: 'var(--primary-border)', dot: null },
+        warn:    { bg: 'var(--warn-soft)',    fg: 'var(--warn-ink)',    bd: 'var(--warn-border)',    dot: 'var(--warn)' },
+        danger:  { bg: 'var(--danger-soft)',  fg: 'var(--danger-ink)',  bd: 'var(--danger-border)',  dot: 'var(--danger)' },
+        neutral: { bg: 'var(--bg-sunken)',    fg: 'var(--text-3)',      bd: 'var(--hairline)',       dot: null },
+    };
+    const t = tones[tone] || tones.neutral;
+    return (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: t.bg, color: t.fg, border: `1px solid ${t.bd}`, borderRadius: 999, padding: '1px 7px', fontSize: 10.5, fontWeight: tone === 'warn' || tone === 'danger' ? 600 : 500, lineHeight: 1.5, whiteSpace: 'nowrap', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {t.dot && <span style={{ width: 5, height: 5, borderRadius: 999, background: t.dot, flexShrink: 0 }}/>}
+            {children}
+        </span>
+    );
+};
+
+const LibraryHealthCard = ({ coverage, tone, nextMilestone, hoursSaved, totalGenerated, projectionTarget, weeksToTarget }) => {
+    const distance = Math.max( 0, nextMilestone - coverage );
+    const animCoverage = useCountUp( coverage );
+    const animHours = useCountUp( parseFloat( hoursSaved ), { decimals: 1 } );
+    const stageLabel = coverage >= 90 ? 'Healthy coverage' : coverage >= 50 ? 'Coverage building' : coverage >= 15 ? 'Early optimisation stage' : 'Getting started';
+
+    return (
+        <Card padding={0} style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '14px 18px 12px', display: 'flex', gap: 14, alignItems: 'center' }}>
+                <Ring value={animCoverage} size={56} stroke={5} tone={tone}>
+                    <div className="mono tnum" style={{ fontSize: 15, fontWeight: 600, letterSpacing: '-0.02em' }}>{animCoverage}</div>
+                </Ring>
+                <div style={{ flex: 1, minWidth: 0 }} aria-label={stageLabel}>
+                    <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>Site SEO health</div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                        <span className="mono tnum" style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.02em', lineHeight: 1.1 }}>{animCoverage}</span>
+                        <span style={{ fontSize: 13, color: 'var(--text-3)' }}>/ 100</span>
+                        {coverage > 0 && <span style={{ fontSize: 12, color: 'var(--ok-ink)', fontWeight: 600, marginLeft: 2, whiteSpace: 'nowrap' }}>+12 this week</span>}
+                    </div>
+                    {distance > 0 && (
+                        <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>
+                            Next milestone <span className="mono tnum" style={{ color: 'var(--text)', fontWeight: 600 }}>{nextMilestone}</span>
                         </div>
                     )}
                 </div>
             </div>
-        </Card>
-    );
-};
-
-const RecentActivity = ({ activity, onView }) => {
-    const events = ( activity || [] ).map( e => ( {
-        time: e.ago || '',
-        icon: e.kind === 'auto' ? 'zap' : e.kind === 'generated' ? 'sparkles' : 'edit',
-        tone: e.kind === 'auto' ? 'ok' : 'primary',
-        text: activitySummary( e ),
-    } ) );
-
-    return (
-        <Card padding={0} style={{ marginTop: 16 }}>
-            <div style={{ padding: '16px 20px' }}>
-                <h2 style={{ margin: '0 0 12px', fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', fontSize: 11, letterSpacing: '0.06em' }}>Recent activity</h2>
-                {events.length === 0 ? (
-                    <div>
-                        <p style={{ margin: '0 0 4px', fontSize: 13.5, color: 'var(--text-2)', lineHeight: 1.5 }}>
-                            Your optimisation history will appear here.
-                        </p>
-                        <p style={{ margin: 0, fontSize: 13, color: 'var(--text-3)', lineHeight: 1.45 }}>
-                            Generate metadata to start tracking activity.
-                        </p>
-                    </div>
-                ) : (
-                    <div>
-                        {events.map( ( e, i ) => (
-                            <div key={i} style={{
-                                display: 'flex', alignItems: 'center', gap: 9,
-                                padding: '8px 0',
-                                borderTop: i ? '1px solid var(--hairline)' : 'none',
-                            }}>
-                                <div style={{
-                                    width: 16, height: 16, borderRadius: 999, flexShrink: 0,
-                                    background: e.tone === 'ok' ? 'var(--ok-soft)' : 'var(--primary-soft)',
-                                    color: e.tone === 'ok' ? 'var(--ok-ink)' : 'var(--primary-ink)',
-                                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                                }}>
-                                    <Icon name={e.icon} size={9} strokeWidth={2.4}/>
-                                </div>
-                                <span style={{ fontSize: 13, color: 'var(--text-2)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.text}</span>
-                                <span className="mono" style={{ fontSize: 11, color: 'var(--text-3)', flexShrink: 0 }}>{e.time}</span>
-                            </div>
-                        ) )}
-                    </div>
-                )}
-            </div>
-        </Card>
-    );
-};
-
-const UsageCard = ({ monthlyUsed, monthlyLimit, creditsExhausted, onUpgrade }) => {
-    const tone = creditsExhausted ? 'warn' : monthlyUsed / Math.max( monthlyLimit, 1 ) >= 0.8 ? 'warn' : 'primary';
-
-    return (
-        <Card padding={0} style={{ marginTop: 16 }}>
-            <div style={{ padding: '14px 20px 16px', display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
-                <div style={{ flex: 1, minWidth: 200 }}>
-                    <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Credits used</div>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>
-                        <span className="mono tnum">{monthlyUsed}</span>
-                        {' / '}
-                        <span className="mono tnum">{monthlyLimit}</span>
-                    </div>
-                    <Progress value={Math.min( monthlyUsed, monthlyLimit )} max={monthlyLimit} tone={tone} height={6}/>
-                    {creditsExhausted && (
-                        <p style={{ margin: '8px 0 0', fontSize: 12.5, color: 'var(--warn-ink)', lineHeight: 1.45 }}>
-                            You&apos;ve used all available credits this cycle.
-                        </p>
-                    )}
+            <div style={{ padding: '12px 18px 14px', borderTop: '1px solid var(--hairline)', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4 }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <span className="ambient-pulse" style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--ok-ink)', flexShrink: 0 }}/>
+                    <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text)', letterSpacing: '-0.005em' }}>Steady improvement</span>
                 </div>
-                {creditsExhausted && (
-                    <Button variant="secondary" size="sm" icon="crown" onClick={onUpgrade}>Upgrade Plan</Button>
-                )}
-            </div>
-        </Card>
-    );
-};
-
-const AutopilotCompactCard = ({ autoOptimise, autopilotLocked, onToggle, onUpgrade }) => {
-    const enabled = ! autopilotLocked && autoOptimise;
-
-    return (
-        <Card padding={0} style={{ marginTop: 16 }}>
-            <div style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-                <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 4 }}>Autopilot</div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 2 }}>
-                        {enabled ? 'Enabled' : 'Disabled'}
-                    </div>
-                    <p style={{ margin: 0, fontSize: 13, color: 'var(--text-2)', lineHeight: 1.45 }}>
-                        Automatically generate metadata for new pages.
-                    </p>
+                <div style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.55, paddingLeft: 12 }}>
+                    At your current pace, your site could reach{' '}
+                    <span className="mono tnum" style={{ color: 'var(--text)', fontWeight: 600 }}>{projectionTarget}%</span>{' '}
+                    coverage in around{' '}
+                    <span className="mono tnum" style={{ color: 'var(--text)', fontWeight: 600 }}>{weeksToTarget}</span>{' '}
+                    week{weeksToTarget === 1 ? '' : 's'}.
                 </div>
-                {autopilotLocked ? (
-                    <Button variant="secondary" size="sm" icon="zap" onClick={onUpgrade}>Enable Autopilot</Button>
-                ) : (
-                    <SmallToggle on={autoOptimise} onChange={() => onToggle( ! autoOptimise )}/>
-                )}
+            </div>
+            <div style={{ borderTop: '1px solid var(--hairline)', padding: '9px 18px', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Work saved</div>
+                <div className="tnum" style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 400, whiteSpace: 'nowrap' }}>
+                    ~<span className="mono" style={{ fontWeight: 500, color: 'var(--text-2)' }}>{animHours.toFixed(1)}</span> hours saved
+                    <span style={{ color: 'var(--text-3)', margin: '0 6px', opacity: 0.6 }}>·</span>
+                    <span className="mono" style={{ fontWeight: 500, color: 'var(--text-2)' }}>{totalGenerated}</span> pages improved
+                </div>
             </div>
         </Card>
     );
 };
+
+const LibraryCoverageCard = ({ total, optimised }) => {
+    const pct = total > 0 ? Math.round( ( optimised / total ) * 100 ) : 0;
+    const remaining = total - optimised;
+    const tone = pct >= 90 ? 'ok' : 'primary';
+    return (
+        <Card padding={0} style={{ marginTop: 20 }}>
+            <div style={{ padding: '12px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, minWidth: 0 }}>
+                        <span style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Site coverage</span>
+                        <span className="mono tnum" style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{pct}%</span>
+                        <span style={{ fontSize: 12, color: 'var(--text-3)' }}>optimised</span>
+                    </div>
+                    <div className="tnum" style={{ fontSize: 11.5, color: 'var(--text-3)' }}>
+                        <span className="mono" style={{ color: 'var(--text-2)', fontWeight: 500 }}>{optimised}</span> improved
+                        <span> · </span>
+                        <span className="mono" style={{ color: 'var(--text-2)', fontWeight: 500 }}>{remaining}</span> remaining
+                    </div>
+                </div>
+                <Progress value={optimised} max={Math.max( total, 1 )} tone={tone} height={6}/>
+            </div>
+        </Card>
+    );
+};
+
+const AutopilotActiveCard = ({ autoOptimise, onToggle }) => (
+    <Card padding={0}>
+        <div style={{ padding: '18px 22px 12px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+            <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>Autopilot</div>
+                <div style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.01em' }}>{autoOptimise ? 'Running in the background.' : 'Paused.'}</div>
+                <div style={{ fontSize: 12.5, color: 'var(--text-2)', marginTop: 4 }}>
+                    {autoOptimise ? 'New pages request title and meta generation from the OpptiAI service.' : 'Enable automatic generation for newly published pages.'}
+                </div>
+            </div>
+            <SmallToggle on={autoOptimise} onChange={() => onToggle( !autoOptimise )}/>
+        </div>
+        <div style={{ padding: '10px 22px 16px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {[
+                { label: 'New pages covered instantly', on: autoOptimise },
+                { label: 'Uses available AI service credits', on: true },
+                { label: 'Pages, posts and WooCommerce support', on: true },
+            ].map( ( r, i ) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: r.on ? 'var(--text)' : 'var(--text-3)' }}>
+                    <Icon name="check" size={13} style={{ color: r.on ? 'var(--ok-ink)' : 'var(--text-3)', flexShrink: 0 }} strokeWidth={2.4}/>
+                    <span>{r.label}</span>
+                </div>
+            ) )}
+        </div>
+    </Card>
+);
 
 const SmallToggle = ({ on, onChange, disabled }) => (
-    <button
-        type="button"
-        onClick={onChange}
-        disabled={disabled}
-        aria-pressed={on}
-        style={{
-            width: 34, height: 20, borderRadius: 999,
-            background: on ? 'var(--primary)' : 'var(--bg-sunken)',
-            border: `1px solid ${ on ? 'var(--primary)' : 'var(--border-strong)' }`,
-            position: 'relative', cursor: disabled ? 'not-allowed' : 'pointer',
-            transition: 'background .15s, border-color .15s', padding: 0, flexShrink: 0,
-        }}
-    >
-        <span style={{
-            position: 'absolute', top: 2, left: on ? 16 : 2,
-            width: 14, height: 14, borderRadius: 999, background: '#fff',
-            transition: 'left .15s ease', boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
-        }}/>
+    <button onClick={onChange} disabled={disabled} style={{ width: 34, height: 20, borderRadius: 999, background: on ? 'var(--primary)' : 'var(--bg-sunken)', border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, position: 'relative', cursor: disabled ? 'not-allowed' : 'pointer', transition: 'background .15s, border-color .15s', padding: 0, flexShrink: 0 }}>
+        <span style={{ position: 'absolute', top: 2, left: on ? 16 : 2, width: 14, height: 14, borderRadius: 999, background: '#fff', transition: 'left .15s ease', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }}/>
     </button>
 );
+
+const ACTIVITY_KINDS = {
+    generated: { icon: 'sparkles', tone: 'primary', verb: 'Generated title & meta for' },
+    auto:      { icon: 'zap',      tone: 'ok',      verb: 'Autopilot optimised' },
+    edited:    { icon: 'edit',     tone: 'primary', verb: 'Edited' },
+};
+
+const ActivityStrip = ({ onView, newSince, activity }) => {
+    const real = ( activity || [] ).map( ( e ) => {
+        const kind  = ACTIVITY_KINDS[ e.kind ] || ACTIVITY_KINDS.edited;
+        const title = e.title?.trim() || 'Untitled';
+        return { time: e.ago || '', icon: kind.icon, tone: kind.tone, text: `${kind.verb} “${title}”`, action: null };
+    } );
+    const events = [
+        ...(newSince > 0 ? [{ time: 'Just now', icon: 'upload', tone: 'warn', text: `${newSince} new page${newSince === 1 ? '' : 's'} detected`, action: 'Review', onAction: () => onView && onView( 'library' ) }] : []),
+        ...real,
+    ];
+    return (
+        <div style={{ marginTop: 22, borderTop: '1px solid var(--hairline)', paddingTop: 14 }}>
+            <div style={{ marginBottom: 4 }}>
+                <span style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Latest improvements</span>
+            </div>
+            <div>
+                {events.length === 0 && (
+                    <div style={{ fontSize: 12.5, color: 'var(--text-3)', padding: '4px 0' }}>No improvements yet — generate titles & meta to see activity here.</div>
+                )}
+                {events.map( ( e, i ) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '4px 0', borderTop: i ? '1px solid var(--hairline)' : 'none' }}>
+                        <div style={{ width: 16, height: 16, borderRadius: 999, background: e.tone === 'ok' ? 'var(--ok-soft)' : e.tone === 'warn' ? 'var(--warn-soft)' : 'var(--primary-soft)', color: e.tone === 'ok' ? 'var(--ok-ink)' : e.tone === 'warn' ? 'var(--warn-ink)' : 'var(--primary-ink)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <Icon name={e.icon} size={9} strokeWidth={2.4}/>
+                        </div>
+                        <span style={{ fontSize: 12.5, color: 'var(--text-2)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.text}</span>
+                        <span className="mono" style={{ fontSize: 11, color: 'var(--text-3)', flexShrink: 0 }}>{e.time}</span>
+                        {e.action && (
+                            <button onClick={e.onAction} style={{ background: 'transparent', border: 'none', padding: '2px 4px', fontSize: 12, color: 'var(--text-2)', fontWeight: 600, cursor: 'pointer', borderRadius: 4 }}
+                                onMouseEnter={ev => ev.currentTarget.style.color = 'var(--text)'}
+                                onMouseLeave={ev => ev.currentTarget.style.color = 'var(--text-2)'}>
+                                {e.action}
+                            </button>
+                        )}
+                    </div>
+                ) )}
+            </div>
+        </div>
+    );
+};
+
+const FooterMetrics = ({ streak, dailyUsed, dailyLimit, hasDailyLimit, monthlyUsed, monthlyLimit, autoOptimise }) => {
+    const Item = ({ label, value }) => (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <div style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{label}</div>
+            <div style={{ fontSize: 13, color: 'var(--text)', fontWeight: 500 }}>{value}</div>
+        </div>
+    );
+    const dailyExhausted = dailyUsed >= dailyLimit;
+    const monthlyRemaining = Math.max( 0, monthlyLimit - monthlyUsed );
+
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', padding: '14px 4px 4px', gap: 40, flexWrap: 'wrap', borderTop: '1px solid var(--hairline)', marginTop: 20 }}>
+            <Item label="Editing streak" value={<><span className="mono tnum">{streak}</span>-day streak</>}/>
+            {hasDailyLimit && (
+                <Item label="Daily service allowance" value={
+                    dailyExhausted
+                        ? <><span className="mono tnum">{dailyLimit}</span> of <span className="mono tnum">{dailyLimit}</span> used today</>
+                        : <><span className="mono tnum">{dailyUsed}</span> of <span className="mono tnum">{dailyLimit}</span> used today</>
+                }/>
+            )}
+            <Item label="Monthly service usage" value={<><span className="mono tnum">{monthlyUsed}</span> of <span className="mono tnum">{monthlyLimit}</span> used</>}/>
+            <Item label="Autopilot" value={autoOptimise ? 'Enabled' : 'Paused'}/>
+            <Item label="Remaining" value={<><span className="mono tnum">{monthlyRemaining}</span> service credits</>}/>
+        </div>
+    );
+};

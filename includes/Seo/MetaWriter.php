@@ -2,7 +2,7 @@
 /**
  * SEO meta read/write abstraction.
  *
- * Detects the site's active SEO plugin once (cached in the `bbt_seo_plugin`
+ * Detects the site's active SEO plugin once (cached in the `beepti_seo_plugin`
  * option) and routes title/meta reads and writes to the right storage:
  *
  *   - Yoast SEO     → postmeta `_yoast_wpseo_title` / `_yoast_wpseo_metadesc`
@@ -21,10 +21,10 @@ defined( 'ABSPATH' ) || exit;
 
 class MetaWriter {
 
-    public const FALLBACK_TITLE_KEY = '_bbt_seo_title';
-    public const FALLBACK_META_KEY  = '_bbt_meta_description';
+    public const FALLBACK_TITLE_KEY = '_beepti_seo_title';
+    public const FALLBACK_META_KEY  = '_beepti_meta_description';
 
-    private const OPT_ACTIVE = 'bbt_seo_plugin';
+    private const OPT_ACTIVE = 'beepti_seo_plugin';
 
     // ----------------------------------------------------------------
     // Detection
@@ -73,7 +73,7 @@ class MetaWriter {
         // active when it was computed — drop it so a plugin switch can't serve
         // stale stats (e.g. counts read from the wrong meta keys/table).
         if ( $previous !== $active ) {
-            delete_transient( 'bbt_stats' );
+            delete_transient( 'beepti_stats' );
         }
 
         return $active;

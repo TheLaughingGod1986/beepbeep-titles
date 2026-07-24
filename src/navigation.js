@@ -6,10 +6,7 @@ export const TABS = [
     { id: 'billing',    label: 'Billing', adminOnly: true },
 ];
 
-export function getVisibleTabs( connected, { isAdmin = false } = {} ) {
-    if ( ! connected ) {
-        return TABS.filter( tab => tab.id === 'dashboard' );
-    }
+export function getVisibleTabs( _connected, { isAdmin = false } = {} ) {
     return TABS.filter( tab => ! tab.adminOnly || isAdmin );
 }
 

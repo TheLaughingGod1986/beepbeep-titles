@@ -17,9 +17,9 @@ export function isPaywall( err ) {
 }
 
 /**
- * Map a backend/transport error code to a coarse category for funnel analysis,
- * so the long tail of codes collapses into a handful of buckets in PostHog.
- * Unknown/absent codes fall through to 'unknown' — never suppressed.
+ * Map a backend/transport error code to a coarse category, so the long tail of
+ * codes collapses into a handful of buckets for the local Billing diagnostics
+ * card. Unknown/absent codes fall through to 'unknown' — never suppressed.
  */
 const CHECKOUT_ERROR_CATEGORIES = {
     INVALID_LICENSE:      'user_configuration',
@@ -37,8 +37,8 @@ const CHECKOUT_ERROR_CATEGORIES = {
 };
 
 /**
- * Structured classification for a failed checkout, for the checkout_failed
- * funnel event. Accepts an ApiError (thrown) or a non-error response body
+ * Structured classification for a failed checkout, recorded in the local
+ * billing telemetry. Accepts an ApiError (thrown) or a non-error response body
  * (a 200 with no usable url). Returns a code, a category, and a short sanitized
  * message — never the raw object, never PII-laden detail.
  *
@@ -86,7 +86,7 @@ export function checkoutErrorToast( err ) {
 export function errorToast( err ) {
     switch ( err?.code ) {
         case 'INVALID_LICENSE':
-            return { message: 'License key needed', sub: 'Add your BeepBeep license in Settings.', icon: 'alert', tone: 'warn' };
+            return { message: 'License key needed', sub: 'Add your OpptiAI license in Settings.', icon: 'alert', tone: 'warn' };
         case 'RATE_LIMIT_EXCEEDED':
             return { message: 'Slow down a moment', sub: 'Too many requests — pausing briefly before retrying.', icon: 'info', tone: 'warn' };
         case 'OFFLINE':

@@ -1,7 +1,5 @@
-import { useEffect } from 'react';
 import { Icon, Button } from '../components';
 import { Row, Stack } from '../ui';
-import { track } from '../api';
 import { Modal } from './Modal';
 
 const DOCS_URL = 'https://oppti.dev/docs/titles';
@@ -10,7 +8,7 @@ const steps = [
     {
         icon: 'user',
         title: 'Connect your account',
-        body: 'Scan and review metadata locally. Connect BeepBeep AI when you want external AI generation.',
+        body: 'Scan and review metadata locally. Connect OpptiAI when you want external AI generation.',
         benefits: [
             'No credit card required',
             'Setup takes less than one minute',
@@ -20,7 +18,7 @@ const steps = [
     {
         icon: 'search',
         title: 'Scan your website',
-        body: 'BeepBeep analyses your pages and identifies what needs attention.',
+        body: 'OpptiAI analyses your pages and identifies what needs attention.',
         benefits: [
             'Missing SEO titles',
             'Missing meta descriptions',
@@ -50,14 +48,7 @@ const steps = [
 ];
 
 export const HelpModal = ({ open, onClose, onStartScan }) => {
-    useEffect( () => {
-        if ( open ) {
-            track( 'setup_guide_opened', { completion_percent: 0 } );
-        }
-    }, [open] );
-
     const startScan = () => {
-        track( 'setup_guide_completed', { completion_percent: 100, action: 'go_to_dashboard' } );
         onClose();
         if ( onStartScan ) {
             onStartScan();
@@ -65,7 +56,6 @@ export const HelpModal = ({ open, onClose, onStartScan }) => {
     };
 
     const openDocs = () => {
-        track( 'docs_link_clicked', { source: 'quick_setup_guide', href: DOCS_URL, completion_percent: 100 } );
         window.open( DOCS_URL, '_blank', 'noopener,noreferrer' );
     };
 

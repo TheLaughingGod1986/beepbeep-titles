@@ -1,10 +1,10 @@
 <?php
 /**
- * Plugin Name:       BeepBeep Titles
- * Plugin URI:        https://beepbeep.ai
+ * Plugin Name:       OpptiAI Titles
+ * Plugin URI:        https://oppti.dev
  * Description:       AI-powered title tag and meta description generation for WordPress. Keeps your site's page SEO coverage climbing in the background.
- * Version:           1.0.0
- * Author:            BeepBeep AI
+ * Version:           1.0.16
+ * Author:            OpptiAI
  * License:           GPL-2.0-or-later
  * Text Domain:       beepbeep-titles
  * Requires at least: 6.3
@@ -13,23 +13,25 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'BBT_VERSION', '1.0.0' );
-define( 'BBT_FILE',    __FILE__ );
-define( 'BBT_DIR',     plugin_dir_path( __FILE__ ) );
-define( 'BBT_URL',     plugin_dir_url( __FILE__ ) );
-define( 'BBT_SLUG',    'beepbeep-titles' );
+define( 'BEEPTI_VERSION', '1.0.16' );
+define( 'BEEPTI_FILE',    __FILE__ );
+define( 'BEEPTI_DIR',     plugin_dir_path( __FILE__ ) );
+define( 'BEEPTI_URL',     plugin_dir_url( __FILE__ ) );
+define( 'BEEPTI_SLUG',    'beepbeep-titles' );
+define( 'BEEPTI_PLUGIN_ID', 'titles' );
+define( 'BEEPTI_PLUGIN_TITLE', 'OpptiAI Titles' );
 
 // Backend API base. Override in wp-config.php with BEEPBEEP_TITLES_API_URL
 // for local/staging backends (mirrors the alt-text plugin's BEEPBEEP_AI_API_URL).
 // Default matches the sibling alt-text plugin's production backend — the
 // titles endpoints (/api/titles/*) are served from the same host.
-define( 'BBT_API_BASE',
+define( 'BEEPTI_API_BASE',
     defined( 'BEEPBEEP_TITLES_API_URL' )
         ? rtrim( BEEPBEEP_TITLES_API_URL, '/' )
         : 'https://alttext-ai-backend.onrender.com'
 );
-define( 'BBT_PLUGIN_CHANNEL', 'stable' );
-define( 'BBT_PLUGIN_ENV',
+define( 'BEEPTI_PLUGIN_CHANNEL', 'stable' );
+define( 'BEEPTI_PLUGIN_ENV',
     ( defined( 'WP_DEBUG' ) && WP_DEBUG ) ? 'development' : 'production'
 );
 
@@ -39,7 +41,7 @@ spl_autoload_register( static function ( string $class ): void {
         return;
     }
     $rel  = str_replace( 'BeepBeep_Titles\\', '', $class );
-    $file = BBT_DIR . 'includes/' . str_replace( '\\', DIRECTORY_SEPARATOR, $rel ) . '.php';
+    $file = BEEPTI_DIR . 'includes/' . str_replace( '\\', DIRECTORY_SEPARATOR, $rel ) . '.php';
     if ( is_readable( $file ) ) {
         require_once $file;
     }
@@ -47,7 +49,7 @@ spl_autoload_register( static function ( string $class ): void {
 
 // Tell Plugin Check to skip dev-only paths (mirrors .distignore / release zip).
 add_filter( 'wp_plugin_check_ignore_directories', static function ( array $directories ): array {
-    return array_merge( $directories, [ 'tests', 'scripts', '.github', '.claude', 'node_modules', 'src', 'dist' ] );
+    return array_merge( $directories, [ 'tests', 'scripts', '.github', '.claude', 'node_modules', 'dist' ] );
 } );
 add_filter( 'wp_plugin_check_ignore_files', static function ( array $files ): array {
     return array_merge( $files, [
@@ -57,8 +59,6 @@ add_filter( 'wp_plugin_check_ignore_files', static function ( array $files ): ar
         '.distignore',
         '.plugin-check.json',
         'docker-compose.yml',
-        'package.json',
-        'package-lock.json',
         'README.md',
     ] );
 } );

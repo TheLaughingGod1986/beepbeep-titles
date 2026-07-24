@@ -6,7 +6,7 @@ const FEATURE_META = {
     schema:     { label: 'Schema & Rich Snippets',     icon: 'trend', ...FEATURE_COLORS.schema },
 };
 
-/* The fixed catalog of BeepBeep AI plugins that draw from the shared pool,
+/* The fixed catalog of OpptiAI plugins that draw from the shared pool,
    this plugin first, then its siblings. Always rendered in full so the card
    reads as a roster, not just "what happened to bill". */
 const CATALOG = [

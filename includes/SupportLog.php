@@ -16,7 +16,7 @@ defined( 'ABSPATH' ) || exit;
 
 class SupportLog {
 
-    private const OPTION = 'bbt_support_log';
+    private const OPTION = 'beepti_support_log';
     private const MAX    = 50;
 
     /**

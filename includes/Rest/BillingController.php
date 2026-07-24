@@ -54,7 +54,7 @@ class BillingController {
     }
 
     /**
-     * Sign in with a BeepBeep account (email + password). The backend returns
+     * Sign in with an OpptiAI account (email + password). The backend returns
      * the account's license key, which we store and then validate via /quota —
      * the response shape matches set_license so the JS can treat them alike.
      */
@@ -64,6 +64,11 @@ class BillingController {
 
         if ( $email === '' || ! is_email( $email ) || $password === '' ) {
             return new \WP_REST_Response( [ 'success' => false, 'code' => 'INVALID_REQUEST', 'message' => __( 'Enter your account email and password.', 'beepbeep-titles' ) ], 400 );
+        }
+
+        $adopted = $this->maybe_connect_shared_license();
+        if ( $adopted instanceof \WP_REST_Response ) {
+            return $adopted;
         }
 
         $user = $this->client->login( $email, $password );
@@ -83,7 +88,7 @@ class BillingController {
     }
 
     /**
-     * Create a BeepBeep account, store the returned license key, and return
+     * Create an OpptiAI account, store the returned license key, and return
      * the same connected quota shape as login/set_license.
      */
     public function register( \WP_REST_Request $req ): \WP_REST_Response {
@@ -96,6 +101,11 @@ class BillingController {
 
         if ( strlen( $password ) < 8 ) {
             return new \WP_REST_Response( [ 'success' => false, 'code' => 'WEAK_PASSWORD', 'message' => __( 'Use at least 8 characters for your password.', 'beepbeep-titles' ) ], 400 );
+        }
+
+        $adopted = $this->maybe_connect_shared_license();
+        if ( $adopted instanceof \WP_REST_Response ) {
+            return $adopted;
         }
 
         $user = $this->client->register( $email, $password );
@@ -112,6 +122,23 @@ class BillingController {
         $result['connected']     = true;
         $result['account_email'] = $this->client->get_account_email();
         $result['created']       = true;
+        return new \WP_REST_Response( $result, 200 );
+    }
+
+    private function maybe_connect_shared_license(): ?\WP_REST_Response {
+        if ( ! $this->client->adopt_shared_license( true ) ) {
+            return null;
+        }
+
+        $result = $this->client->quota();
+        if ( is_wp_error( $result ) ) {
+            $this->client->clear_license_key();
+            return ErrorResponder::from_wp_error( $result );
+        }
+
+        $result['connected']       = true;
+        $result['account_email']   = $this->client->refresh_account_email();
+        $result['license_adopted'] = true;
         return new \WP_REST_Response( $result, 200 );
     }
 

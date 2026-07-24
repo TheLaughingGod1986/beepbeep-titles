@@ -1,9 +1,9 @@
 <?php
 /**
- * WP REST proxy for BeepBeep Titles.
+ * WP REST proxy for OpptiAI Titles.
  *
  * Exposes /wp-json/beepbeep-titles/v1/* endpoints that forward to the
- * BeepBeep backend with the license + identity headers injected server-side,
+ * OpptiAI backend with the license + identity headers injected server-side,
  * and persist returned copy into the active SEO plugin. The license key never
  * reaches JS; the browser authenticates with the WP REST nonce.
  *

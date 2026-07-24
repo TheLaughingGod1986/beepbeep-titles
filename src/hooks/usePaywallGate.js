@@ -4,21 +4,18 @@ import {
     heroGenerationCap,
     isBulkOverLimit,
     isDailyExhausted,
-    isFreePlan,
 } from '../quota';
 
-/** Centralises free-plan generation gating used in App.jsx. */
-export function usePaywallGate( plan, quota ) {
-    const dailyRemaining = useMemo( () => dailyRemainingForGate( quota, plan ), [quota, plan] );
-    const free           = isFreePlan( plan );
+/** Centralises external-service credit checks used in App.jsx. */
+export function usePaywallGate( quota ) {
+    const dailyRemaining = useMemo( () => dailyRemainingForGate( quota ), [quota] );
 
-    const checkDailyExhausted = useCallback( () => isDailyExhausted( plan, dailyRemaining ), [plan, dailyRemaining] );
-    const checkBulkOverLimit  = useCallback( ( count ) => isBulkOverLimit( plan, count, dailyRemaining ), [plan, dailyRemaining] );
-    const cap                 = useCallback( () => heroGenerationCap( plan, dailyRemaining ), [plan, dailyRemaining] );
+    const checkDailyExhausted = useCallback( () => isDailyExhausted( dailyRemaining ), [dailyRemaining] );
+    const checkBulkOverLimit  = useCallback( ( count ) => isBulkOverLimit( count, dailyRemaining ), [dailyRemaining] );
+    const cap                 = useCallback( () => heroGenerationCap( dailyRemaining ), [dailyRemaining] );
 
     return {
         dailyRemaining,
-        isFree: free,
         isDailyExhausted: checkDailyExhausted,
         isBulkOverLimit: checkBulkOverLimit,
         heroCap: cap,

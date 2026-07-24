@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
 import { WPChrome } from './chrome';
 import { Dashboard } from './screens/Dashboard';
+import { AuditSignedOutScreen } from './screens/Audit';
 import { PagesLibrary } from './screens/Library';
 import { AutopilotScreen } from './screens/Autopilot';
 import { BillingScreen } from './screens/Billing';
 import { SettingsScreen } from './screens/Settings';
 import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal, ConnectModal } from './modals/index';
-import { SignOutConfirm, SignedOutScreen } from './auth';
-import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, createCheckout, createBillingPortal, clearLicense, saveSettings, track } from './api';
-import { paywallTrigger, errorToast, checkoutErrorToast, classifyCheckoutError } from './errors';
+import { SignOutConfirm } from './auth';
+import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, createCheckout, createBillingPortal, clearLicense, saveSettings } from './api';
+import { paywallTrigger, errorToast, checkoutErrorToast } from './errors';
 import { hasDailyCap } from './quota';
 import { usePaywallGate } from './hooks/usePaywallGate';
 import { resolveAllowedTab } from './navigation';
@@ -17,9 +18,9 @@ import { recordCheckoutAttempt, recordCheckoutSuccess, recordCheckoutFailure } f
 // Checkout opens Stripe in a new tab, so the success return is a fresh page
 // load that doesn't know which plan was bought. We stash the intent in
 // localStorage (shared across tabs, same origin) at redirect time and read it
-// back on return so checkout_completed can name the plan/price. 1h freshness
+// back on return so the success handler can name the plan/price. 1h freshness
 // guards against a stale entry from an abandoned attempt.
-const PENDING_CHECKOUT_KEY = 'bbt_pending_checkout';
+const PENDING_CHECKOUT_KEY = 'beepti_pending_checkout';
 const PENDING_CHECKOUT_TTL = 60 * 60 * 1000;
 const persistPendingCheckout = ( plan, priceId ) => {
     try { localStorage.setItem( PENDING_CHECKOUT_KEY, JSON.stringify( { plan, price_id: priceId, ts: Date.now() } ) ); } catch ( e ) {}
@@ -81,9 +82,9 @@ export default function App() {
     };
 
     const plan = quota?.plan || 'free';
-    const { dailyRemaining, isDailyExhausted, isBulkOverLimit, heroCap, isFree } = usePaywallGate( plan, quota );
+    const { dailyRemaining, isDailyExhausted, isBulkOverLimit, heroCap } = usePaywallGate( quota );
 
-    // The avatar menu represents the BeepBeep account (license), not the WP
+    // The avatar menu represents the OpptiAI account (license), not the WP
     // user — show the account email when we know it, fall back to WP identity.
     const accountEmail = quota?.account_email || initial.accountEmail || '';
     const menuUser     = accountEmail ? { name: accountEmail.split( '@' )[0], email: accountEmail } : user;
@@ -97,21 +98,15 @@ export default function App() {
 
         // Returning from Stripe checkout?
         const params  = new URLSearchParams( window.location.search );
-        const billing = params.get( 'bbt_billing' );
+        const billing = params.get( 'beepti_billing' );
         if ( billing === 'success' ) {
-            setToast( { message: 'Purchase complete 🎉', sub: 'Your credits/plan are now active across every BeepBeep plugin.', icon: 'crown', tone: 'ok' } );
-            // checkout_completed: only once the entitlement refresh confirms the
-            // new state. Plan comes from the stashed intent (falls back to the
-            // refreshed plan); price_id from the same stash.
+            setToast( { message: 'Purchase complete 🎉', sub: 'Your credits/plan are now active across every OpptiAI plugin.', icon: 'crown', tone: 'ok' } );
+            // Record the confirmed upgrade only once the entitlement refresh
+            // confirms the new state. Plan comes from the stashed intent
+            // (falls back to the refreshed plan); price_id from the same stash.
             const pending = readPendingCheckout();
             refreshQuota().then( ( q ) => {
                 if ( q ) {
-                    track( 'checkout_completed', {
-                        plan:          pending?.plan || q.plan || null,
-                        plan_selected: pending?.plan || q.plan || null,
-                        price_id:      pending?.price_id,
-                        source_screen: tab,
-                    } );
                     recordCheckoutSuccess( { plan: pending?.plan || q.plan || null, priceId: pending?.price_id } );
                 }
                 clearPendingCheckout();
@@ -121,16 +116,16 @@ export default function App() {
             clearPendingCheckout();
         }
         if ( billing ) {
-            params.delete( 'bbt_billing' );
+            params.delete( 'beepti_billing' );
             const qs = params.toString();
             window.history.replaceState( {}, '', window.location.pathname + ( qs ? '?' + qs : '' ) );
         } else if ( initial.licenseAdopted ) {
-            // Another BeepBeep plugin on this site already had a license in
+            // Another OpptiAI plugin on this site already had a license in
             // the database — we connected with it automatically.
-            setToast( { message: 'Account connected automatically', sub: 'We found an existing BeepBeep account connection on this site.', icon: 'check', tone: 'ok' } );
+            setToast( { message: 'Account connected automatically', sub: 'We found an existing OpptiAI account connection on this site.', icon: 'check', tone: 'ok' } );
         } else if ( ! initial.connected ) {
             // No account yet — nudge the user toward the connect modal.
-            setToast( { message: 'Connect your BeepBeep account', sub: 'Create an account or sign in to activate AI title & meta generation.', icon: 'info', tone: 'warn' } );
+            setToast( { message: 'Connect your OpptiAI account', sub: 'Create an account or sign in to activate AI title & meta generation.', icon: 'info', tone: 'warn' } );
         }
     }, [] );
 
@@ -141,8 +136,7 @@ export default function App() {
         }
     }, [connected, settings?.onboarding_complete] );
 
-    // Signed-out users can only view Home. This also catches any stale tab
-    // state after sign-out or failed entitlement refreshes.
+    // Keep admin-only navigation protected when connection state changes.
     useEffect( () => {
         setTab( current => resolveAllowedTab( current, connected, { isAdmin } ) );
     }, [connected] );
@@ -255,10 +249,25 @@ export default function App() {
         setDrawer( { open: true, pages } );
     };
 
-    const completeGen = () => {
-        const n = drawer.pages?.length || 0;
+    const completeGen = ( summary = {} ) => {
+        const total = summary.total ?? drawer.pages?.length ?? 0;
+        const successfulCount = summary.successfulCount ?? total;
+        const failedCount = summary.failedCount ?? 0;
         setDrawer( { open: false, pages: null } );
-        setToast( { message: `${ n } page${ n === 1 ? '' : 's' } improved`, sub: 'Title & meta descriptions are live in your site.', icon: 'sparkles', tone: 'ok' } );
+        setToast( failedCount > 0
+            ? {
+                message: `${ successfulCount } of ${ total } page${ total === 1 ? '' : 's' } improved`,
+                sub: `${ failedCount } page${ failedCount === 1 ? '' : 's' } could not be generated and can be retried.`,
+                icon: 'alert',
+                tone: 'warn',
+            }
+            : {
+                message: `${ successfulCount } page${ successfulCount === 1 ? '' : 's' } improved`,
+                sub: 'Title & meta descriptions are live in your site.',
+                icon: 'sparkles',
+                tone: 'ok',
+            }
+        );
         loadQueuePages();
         loadStats();
         loadActivity();
@@ -266,15 +275,11 @@ export default function App() {
     };
 
     const handleAutoToggle = async ( val ) => {
-        if ( isFree ) {
-            setPaywall( { open: true, trigger: 'auto-feature', entitlement: quota } );
-            return;
-        }
         try {
             await saveSettings( { auto_generate: val } );
             setAutoOptimise( val );
             setSettings( s => ( { ...s, auto_generate: val } ) );
-            setToast( { message: val ? 'Auto-generate enabled' : 'Auto-generate paused', sub: val ? 'BeepBeep Titles will write title & meta for every new page you publish.' : null, icon: val ? 'check' : 'info', tone: 'ok' } );
+            setToast( { message: val ? 'Auto-generate enabled' : 'Auto-generate paused', sub: val ? 'OpptiAI Titles will write title & meta for every new page you publish.' : null, icon: val ? 'check' : 'info', tone: 'ok' } );
         } catch ( e ) {
             handleApiError( e );
         }
@@ -332,25 +337,16 @@ export default function App() {
                 icon: 'info',
                 tone: 'warn',
             } );
-            track( 'checkout_blocked_signed_out', { plan: args.plan, plan_selected: args.plan, source_screen: tab } );
             return;
         }
-        // Canonical funnel props (plan_selected kept alongside plan for compat).
-        const funnel = { plan: args.plan, plan_selected: args.plan, price_id: args.priceId, source_screen: tab };
         openInNewTab( () => createCheckout( args ), {
             onResolved: () => {
-                // Session created, then the actual navigation — two distinct
-                // funnel steps so a created-but-never-navigated session is
-                // visible. Stash the intent so checkout_completed can name the
-                // plan on return (localStorage survives the new-tab round-trip).
-                track( 'checkout_started', { ...funnel, checkout_url_present: true } );
+                // Stash the intent so the success handler can name the plan on
+                // return (localStorage survives the new-tab round-trip).
                 persistPendingCheckout( args.plan, args.priceId );
                 recordCheckoutAttempt( { plan: args.plan, priceId: args.priceId } );
-                track( 'checkout_redirected', { ...funnel, checkout_url_present: true } );
             },
-            // Never suppressed — license/quota failures are tracked too.
             onFailed: ( reason ) => {
-                track( 'checkout_failed', { ...funnel, ...classifyCheckoutError( reason ) } );
                 recordCheckoutFailure( { plan: args.plan, priceId: args.priceId, reason } );
             },
         } );
@@ -376,8 +372,6 @@ export default function App() {
     let body = null;
     switch ( tab ) {
         case 'dashboard':
-            // No license connected → conversion-focused audit report
-            // (Claude Design signed-out screen) in place of the dashboard.
             body = connected ? (
                 <Dashboard
                     quota={quota}
@@ -387,24 +381,24 @@ export default function App() {
                     queuePages={queuePages}
                     autoOptimise={autoOptimise}
                     onAutoToggle={handleAutoToggle}
+                    onGenerate={openGen}
                     onUpgrade={() => setPaywall( { open: true, trigger: 'default', entitlement: null } )}
                     onView={selectTab}
+                    altTextCompanion={initial.altTextCompanion}
                 />
             ) : (
-                <SignedOutScreen
-                    lastEmail={accountEmail || user?.email}
-                    onConnected={( res ) => {
-                        refreshQuota();
-                        setToast( { message: 'Account connected', sub: `Plan: ${ res?.plan || 'free' } · generations ready.`, icon: 'check', tone: 'ok' } );
-                    }}
-                    onToast={setToast}
+                <AuditSignedOutScreen
+                    stats={stats}
+                    onConnect={() => openConnect( 'register' )}
+                    onHelp={() => setHelpOpen( true )}
+                    onLibrary={() => selectTab( 'library' )}
+                    onAutopilot={() => selectTab( 'automation' )}
                 />
             );
             break;
         case 'library':
             body = (
                 <PagesLibrary
-                    plan={plan}
                     quota={quota}
                     connected={connected}
                     onConnect={() => setConnectOpen( true )}
@@ -417,11 +411,9 @@ export default function App() {
         case 'automation':
             body = (
                 <AutopilotScreen
-                    plan={plan}
                     settings={settings}
                     autoOptimise={autoOptimise}
                     onAutoToggle={handleAutoToggle}
-                    onUpgrade={() => setPaywall( { open: true, trigger: 'auto-feature', entitlement: quota } )}
                     onToast={setToast}
                 />
             );
@@ -484,9 +476,7 @@ export default function App() {
                         setSettings( s => ( { ...s, onboarding_complete: true } ) );
                     } catch ( e ) {}
                     setOnboardingOpen( false );
-                    setToast( plan === 'pro'
-                        ? { message: 'Welcome to BeepBeep Titles', sub: 'Autopilot is monitoring your site — continuous optimisation enabled.', icon: 'zap', tone: 'ok' }
-                        : { message: 'Welcome to BeepBeep Titles', sub: 'Your first 5 daily generations are ready.', icon: 'logo', tone: 'ok' } );
+                    setToast( { message: 'Welcome to OpptiAI Titles', sub: 'Your OpptiAI service credits are ready to use.', icon: 'logo', tone: 'ok' } );
                 }}
             />
 
@@ -515,7 +505,6 @@ export default function App() {
             <GenerationDrawer
                 open={drawer.open}
                 pages={drawer.pages}
-                plan={plan}
                 onClose={() => setDrawer( { open: false, pages: null } )}
                 onComplete={completeGen}
                 onPaywall={( trigger, entitlement ) => setPaywall( { open: true, trigger, entitlement } )}

@@ -38,13 +38,13 @@ class Scanner {
         unset( $types['attachment'] );
 
         /**
-         * Filter the post types BeepBeep Titles scans and auto-generates for.
+         * Filter the post types OpptiAI Titles scans and auto-generates for.
          * Single source of truth shared by the scanner, stats, and Autopilot.
          *
          * @param string[] $types Public post-type names (attachment removed).
          */
-        // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- "bbt_" is this plugin's established hook prefix.
-        $types = apply_filters( 'bbt_scanned_post_types', array_values( $types ) );
+        // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- "beepti_" is this plugin's established hook prefix.
+        $types = apply_filters( 'beepti_scanned_post_types', array_values( $types ) );
 
         return array_values( array_filter( array_map( 'strval', (array) $types ) ) );
     }
@@ -79,10 +79,14 @@ class Scanner {
         }
 
         $query = new \WP_Query( $args );
+        $posts = array_values( array_filter(
+            $query->posts,
+            static fn( \WP_Post $post ): bool => current_user_can( 'edit_post', $post->ID )
+        ) );
 
         return [
-            'items' => array_map( [ $this, 'format_post' ], $query->posts ),
-            'total' => $query->found_posts,
+            'items' => array_map( [ $this, 'format_post' ], $posts ),
+            'total' => count( $posts ),
         ];
     }
 
@@ -91,20 +95,20 @@ class Scanner {
     // ----------------------------------------------------------------
 
     public function get_stats(): array {
-        $cached = get_transient( 'bbt_stats' );
+        $cached = get_transient( 'beepti_stats' );
         if ( false !== $cached ) {
             return $cached;
         }
         $stats = $this->compute_stats();
-        set_transient( 'bbt_stats', $stats, 15 * MINUTE_IN_SECONDS );
+        set_transient( 'beepti_stats', $stats, 15 * MINUTE_IN_SECONDS );
         return $stats;
     }
 
     public function scan_and_cache(): array {
-        delete_transient( 'bbt_stats' );
+        delete_transient( 'beepti_stats' );
         $stats = $this->compute_stats();
-        set_transient( 'bbt_stats', $stats, 15 * MINUTE_IN_SECONDS );
-        update_option( 'bbt_last_scan', current_time( 'mysql' ) );
+        set_transient( 'beepti_stats', $stats, 15 * MINUTE_IN_SECONDS );
+        update_option( 'beepti_last_scan', current_time( 'mysql' ) );
 
         // Shape used by the onboarding/scan modal.
         $stats['missing_title'] = $stats['total'] - $stats['with_title'];
@@ -140,7 +144,7 @@ class Scanner {
             'status'      => $status,
             'post_status' => $post->post_status,
             'hue'         => $hue,
-            'traffic'     => (int) get_post_meta( $post->ID, '_bbt_monthly_traffic', true ),
+            'traffic'     => (int) get_post_meta( $post->ID, '_beepti_monthly_traffic', true ),
             'type'        => $post->post_type,
             'is_new'      => strtotime( $post->post_date ) > strtotime( '-7 days' ),
         ];

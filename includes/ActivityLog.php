@@ -15,7 +15,7 @@ defined( 'ABSPATH' ) || exit;
 
 class ActivityLog {
 
-    private const OPTION = 'bbt_activity';
+    private const OPTION = 'beepti_activity';
     private const MAX    = 30;
 
     /** Valid event kinds the UI knows how to render. */

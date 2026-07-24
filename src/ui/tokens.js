@@ -1,5 +1,5 @@
 /**
- * Design tokens — the JS side of the BeepBeep design system.
+ * Design tokens — the JS side of the OpptiAI design system.
  *
  * The CSS custom properties in `index.css` (`:root`) are the source of truth
  * for anything styled in CSS. This module mirrors the subset that JavaScript
@@ -29,7 +29,7 @@ export const COLOR = {
 
 /**
  * Per-plugin feature palette for the shared "Credit usage" card — one entry per
- * BeepBeep AI plugin that draws on the shared wallet. Single source of truth so
+ * OpptiAI plugin that draws on the shared wallet. Single source of truth so
  * Titles, ALT Text, and future plugins render identical colours for the same
  * feature (Titles = blue, ALT Text = green, Schema = amber).
  */

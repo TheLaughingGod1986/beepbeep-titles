@@ -13,14 +13,14 @@ describe( 'navigation gate', () => {
         ] );
     } );
 
-    test( 'shows only Home when signed out', () => {
-        expect( getVisibleTabs( false ).map( tab => tab.id ) ).toEqual( [ 'dashboard' ] );
-    } );
+	test( 'keeps local plugin screens available when signed out', () => {
+		expect( getVisibleTabs( false ).map( tab => tab.id ) ).toEqual( [ 'dashboard', 'library', 'automation', 'settings' ] );
+	} );
 
-    test( 'redirects protected tabs to Home when signed out', () => {
-        expect( resolveAllowedTab( 'library', false ) ).toBe( 'dashboard' );
-        expect( resolveAllowedTab( 'automation', false ) ).toBe( 'dashboard' );
-        expect( resolveAllowedTab( 'settings', false ) ).toBe( 'dashboard' );
+	test( 'allows local plugin tabs when signed out', () => {
+		expect( resolveAllowedTab( 'library', false ) ).toBe( 'library' );
+		expect( resolveAllowedTab( 'automation', false ) ).toBe( 'automation' );
+		expect( resolveAllowedTab( 'settings', false ) ).toBe( 'settings' );
     } );
 
     test( 'allows protected tabs when connected', () => {

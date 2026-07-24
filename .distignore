@@ -21,3 +21,8 @@ screenshot-*.png
 project
 chats
 beepbeep-titles
+jest.config.js
+*.md
+blogs
+social
+outreach

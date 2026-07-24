@@ -18,8 +18,8 @@ const USER = 'admin';
 const PASS = 'password';
 
 const SEO_META_KEYS = [
-	'_bbt_seo_title',
-	'_bbt_meta_description',
+	'_beepti_seo_title',
+	'_beepti_meta_description',
 	'_yoast_wpseo_title',
 	'_yoast_wpseo_metadesc',
 	'rank_math_title',
@@ -110,6 +110,8 @@ async function mockQuotaConnected( page ) {
 				daily_used: 0,
 				monthly_limit: 50,
 				monthly_used: 0,
+				reset_date: '2026-07-01T00:00:00Z',
+				usage_by_feature: { alt_text: 0, title_meta: 0 },
 			} ),
 		} );
 	} );
@@ -122,17 +124,17 @@ async function openPlugin( page ) {
 	} );
 	page.on( 'pageerror', err => errors.push( err.message ) );
 	await page.goto( PLUGIN, { waitUntil: 'networkidle' } );
-	await page.waitForSelector( '#bbt-root', { timeout: 15000 } );
+	await page.waitForSelector( '#beepti-root', { timeout: 15000 } );
 	await page.waitForTimeout( 1500 );
 	return errors;
 }
 
 async function navTab( page, label ) {
-	await page.locator( '#bbt-root nav button', { hasText: label } ).click();
+	await page.locator( '#beepti-root nav button', { hasText: label } ).click();
 }
 
 async function bodyText( page ) {
-	return page.locator( '#bbt-root' ).innerText();
+	return page.locator( '#beepti-root' ).innerText();
 }
 
 async function main() {
@@ -146,16 +148,16 @@ async function main() {
 		// ── 1. Open plugin admin ──
 		await login( page );
 		const errors1 = await openPlugin( page );
-		const loaded = await page.locator( '#bbt-root' ).isVisible();
-		record( '1', loaded, loaded ? 'Plugin admin loaded at #bbt-root' : 'React shell did not render' );
+		const loaded = await page.locator( '#beepti-root' ).isVisible();
+		record( '1', loaded, loaded ? 'Plugin admin loaded at #beepti-root' : 'React shell did not render' );
 
 		// ── 2. License/connect loads without console errors ──
 		const benign = errors1.filter( e => !/favicon|fonts\.googleapis|401 \(Unauthorized\)|Failed to load resource/i.test( e ) );
 		record( '2', benign.length === 0, benign.length ? `Console errors: ${benign.join( ' | ' )}` : 'No console errors on initial load' );
 
 		// ── 4. Existing install without onboarding_complete does not surprise-open ──
-		wp( 'option', 'update', 'bbt_license_key', 'qa-fake-license-invalid' );
-		wp( 'option', 'update', 'bbt_settings', settingsJson( {
+		wp( 'option', 'update', 'beepti_license_key', 'qa-fake-license-invalid' );
+		wp( 'option', 'update', 'beepti_settings', settingsJson( {
 			tone: 'direct',
 			title_length: 'standard',
 			meta_length: 'standard',
@@ -167,7 +169,7 @@ async function main() {
 		record( '4', surprise === 0, surprise ? 'Wizard opened without onboarding_complete key' : 'Wizard stayed closed when flag absent (treated as complete)' );
 
 		// ── 3. Fresh install shows onboarding (connected + onboarding_complete false) ──
-		wp( 'option', 'update', 'bbt_settings', settingsJson( {
+		wp( 'option', 'update', 'beepti_settings', settingsJson( {
 			tone: 'direct',
 			title_length: 'standard',
 			meta_length: 'standard',
@@ -177,16 +179,16 @@ async function main() {
 		await page.goto( PLUGIN, { waitUntil: 'networkidle' } );
 		await page.waitForTimeout( 2500 );
 		const boot = await page.evaluate( () => ( {
-			connected: window.bbtData?.connected,
-			onboarding_complete: window.bbtData?.settings?.onboarding_complete,
+			connected: window.beeptiAdminData?.connected,
+			onboarding_complete: window.beeptiAdminData?.settings?.onboarding_complete,
 		} ) );
 		const onboardingVisible = await page.getByText( 'Welcome to BeepBeep Titles', { exact: false } ).count() > 0;
 		record( '3', onboardingVisible, onboardingVisible
 			? 'Onboarding wizard visible for fresh connected install'
-			: `Wizard not shown (bbtData connected=${boot.connected}, onboarding_complete=${boot.onboarding_complete})` );
+			: `Wizard not shown (beeptiAdminData connected=${boot.connected}, onboarding_complete=${boot.onboarding_complete})` );
 
 		// Dismiss onboarding for remaining checks.
-		wp( 'option', 'update', 'bbt_settings', settingsJson( {
+		wp( 'option', 'update', 'beepti_settings', settingsJson( {
 			tone: 'direct',
 			title_length: 'standard',
 			meta_length: 'standard',
@@ -195,7 +197,7 @@ async function main() {
 		} ), '--format=json' );
 
 		// ── 5. Auto-generate toggle persists after reload ──
-		wp( 'option', 'update', 'bbt_settings', settingsJson( {
+		wp( 'option', 'update', 'beepti_settings', settingsJson( {
 			tone: 'direct',
 			title_length: 'standard',
 			meta_length: 'standard',
@@ -204,14 +206,14 @@ async function main() {
 		} ), '--format=json' );
 		await page.goto( PLUGIN, { waitUntil: 'networkidle' } );
 		await page.waitForTimeout( 1500 );
-		const hydrated = await page.evaluate( () => window.bbtData?.settings?.auto_generate );
-		const settings = JSON.parse( wp( 'option', 'get', 'bbt_settings', '--format=json' ) || '{}' );
+		const hydrated = await page.evaluate( () => window.beeptiAdminData?.settings?.auto_generate );
+		const settings = JSON.parse( wp( 'option', 'get', 'beepti_settings', '--format=json' ) || '{}' );
 		const persisted = settings.auto_generate === true && hydrated === true;
-		record( '5', persisted, persisted ? 'auto_generate=true in DB and bbtData after reload' : `DB=${settings.auto_generate}, bbtData=${hydrated}` );
+		record( '5', persisted, persisted ? 'auto_generate=true in DB and beeptiAdminData after reload' : `DB=${settings.auto_generate}, beeptiAdminData=${hydrated}` );
 
 		// ── 6. Auto-generate with fake license: no SEO meta without backend success ──
-		wp( 'option', 'update', 'bbt_license_key', 'qa-fake-license-invalid' );
-		wp( 'option', 'update', 'bbt_settings', settingsJson( {
+		wp( 'option', 'update', 'beepti_license_key', 'qa-fake-license-invalid' );
+		wp( 'option', 'update', 'beepti_settings', settingsJson( {
 			tone: 'direct',
 			title_length: 'standard',
 			meta_length: 'standard',
@@ -234,7 +236,7 @@ async function main() {
 		const status = wp( 'post', 'get', draftId, '--field=post_status' );
 		const metaAfter = seoMetaSnapshot( draftId );
 		const seoChanges = seoMetaChanged( metaBefore, metaAfter );
-		const notices = wp( 'transient', 'get', 'bbt_admin_notices' );
+		const notices = wp( 'transient', 'get', 'beepti_admin_notices' );
 
 		const published = status === 'publish';
 		const noSeoWrite = seoChanges.length === 0;
@@ -270,11 +272,11 @@ async function main() {
 		record( '8', scheduleGone, scheduleGone ? 'Schedule section removed' : 'Schedule UI still visible' );
 
 		// ── 9. Stripe return URL toasts ──
-		await page.goto( `${PLUGIN}&bbt_billing=success`, { waitUntil: 'networkidle' } );
+		await page.goto( `${PLUGIN}&beepti_billing=success`, { waitUntil: 'networkidle' } );
 		await page.waitForTimeout( 1500 );
 		const successText = await bodyText( page );
 		const successToast = successText.includes( 'Purchase complete' );
-		await page.goto( `${PLUGIN}&bbt_billing=cancelled`, { waitUntil: 'networkidle' } );
+		await page.goto( `${PLUGIN}&beepti_billing=cancelled`, { waitUntil: 'networkidle' } );
 		await page.waitForTimeout( 1500 );
 		const cancelText = await bodyText( page );
 		const cancelToast = cancelText.includes( 'Checkout cancelled' );
@@ -297,7 +299,7 @@ async function main() {
 
 function delete_transient_safe() {
 	try {
-		wp( 'transient', 'delete', 'bbt_admin_notices' );
+		wp( 'transient', 'delete', 'beepti_admin_notices' );
 	} catch {
 		// absent is fine
 	}

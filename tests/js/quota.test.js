@@ -1,11 +1,11 @@
 /**
  * Unit tests for normalizeQuota (src/api.js).
  *
- * src/api.js reads window.bbtData at module load, so it is defined before the
+ * src/api.js reads window.beeptiAdminData at module load, so it is defined before the
  * module is required (jsdom provides `window`).
  */
 
-window.bbtData = {};
+window.beeptiAdminData = {};
 
 const { normalizeQuota } = require( '../../src/api' );
 

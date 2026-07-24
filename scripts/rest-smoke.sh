@@ -4,7 +4,7 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-BASE="${BBT_REST_BASE:-http://localhost:8890/wp-json/beepbeep-titles/v1}"
+BASE="${BEEPTI_REST_BASE:-http://localhost:8890/wp-json/beepbeep-titles/v1}"
 
 echo "== REST PHP lint =="
 while IFS= read -r -d '' file; do

@@ -97,8 +97,10 @@ export const Dashboard = ({ quota, quotaReady, stats, activity, queuePages, auto
 };
 
 const CompanionBanner = ({ companion }) => {
-    const label = companion?.label || 'Add ALT Text';
+    const state = companion?.state || 'missing';
+    const label = companion?.label || ( state === 'missing' ? 'Install ALT Text' : 'Add ALT Text' );
     const url = companion?.url || '';
+    const icon = companion?.icon || ( state === 'active' ? 'external' : state === 'installed' ? 'play' : 'upload' );
     const openCompanion = () => {
         if ( url ) window.location.href = url;
     };
@@ -118,7 +120,7 @@ const CompanionBanner = ({ companion }) => {
                         The same shared credit pool powers <strong style={{ color: 'var(--text)', fontWeight: 600 }}>OpptiAI Alt Text</strong> — generate accessible, SEO-friendly ALT text for your media library. No extra subscription.
                     </div>
                 </div>
-                <Button variant="secondary" size="md" icon="external" onClick={openCompanion} disabled={!url}>{label}</Button>
+                <Button variant="secondary" size="md" icon={icon} onClick={openCompanion} disabled={!url}>{label}</Button>
             </div>
         </Card>
     );

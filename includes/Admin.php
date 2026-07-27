@@ -113,7 +113,8 @@ class Admin {
     // ----------------------------------------------------------------
 
     private function get_alt_text_companion(): array {
-        $basename = 'beepbeep-ai-alt-text-generator/beepbeep-ai-alt-text-generator.php';
+        $slug     = 'beepbeep-ai-alt-text-generator';
+        $basename = $slug . '/' . $slug . '.php';
         if ( ! function_exists( 'is_plugin_active' ) ) {
             require_once ABSPATH . 'wp-admin/includes/plugin.php';
         }
@@ -122,6 +123,7 @@ class Admin {
             return [
                 'state' => 'active',
                 'label' => __( 'Open ALT Text', 'beepbeep-titles' ),
+                'icon'  => 'external',
                 'url'   => admin_url( 'admin.php?page=bbai' ),
             ];
         }
@@ -130,6 +132,7 @@ class Admin {
             return [
                 'state' => 'installed',
                 'label' => __( 'Activate ALT Text', 'beepbeep-titles' ),
+                'icon'  => 'play',
                 'url'   => add_query_arg(
                     [ 'plugin_status' => 'inactive', 's' => 'OpptiAI Alt Text' ],
                     admin_url( 'plugins.php' )
@@ -137,11 +140,16 @@ class Admin {
             ];
         }
 
+        // Not installed — send users to the WP.org install screen (Install Now).
         return [
             'state' => 'missing',
-            'label' => __( 'Add ALT Text', 'beepbeep-titles' ),
+            'label' => __( 'Install ALT Text', 'beepbeep-titles' ),
+            'icon'  => 'upload',
             'url'   => add_query_arg(
-                [ 'tab' => 'search', 's' => 'OpptiAI Alt Text' ],
+                [
+                    'tab'    => 'plugin-information',
+                    'plugin' => $slug,
+                ],
                 admin_url( 'plugin-install.php' )
             ),
         ];

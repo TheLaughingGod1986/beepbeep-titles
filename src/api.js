@@ -241,7 +241,7 @@ export function getInitialData() {
         phpVersion: data.phpVersion ?? '',
         version:    data.version    ?? '',
         siteUrl:    data.siteUrl    ?? ( typeof window !== 'undefined' ? window.location?.origin : '' ),
-        altTextCompanion: data.altTextCompanion ?? { state: 'missing', label: 'Add ALT Text', url: '' },
+        altTextCompanion: data.altTextCompanion ?? { state: 'missing', label: 'Install ALT Text', icon: 'upload', url: '' },
         // Quota is fetched on mount; this is just a neutral placeholder so the
         // first render doesn't crash before /quota resolves.
         quota:     { plan: 'free', connected: data.connected ?? false },

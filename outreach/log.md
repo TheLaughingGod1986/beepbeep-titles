@@ -14,6 +14,35 @@
 ...
 -->
 
+## 2026-07-27
+
+### Last week's items — status (picks from 2026-07-23)
+Profile check ran (config URLs now filled). Verified against WP.org, WP StackExchange, Stack Overflow and Reddit profiles: WP.org feed since Jul 23 shows only plugin SVN commits (no forum replies), no new SE/SO answers, no Reddit alt-text comments → all actionable picks NOT DONE.
+- [not done] Yoast SEO "not seeing alt text for featured images" — no reply. Dropped (~6mo old).
+- [not done] Rank Math "Bulk Upload Alt Text to all images" — no reply. Dropped (9mo old).
+- [not done / carried forward] AI Alt Text Generator "Unable to apply Bulk Action" — STILL OPEN, 0 replies → this week's pick #2.
+- [not done] Photo Gallery 10Web "Alt Text appears RANDOMLY in lightbox" — no reply. Superseded by fresher PhotoSwipe lightbox thread (pick #4).
+- [n/a] SE/SO/Reddit manual scan — done this run.
+
+### Venue access this run
+- All venues crawlable (Reddit + SE/SO + WP.org fetched fine).
+- SE and Stack Overflow are STALE for alt text: newest relevant WP SE Q is Jan 2026 (Beep already answered the top WCAG one w/ disclosed oppti.dev link); newest SO is Jun 2024. Only live disclosed-link venue this week = Reddit.
+
+### This week's picks
+1. Reddit (r/Wordpress, template C, disclosed) — "Bulk copying alt text from media library to existing posts" — https://www.reddit.com/r/Wordpress/comments/1tlo566/bulk_copying_alt_text_from_media_library_to/ — 9,000+ image site stuck on the snapshot problem; answer-first + offer WP-CLI snippet.
+2. WP.org (AI Alt Text Generator forum, template A, NO link) — "Unable to apply Bulk Action: Generate Alt Text" — https://wordpress.org/support/topic/unable-to-apply-bulk-action-generate-alt-text-in-wp-admin-media-library/ — carried fwd, still 0 replies; generic bulk-action troubleshooting.
+3. WP.org (Events Manager, template A, NO link) — "Alt text will be replaced" — https://wordpress.org/support/topic/alt-text-will-be-replaced/ — fresh (Jul 13), 0 replies; auto-fill vs storage overwrite.
+4. WP.org (PhotoSwipe Lightbox, template A, NO link) — "No Alt Text on Lightbox image" — https://wordpress.org/support/topic/no-alt-text-on-lightbox-image/ — Jun 25, 1 reply; Media Library vs DOM markup.
+5. WP.org (Media Library Organizer, template A, NO link) — "Deleting Alt Text Doesn't Save Properly" — https://wordpress.org/support/topic/deleting-alt-text-doesnt-save-properly/ — Jun 2, unresolved; postmeta/cache diagnosis.
+
+### Competitor signals
+- AltText.ai (priority): forum quiet (freshest "WPML disabled languages" ~4mo). Feb 2026 crash cluster (1.10.25/1.10.26) + "requires a PAID account" gripe + standing Bulk/AVIF/SVG requests unresolved → switching moment.
+- AI Alt Text Generator: two fresh unanswered open threads (bulk-action bug ~Jul 16; "exclude words" ~Jul 10) + WP-CLI request. Author slow; users want reliable bulk + control.
+- New entrant neoRename (AI Media Renamer): pushing "Free AI generations of alt text" announcements (Jul 11 + Jul 18) on the alt-text tag — free-tier land grab. ShortPixel roundup unchanged.
+
+### Suggested blog topic
+- "WordPress alt text won't update in old posts? The Media-Library snapshot problem (and how to bulk-fix it)" — the recurring theme across all 5 threads. Draft via beepbeep-blog-writer.
+
 ## 2026-07-23 (first run)
 
 ### Last week's items — status

@@ -8,7 +8,7 @@ import { BillingScreen } from './screens/Billing';
 import { SettingsScreen } from './screens/Settings';
 import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal, ConnectModal } from './modals/index';
 import { SignOutConfirm } from './auth';
-import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, createCheckout, createBillingPortal, clearLicense, saveSettings, fetchHealth, fetchPriorities, fetchHealthItems, runHealthScan } from './api';
+import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, createCheckout, createBillingPortal, clearLicense, saveSettings, fetchSettings, fetchHealth, fetchPriorities, fetchHealthItems, runHealthScan } from './api';
 import { paywallTrigger, errorToast, checkoutErrorToast } from './errors';
 import { hasDailyCap } from './quota';
 import { usePaywallGate } from './hooks/usePaywallGate';
@@ -101,6 +101,7 @@ export default function App() {
         loadActivity();
         loadHealth();
         loadPriorities();
+        loadSettings();
 
         // Returning from Stripe checkout?
         const params  = new URLSearchParams( window.location.search );
@@ -222,6 +223,26 @@ export default function App() {
         }
     };
 
+    /** Pulls available_post_types (and any other server-computed fields) into local settings state. */
+    const loadSettings = async () => {
+        try {
+            const res = await fetchSettings();
+            setSettings( s => ( { ...s, ...res } ) );
+        } catch ( e ) {
+            // Keep whatever settings we already have (from initial PHP data).
+        }
+    };
+
+    /** Onboarding's "choose what to scan" step — persists before the first scan runs. */
+    const handleSaveScanScope = async ( postTypes ) => {
+        try {
+            await saveSettings( { scan_post_types: postTypes } );
+            setSettings( s => ( { ...s, scan_post_types: postTypes } ) );
+        } catch ( e ) {
+            // Non-fatal — the scan still runs against every post type.
+        }
+    };
+
     const loadPriorities = async () => {
         try {
             // Fetch every issue group the backend will return (capped at 10)
@@ -247,9 +268,20 @@ export default function App() {
     /** Full scan: coverage stats + health score together (the existing "Run Full Scan" path). */
     const handleFullScan = async () => {
         const result = await handleScan();
-        await loadHealth();
-        await loadPriorities();
+        loadHealth();
+        loadPriorities();
         return result;
+    };
+
+    /**
+     * Onboarding's "Run My Free Health Check" — deliberately lighter than
+     * handleFullScan: only the two calls the results screen needs (score +
+     * issue count), not the whole library/activity/queue reload.
+     */
+    const handleOnboardingScan = async () => {
+        const scan = await runHealthScan();
+        loadPriorities();
+        return { health: scan };
     };
 
     /** Pull up to `limit` affected items for one issue code, for an expanded Priority card. */
@@ -575,7 +607,9 @@ export default function App() {
             <Onboarding
                 open={onboardingOpen}
                 onClose={() => setOnboardingOpen( false )}
-                onScan={handleScan}
+                onScan={handleOnboardingScan}
+                availablePostTypes={settings?.available_post_types || []}
+                onSaveScanScope={handleSaveScanScope}
                 onComplete={async () => {
                     try {
                         await saveSettings( { onboarding_complete: true } );

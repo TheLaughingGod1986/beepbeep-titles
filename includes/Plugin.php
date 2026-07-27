@@ -31,6 +31,19 @@ class Plugin {
         Module_Registry::register( 'titles', BEEPTI_SLUG . '/' . basename( BEEPTI_FILE ), admin_url( 'admin.php?page=beepbeep-titles' ), BEEPTI_PLUGIN_TITLE );
         Module_Report::expose( 'titles', BEEPTI_PLUGIN_TITLE );
 
+        // Narrow scanning to the post types chosen on the onboarding "what to
+        // scan" step / Settings screen. An empty selection (the default)
+        // scans every public post type — never narrows to nothing.
+        add_filter( 'beepti_scanned_post_types', static function ( array $types ): array {
+            $settings   = get_option( 'beepti_settings', [] );
+            $chosen     = is_array( $settings['scan_post_types'] ?? null ) ? $settings['scan_post_types'] : [];
+            if ( empty( $chosen ) ) {
+                return $types;
+            }
+            $narrowed = array_values( array_intersect( $types, $chosen ) );
+            return empty( $narrowed ) ? $types : $narrowed;
+        } );
+
         // When no SEO plugin owns the head, emit our generated title + meta.
         if ( MetaWriter::active() === 'fallback' ) {
             MetaWriter::register_fallback_filters();

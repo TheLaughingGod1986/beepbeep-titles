@@ -118,6 +118,16 @@ class PagesController {
         $settings               = SettingsSanitizer::normalize_settings( $settings );
         $settings['seo_plugin'] = MetaWriter::active();
         $settings['connected']  = $this->client->has_license();
+        $settings['available_post_types'] = array_map(
+            static function ( string $slug ): array {
+                $object = get_post_type_object( $slug );
+                return [
+                    'slug'  => $slug,
+                    'label' => $object ? $object->labels->name : ucfirst( $slug ),
+                ];
+            },
+            Scanner::all_public_post_types()
+        );
         return new \WP_REST_Response( $settings );
     }
 

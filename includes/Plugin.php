@@ -14,6 +14,9 @@ namespace BeepBeep_Titles;
 
 use BeepBeep_Titles\Api\Client;
 use BeepBeep_Titles\Seo\MetaWriter;
+use OptiAI\Core\Module_Registry;
+use OptiAI\Core\Module_Report;
+use OptiAI\Core\Scan\Schema;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -22,6 +25,11 @@ class Plugin {
     public function init(): void {
         ( new Admin( $this ) )->init();
         ( new RestApi( $this ) )->init();
+
+        // Let sibling OptiAI plugins (and, later, a shared Hub) detect this
+        // module the same way this plugin already detects Alt Text.
+        Module_Registry::register( 'titles', BEEPTI_SLUG . '/' . basename( BEEPTI_FILE ), admin_url( 'admin.php?page=beepbeep-titles' ), BEEPTI_PLUGIN_TITLE );
+        Module_Report::expose( 'titles', BEEPTI_PLUGIN_TITLE );
 
         // When no SEO plugin owns the head, emit our generated title + meta.
         if ( MetaWriter::active() === 'fallback' ) {
@@ -54,6 +62,11 @@ class Plugin {
     public static function activate(): void {
         self::set_defaults();
         self::drop_legacy_table();
+
+        // Shared OptiAI scan-storage tables — safe to call even if a sibling
+        // OptiAI plugin already created them (dbDelta reconciles, it does
+        // not fail on "already exists").
+        Schema::install();
 
         // Establish stable identity + detect the SEO plugin once.
         $client = new Client();

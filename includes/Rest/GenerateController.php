@@ -10,6 +10,7 @@ namespace BeepBeep_Titles\Rest;
 use BeepBeep_Titles\ActivityLog;
 use BeepBeep_Titles\Api\Client;
 use BeepBeep_Titles\PostPresenter;
+use BeepBeep_Titles\Scoring\Metadata_Scoring_Engine;
 use BeepBeep_Titles\Seo\MetaWriter;
 
 defined( 'ABSPATH' ) || exit;
@@ -43,6 +44,9 @@ class GenerateController {
         MetaWriter::write( $post->ID, $title, $meta );
         ActivityLog::record( $post->ID, 'generated' );
         $this->bust_stats();
+        // Refresh the local health score so the dashboard shows the
+        // improvement immediately — free, no credits used.
+        ( new Metadata_Scoring_Engine() )->run();
 
         $result['wp_post_id'] = $post->ID;
         return new \WP_REST_Response( $result, 200 );
@@ -127,9 +131,14 @@ class GenerateController {
             $this->bust_stats();
         }
 
-        // Clean up the mapping once the job is terminal.
+        // Clean up the mapping once the job is terminal, and refresh the
+        // local health score exactly once (not on every poll tick) so the
+        // dashboard's "before / after" celebration reflects the new scores.
         if ( in_array( $result['status'] ?? '', [ 'completed', 'failed' ], true ) ) {
             delete_transient( 'beepti_job_' . $job_id );
+            if ( $wrote ) {
+                ( new Metadata_Scoring_Engine() )->run();
+            }
         }
 
         return new \WP_REST_Response( $result, 200 );

@@ -10,6 +10,7 @@ namespace BeepBeep_Titles\Rest;
 use BeepBeep_Titles\ActivityLog;
 use BeepBeep_Titles\Api\Client;
 use BeepBeep_Titles\Scanner;
+use BeepBeep_Titles\Scoring\Metadata_Scoring_Engine;
 use BeepBeep_Titles\Seo\MetaWriter;
 use BeepBeep_Titles\SettingsSanitizer;
 
@@ -104,7 +105,11 @@ class PagesController {
     }
 
     public function run_scan( \WP_REST_Request $req ): \WP_REST_Response {
-        return new \WP_REST_Response( ( new Scanner() )->scan_and_cache() );
+        $stats  = ( new Scanner() )->scan_and_cache();
+        // Free, local health scoring runs alongside the coverage scan — no
+        // AI credits are used for this, only for the optimise step later.
+        $health = ( new Metadata_Scoring_Engine() )->run();
+        return new \WP_REST_Response( array_merge( $stats, [ 'health' => $health ] ) );
     }
 
     public function get_settings( \WP_REST_Request $req ): \WP_REST_Response {

@@ -117,9 +117,9 @@ export const PagesLibrary = ({ quota, connected = true, onConnect, onGenerate, o
         <PageShell>
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 20, gap: 24 }}>
                 <div>
-                    <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>Library</div>
-                    <h1 style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em', margin: 0 }}>All your content in one view</h1>
-                    <p style={{ fontSize: 13, color: 'var(--text-2)', margin: '4px 0 0' }}>Review titles and meta descriptions across pages, posts, and more.</p>
+                    <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>Advanced Library</div>
+                    <h1 style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em', margin: 0 }}>Every scanned page, in one table</h1>
+                    <p style={{ fontSize: 13, color: 'var(--text-2)', margin: '4px 0 0' }}>Advanced filtering, bulk editing, and manual review — most day-to-day work happens on the Dashboard.</p>
                 </div>
                 <Button variant="secondary" size="md" icon="refresh" onClick={handleScan} disabled={scanning}>
                     {scanning ? 'Scanning…' : 'Re-crawl'}
@@ -291,14 +291,14 @@ const PageRow = ({ pg, selected, onToggle, onGenerate, onEdit, justSaved, genera
             <div style={{ textAlign: 'right' }}>
                 {!isOk ? (
                     generationUnavailable ? (
-                        <span title="AI generation requires a connected OpptiAI service account with available credits">
+                        <span title="AI optimisation requires a connected OptiAI service account with available credits">
                             <Button variant="secondary" size="sm" icon="external" onClick={onServiceAction} style={{ color: 'var(--text-3)' }}>
-                                Generate
+                                Optimise
                             </Button>
                         </span>
                     ) : (
                         <Button variant={hover ? 'primary' : 'secondary'} size="sm" icon="sparkles" onClick={onGenerate}>
-                            Generate
+                            Optimise
                         </Button>
                     )
                 ) : (
@@ -449,7 +449,7 @@ const BulkActionBar = ({ count, allowed = 0, overLimit, generationUnavailable, s
         ) : overLimit ? (
             <div style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
                 <button onClick={onOptimise} style={{ background: 'rgba(255,255,255,0.12)', color: '#fff', border: '1px solid rgba(255,255,255,0.18)', padding: '7px 12px', borderRadius: 'var(--r-md)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    <Icon name="sparkles" size={13}/> Generate first {allowed}
+                    <Icon name="sparkles" size={13}/> Optimise first {allowed}
                 </button>
                 <button onClick={onUpgrade} style={{ background: '#fff', color: 'var(--text)', border: 'none', padding: '7px 14px', borderRadius: 'var(--r-md)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                     <Icon name="crown" size={13}/> Get service credits
@@ -457,7 +457,7 @@ const BulkActionBar = ({ count, allowed = 0, overLimit, generationUnavailable, s
             </div>
         ) : (
             <button onClick={onOptimise} style={{ background: '#fff', color: 'var(--text)', border: 'none', padding: '7px 14px', borderRadius: 'var(--r-md)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <Icon name="sparkles" size={13}/> Generate {count}
+                <Icon name="sparkles" size={13}/> Optimise Selected ({count})
             </button>
         )}
     </div>

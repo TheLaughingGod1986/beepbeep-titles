@@ -208,6 +208,26 @@ export async function runScan() {
     return request( 'POST', '/scan' );
 }
 
+// ── Health (dashboard-first score, priorities, item drill-down) ────
+// All free/local — nothing here touches AI credits.
+export async function fetchHealth() {
+    return request( 'GET', '/health' );
+}
+
+export async function fetchPriorities( { limit = 5 } = {} ) {
+    return request( 'GET', `/health/priorities?limit=${ encodeURIComponent( limit ) }` );
+}
+
+export async function fetchHealthItems( { status = '', issue = '', sort = 'lowest-score', page = 1, perPage = 20 } = {} ) {
+    const qs = new URLSearchParams( { status, issue, sort, page: String( page ), per_page: String( perPage ) } );
+    return request( 'GET', `/health/items?${ qs }` );
+}
+
+/** Free, local rescan — recomputes every page's score without spending credits. */
+export async function runHealthScan() {
+    return request( 'POST', '/health/scan' );
+}
+
 // ── Support (contact form) ──────────────────────────────────────────
 /**
  * Send a support message. The backend auto-attaches diagnostics + the recent

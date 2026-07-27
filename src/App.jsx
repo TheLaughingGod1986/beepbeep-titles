@@ -8,7 +8,7 @@ import { BillingScreen } from './screens/Billing';
 import { SettingsScreen } from './screens/Settings';
 import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal, ConnectModal } from './modals/index';
 import { SignOutConfirm } from './auth';
-import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, createCheckout, createBillingPortal, clearLicense, saveSettings } from './api';
+import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, createCheckout, createBillingPortal, clearLicense, saveSettings, fetchHealth, fetchPriorities, fetchHealthItems, runHealthScan } from './api';
 import { paywallTrigger, errorToast, checkoutErrorToast } from './errors';
 import { hasDailyCap } from './quota';
 import { usePaywallGate } from './hooks/usePaywallGate';
@@ -48,6 +48,10 @@ export default function App() {
     const [quotaReady, setQuotaReady] = useState( false );
     const [activity, setActivity] = useState( [] );
     const [queuePages, setQueuePages] = useState( [] );
+    const [health, setHealth] = useState( null );
+    const [healthReady, setHealthReady] = useState( false );
+    const [priorities, setPriorities] = useState( [] );
+    const [previousScore, setPreviousScore] = useState( null );
     const [autoOptimise, setAutoOptimise] = useState( initial.settings?.auto_generate ?? false );
     const [connected, setConnected] = useState( initial.connected );
 
@@ -95,6 +99,8 @@ export default function App() {
         loadQueuePages();
         loadStats();
         loadActivity();
+        loadHealth();
+        loadPriorities();
 
         // Returning from Stripe checkout?
         const params  = new URLSearchParams( window.location.search );
@@ -201,6 +207,89 @@ export default function App() {
         }
     };
 
+    // ── Health (dashboard-first score + Today's Priorities) ──
+    const loadHealth = async () => {
+        try {
+            const res = await fetchHealth();
+            setHealth( prev => {
+                if ( prev && prev.score !== res.score ) setPreviousScore( prev.score );
+                return res;
+            } );
+        } catch ( e ) {
+            // Keep the last known score rather than flashing to zero.
+        } finally {
+            setHealthReady( true );
+        }
+    };
+
+    const loadPriorities = async () => {
+        try {
+            // Fetch every issue group the backend will return (capped at 10)
+            // so the Summary Cards can look up specific codes without a
+            // second request; the Priority Action Centre + Today's
+            // Priorities banner only render the top few of these.
+            const res = await fetchPriorities( { limit: 10 } );
+            setPriorities( res.priorities || [] );
+        } catch ( e ) {
+            setPriorities( [] );
+        }
+    };
+
+    /** Free, local rescore — no credits used. Used by Quick Scan. */
+    const handleQuickScan = async () => {
+        try {
+            await runHealthScan();
+        } catch ( e ) { /* fall through to refresh with whatever we have */ }
+        await loadHealth();
+        await loadPriorities();
+    };
+
+    /** Full scan: coverage stats + health score together (the existing "Run Full Scan" path). */
+    const handleFullScan = async () => {
+        const result = await handleScan();
+        await loadHealth();
+        await loadPriorities();
+        return result;
+    };
+
+    /** Pull up to `limit` affected items for one issue code, for an expanded Priority card. */
+    const loadIssueItems = async ( issueCode, { limit = 50 } = {} ) => {
+        try {
+            const res = await fetchHealthItems( { issue: issueCode, sort: 'lowest-score', perPage: limit } );
+            return res.items || [];
+        } catch ( e ) {
+            return [];
+        }
+    };
+
+    /** "Optimise All" on a Priority card — queue every affected item into the existing credit-consuming generation flow. */
+    const handleOptimiseIssue = async ( issueCode ) => {
+        const items = await loadIssueItems( issueCode, { limit: 100 } );
+        const pages = items.map( ( item ) => ( {
+            id: Number( item.site_item_id ),
+            url: item.edit_url || '',
+            title: item.post_title || '',
+            hue: ( Number( item.site_item_id ) * 47 ) % 360,
+        } ) );
+        openBulk( pages );
+    };
+
+    /** "Optimise Critical Issues" hero button — every item currently scored critical. */
+    const handleOptimiseCritical = async () => {
+        try {
+            const res = await fetchHealthItems( { status: 'critical', sort: 'lowest-score', perPage: 100 } );
+            const pages = ( res.items || [] ).map( ( item ) => ( {
+                id: Number( item.site_item_id ),
+                url: item.edit_url || '',
+                title: item.post_title || '',
+                hue: ( Number( item.site_item_id ) * 47 ) % 360,
+            } ) );
+            openBulk( pages );
+        } catch ( e ) {
+            handleApiError( e );
+        }
+    };
+
     // ── Error → paywall / toast ──
     const handleApiError = ( err ) => {
         if ( err?.name === 'AbortError' ) return;
@@ -271,6 +360,8 @@ export default function App() {
         loadQueuePages();
         loadStats();
         loadActivity();
+        loadHealth();
+        loadPriorities();
         refreshQuota();
     };
 
@@ -385,6 +476,21 @@ export default function App() {
                     onUpgrade={() => setPaywall( { open: true, trigger: 'default', entitlement: null } )}
                     onView={selectTab}
                     altTextCompanion={initial.altTextCompanion}
+                    health={health}
+                    healthReady={healthReady}
+                    previousScore={previousScore}
+                    priorities={priorities}
+                    onQuickScan={handleQuickScan}
+                    onFullScan={handleFullScan}
+                    onOptimiseCritical={handleOptimiseCritical}
+                    onOptimiseIssue={handleOptimiseIssue}
+                    onLoadIssueItems={loadIssueItems}
+                    onOptimiseSingleItem={( item ) => openGenSingle( {
+                        id: Number( item.site_item_id ),
+                        url: item.edit_url || '',
+                        title: item.post_title || '',
+                        hue: ( Number( item.site_item_id ) * 47 ) % 360,
+                    } )}
                 />
             ) : (
                 <AuditSignedOutScreen

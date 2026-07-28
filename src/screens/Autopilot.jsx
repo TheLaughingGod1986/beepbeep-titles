@@ -3,11 +3,16 @@ import { Icon, Card, Pill, Button, Divider, Toggle, SerpPreview } from '../compo
 import { PageShell, Row, Stack } from '../ui';
 import { saveSettings } from '../api';
 
+// Sample copy is deliberately longer than the largest length tier (65 chars
+// for title, 170 for meta) for every preset. Shorter samples never get
+// trimmed by trimToChars() regardless of which length option is selected, so
+// switching Compact/Standard/Rich (or Brief/Standard/Detailed) would look
+// like it does nothing in the preview below.
 const PRESETS = [
-    { id: 'direct',        label: 'Direct',        desc: 'Plain, factual phrasing. Best for utility pages, docs, support.',                     sampleTitle: 'Cappuccino & Latte Art Tutorials | My Site',                                  sampleMeta: 'Learn cappuccino, latte, and macchiato techniques. Step-by-step guides, photos, and short videos for any home espresso machine.' },
-    { id: 'benefit',       label: 'Benefit-led',   desc: 'Leads with the outcome. Higher click-through on commercial pages.',                    sampleTitle: 'Make Cafe-Quality Cappuccino at Home in 6 Minutes',                           sampleMeta: 'Stop paying $6 a cup. Our barista-tested method gets you silky foam and balanced espresso every morning.' },
-    { id: 'authoritative', label: 'Authoritative', desc: 'Credibility signals. Good for guides, cornerstone content, longform.',                sampleTitle: 'The Complete Guide to Cappuccino Latte Art (2026)',                            sampleMeta: 'From milk temperature to free pours — the definitive cappuccino guide trusted by thousands. Written by expert trainers, updated for 2026.' },
-    { id: 'conversational',label: 'Conversational',desc: 'Friendly and human. Lowers click-friction on blog content.',                          sampleTitle: 'Cappuccino, but actually good — at home',                                     sampleMeta: 'We\'ve spent years tuning coffee for our site. Here\'s everything we\'d tell a friend about getting started. No gatekeeping.' },
+    { id: 'direct',        label: 'Direct',        desc: 'Plain, factual phrasing. Best for utility pages, docs, support.',                     sampleTitle: 'Cappuccino, Latte & Macchiato Brewing Techniques and Tutorials | My Site',                                  sampleMeta: 'Learn cappuccino, latte, and macchiato brewing techniques with our free step-by-step tutorials, high-resolution photos, and short videos for any home espresso machine or milk frother setup.' },
+    { id: 'benefit',       label: 'Benefit-led',   desc: 'Leads with the outcome. Higher click-through on commercial pages.',                    sampleTitle: 'Make Cafe-Quality Cappuccino, Latte and Macchiato At Home in Minutes',                           sampleMeta: 'Stop paying $6 a cup for coffee. Our barista-tested method gets you silky microfoam and perfectly balanced espresso shots every single morning, using gear you probably already own at home.' },
+    { id: 'authoritative', label: 'Authoritative', desc: 'Credibility signals. Good for guides, cornerstone content, longform.',                sampleTitle: 'The Complete Guide to Cappuccino, Latte and Macchiato Art (2026 Edition)',                            sampleMeta: 'From milk temperature to free pours — this is the definitive cappuccino and latte art guide trusted by thousands of home baristas, written and fact-checked by expert coffee trainers.' },
+    { id: 'conversational',label: 'Conversational',desc: 'Friendly and human. Lowers click-friction on blog content.',                          sampleTitle: 'Cappuccino, Latte and Macchiato, But Actually Good — Right At Home',                                     sampleMeta: 'We\'ve spent years dialing in coffee for our own kitchen, and honestly made every mistake along the way. Here\'s everything we\'d tell a friend about getting started, no gatekeeping.' },
 ];
 
 const TITLE_LENGTHS = [

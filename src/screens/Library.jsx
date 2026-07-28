@@ -162,7 +162,12 @@ export const PagesLibrary = ({ quota, connected = true, onConnect, onGenerate, o
                 </div>
             </div>
 
-            <Card padding={0} style={{ marginTop: 14, overflow: 'hidden' }}>
+            <Card padding={0} style={{ marginTop: 14, overflow: 'hidden', position: 'relative' }}>
+                {loading && pages.length > 0 && (
+                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, overflow: 'hidden', zIndex: 1 }}>
+                        <div className="beepti-lib-refresh-bar" style={{ height: '100%', width: '40%', background: 'var(--primary)' }}/>
+                    </div>
+                )}
                 <div style={{ display: 'grid', gridTemplateColumns: '32px 44px 1.5fr 1.4fr 130px 110px', padding: '10px 18px', gap: 14, alignItems: 'center', borderBottom: '1px solid var(--hairline)', fontSize: 10.5, fontWeight: 600, color: 'var(--text-3)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                     <Checkbox checked={selected.size === pages.length && pages.length > 0} indeterminate={selected.size > 0 && selected.size < pages.length} onChange={toggleAll} label="Select all"/>
                     <span/>
@@ -173,7 +178,7 @@ export const PagesLibrary = ({ quota, connected = true, onConnect, onGenerate, o
                 </div>
 
                 <div style={{ maxHeight: 620, overflowY: 'auto' }}>
-                    {loading ? (
+                    {loading && pages.length === 0 ? (
                         <div style={{ padding: '48px 20px', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>
                             <span className="pulse-dot" style={{ display: 'inline-block', marginRight: 8 }}/>
                             Loading…

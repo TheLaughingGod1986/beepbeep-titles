@@ -576,18 +576,6 @@ export default function App() {
                 />
             );
             break;
-        case 'library':
-            body = (
-                <PagesLibrary
-                    quota={quota}
-                    connected={connected}
-                    onConnect={() => setConnectOpen( true )}
-                    onGenerate={openGenSingle}
-                    onBulkGenerate={openBulk}
-                    onUpgrade={() => setPaywall( { open: true, trigger: 'bulk', entitlement: quota } )}
-                />
-            );
-            break;
         case 'automation':
             body = (
                 <AutopilotScreen
@@ -644,6 +632,25 @@ export default function App() {
                 onUpgrade={() => setPaywall( { open: true, trigger: 'default', entitlement: null } )}
             >
                 {body}
+                {/*
+                 * Kept mounted (not swapped in/out via the switch above) and
+                 * hidden with CSS rather than unmounted, for two reasons:
+                 *  1. It starts fetching as soon as the app loads, in parallel
+                 *     with the dashboard's own bootstrap calls, so by the time
+                 *     someone clicks the tab the list is often already there.
+                 *  2. Once loaded, switching away and back is instant — no
+                 *     more re-fetch + blank "Loading…" flash on every visit.
+                 */}
+                <div style={{ display: tab === 'library' ? 'block' : 'none' }}>
+                    <PagesLibrary
+                        quota={quota}
+                        connected={connected}
+                        onConnect={() => setConnectOpen( true )}
+                        onGenerate={openGenSingle}
+                        onBulkGenerate={openBulk}
+                        onUpgrade={() => setPaywall( { open: true, trigger: 'bulk', entitlement: quota } )}
+                    />
+                </div>
             </WPChrome>
 
             <Onboarding

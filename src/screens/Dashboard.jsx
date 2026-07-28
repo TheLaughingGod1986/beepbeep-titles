@@ -26,63 +26,152 @@ const useCountUp = ( target, { duration = 900, decimals = 0 } = {} ) => {
     return value;
 };
 
-export const Dashboard = ({ quota, quotaReady, stats, activity, queuePages, autoOptimise, onAutoToggle, onGenerate, onUpgrade, onView, altTextCompanion }) => {
+/** Score band -> Ring/Pill tone shared across every card on this screen. */
+const toneForStatus = ( status ) => {
+    switch ( status ) {
+        case 'excellent': return 'ok';
+        case 'good': return 'ok';
+        case 'fair': return 'warn';
+        case 'needs-improvement': return 'warn';
+        case 'critical': return 'danger';
+        default: return 'primary';
+    }
+};
+
+const SEVERITY_DOT = {
+    critical: '\u{1F534}',    // red circle
+    warning: '\u{1F7E0}',     // orange circle
+    review: '\u{1F7E1}',      // yellow circle
+    information: '\u26AA',    // white circle
+};
+
+/** Turn a machine issue code + count into the action-driven copy the spec asks for. */
+const actionCopy = ( issue ) => {
+    const count = issue.count;
+    const plural = count === 1 ? '' : 's';
+    switch ( issue.code ) {
+        case 'missing_title':
+            return `Fix ${count} missing title${plural}`;
+        case 'missing_description':
+            return `Fix ${count} missing description${plural}`;
+        case 'duplicate_title':
+            return `Improve ${count} duplicate title${plural}`;
+        case 'duplicate_description':
+            return `Improve ${count} duplicate description${plural}`;
+        case 'title_too_short':
+        case 'title_too_long':
+            return `Improve ${count} title${plural} that may be truncated`;
+        case 'description_too_short':
+        case 'description_too_long':
+            return `Improve ${count} description${plural} that may be truncated`;
+        case 'generic_title':
+            return `Improve ${count} generic title${plural}`;
+        case 'generic_description':
+            return `Improve ${count} generic description${plural}`;
+        case 'excessive_punctuation':
+            return `Review ${count} title${plural} with heavy punctuation`;
+        case 'repeated_words':
+        case 'description_repetition':
+            return `Review ${count} item${plural} with repeated words`;
+        case 'unresolved_placeholder':
+            return `Fix ${count} broken placeholder${plural}`;
+        default:
+            return `Improve ${count} item${plural}`;
+    }
+};
+
+const ISSUE_TITLES = {
+    missing_title: 'Missing SEO title',
+    missing_description: 'Missing meta description',
+    duplicate_title: 'Duplicate titles',
+    duplicate_description: 'Duplicate meta descriptions',
+    title_too_short: 'Titles too short',
+    title_too_long: 'Titles may be truncated',
+    description_too_short: 'Descriptions too short',
+    description_too_long: 'Descriptions may be truncated',
+    generic_title: 'Generic titles',
+    generic_description: 'Generic descriptions',
+    excessive_punctuation: 'Heavy punctuation in titles',
+    repeated_words: 'Repeated words in titles',
+    description_repetition: 'Repeated words in descriptions',
+    unresolved_placeholder: 'Unresolved placeholders',
+};
+
+export const Dashboard = ({
+    quota, quotaReady, stats, activity, queuePages, autoOptimise, onAutoToggle, onGenerate, onUpgrade, onView, altTextCompanion, internalLinkingCompanion,
+    health, healthReady, previousScore, priorities, aeo,
+    onQuickScan, onFullScan, onOptimiseCritical, onOptimiseIssue, onLoadIssueItems, onOptimiseSingleItem, onUndo,
+}) => {
     const dailyUsed = quota?.daily_used || 0;
     const dailyLimit = quota?.daily_limit || QUOTA_DEFAULTS.daily_limit;
     const monthlyUsed = quota?.monthly_used || 0;
     const monthlyLimit = quota?.monthly_limit || QUOTA_DEFAULTS.monthly_limit;
     const hasDailyLimit  = ( quota?.daily_limit ?? null ) !== null; // backend has no daily cap on the shared wallet
     const monthlyRemaining = Math.max( 0, monthlyLimit - monthlyUsed );
-    // Without a daily cap, what's "left today" is simply the monthly credits.
     const dailyRemaining = hasDailyLimit ? ( quota?.daily_remaining ?? ( dailyLimit - dailyUsed ) ) : monthlyRemaining;
+    const creditsRemaining = hasDailyLimit ? dailyRemaining : monthlyRemaining;
     const streak = stats?.streak || 0;
 
     const total      = stats?.total      || 0;
     const optimised  = stats?.optimised  || 0;
-    const coverage   = total > 0 ? Math.round( ( optimised / total ) * 100 ) : 0;
-    const needsAttn  = stats?.needs_attention || 0;
     const newSince   = stats?.new_since_last_visit || 0;
 
-    const coverageTone = coverage >= 90 ? 'ok' : coverage >= 50 ? 'warn' : 'primary';
-    const totalGenerated = optimised;
-    const minutesSaved = Math.round( ( totalGenerated * 55 ) / 60 );
-    const hoursSaved = ( minutesSaved / 60 ).toFixed( 1 );
-    const nextMilestone = Math.min( 100, Math.ceil( ( coverage + 1 ) / 15 ) * 15 );
-    const projectionTarget = coverage >= 75 ? 95 : 75;
-    const weeksToTarget = Math.max( 1, Math.round( ( projectionTarget - coverage ) / 8.4 ) );
+    const topPriorities = ( priorities || [] ).slice( 0, 5 );
 
     return (
         <PageShell style={{ paddingTop: 24, paddingBottom: 48 }}>
-            <TodaysPassHero
-                ready={quotaReady && stats != null}
-                queuePages={queuePages}
-                dailyUsed={dailyUsed}
-                dailyLimit={dailyLimit}
-                dailyRemaining={dailyRemaining}
-                hasDailyLimit={hasDailyLimit}
-                monthlyRemaining={monthlyRemaining}
-                newSince={newSince}
-                needsAttn={needsAttn}
-                onGenerate={onGenerate}
-                onUpgrade={onUpgrade}
+            <TodaysPriorities
+                ready={healthReady}
+                priorities={topPriorities.slice( 0, 3 )}
+                estimatedGain={health?.score != null ? Math.min( 100 - health.score, topPriorities.slice( 0, 3 ).reduce( ( sum, p ) => sum + p.estimated_gain, 0 ) ) : 0}
+                onReview={() => onView && onView( 'library' )}
+            />
+
+            <HeroScoreCard
+                ready={healthReady}
+                health={health}
+                previousScore={previousScore}
+                creditsRemaining={creditsRemaining}
+                onQuickScan={onQuickScan}
+                onFullScan={onFullScan}
+                onOptimiseCritical={onOptimiseCritical}
+            />
+
+            <SummaryCardsRow ready={healthReady} health={health} priorities={priorities || []} aeo={aeo}/>
+
+            <PriorityActionCentre
+                ready={healthReady}
+                priorities={topPriorities}
+                onOptimiseIssue={onOptimiseIssue}
+                onLoadIssueItems={onLoadIssueItems}
+                onOptimiseSingleItem={onOptimiseSingleItem}
+                onViewAll={() => onView && onView( 'library' )}
             />
 
             <div style={{ display: 'grid', gridTemplateColumns: '1.25fr 1fr', gap: 14, marginTop: 20, alignItems: 'stretch' }}>
-                <LibraryHealthCard
-                    coverage={coverage}
-                    tone={coverageTone}
-                    nextMilestone={nextMilestone}
-                    hoursSaved={hoursSaved}
-                    totalGenerated={totalGenerated}
-                    projectionTarget={projectionTarget}
-                    weeksToTarget={weeksToTarget}
+                <RecentProgressCard
+                    health={health}
+                    previousScore={previousScore}
+                    optimisedThisWeek={health?.optimised_this_week || 0}
                 />
                 <AutopilotActiveCard autoOptimise={autoOptimise} onToggle={onAutoToggle}/>
             </div>
 
-            <LibraryCoverageCard total={total} optimised={optimised}/>
-            <CompanionBanner companion={altTextCompanion}/>
-            <ActivityStrip onView={onView} newSince={newSince} activity={activity}/>
+            <CompanionBanner
+                companion={altTextCompanion}
+                icon="image"
+                iconBg="#ECFDF5" iconColor="#059669" iconBorder="#A7F3D0"
+                title="Your credits also work on Image ALT Text"
+                body={<>The same shared credit pool powers <strong style={{ color: 'var(--text)', fontWeight: 600 }}>OptiAI Alt Text</strong> — continuously health-check and improve your media library. No extra subscription.</>}
+            />
+            <CompanionBanner
+                companion={internalLinkingCompanion}
+                icon="link"
+                iconBg="#EFF6FF" iconColor="#2563EB" iconBorder="#BFDBFE"
+                title="Your credits also work on Internal Linking"
+                body={<>The same shared credit pool powers <strong style={{ color: 'var(--text)', fontWeight: 600 }}>OptiAI Internal Linking</strong> — find and fix missing links between your own pages. No extra subscription.</>}
+            />
+            <ActivityStrip onView={onView} newSince={newSince} activity={activity} onUndo={onUndo}/>
             <FooterMetrics
                 streak={streak}
                 dailyUsed={dailyUsed}
@@ -96,173 +185,343 @@ export const Dashboard = ({ quota, quotaReady, stats, activity, queuePages, auto
     );
 };
 
-const CompanionBanner = ({ companion }) => {
-    const label = companion?.label || 'Add ALT Text';
-    const url = companion?.url || '';
-    const openCompanion = () => {
-        if ( url ) window.location.href = url;
-    };
+// ── Today's Priorities — the very first thing a returning user sees ────
+const TodaysPriorities = ({ ready, priorities, estimatedGain, onReview }) => {
+    if ( ! ready ) {
+        return (
+            <Card padding={0} style={{ marginBottom: 14 }}>
+                <div style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span className="pulse-dot" style={{ width: 8, height: 8, background: 'var(--text-3)' }}/>
+                    <span style={{ fontSize: 13, color: 'var(--text-3)' }}>Checking today's priorities…</span>
+                </div>
+            </Card>
+        );
+    }
+
+    if ( ! priorities.length ) {
+        return (
+            <Card padding={0} style={{ marginBottom: 14 }}>
+                <div style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Icon name="check" size={16} style={{ color: 'var(--ok-ink)' }}/>
+                    <div style={{ fontSize: 13, color: 'var(--text-2)' }}>
+                        <strong style={{ color: 'var(--text)' }}>No priorities today.</strong> Everything OptiAI has scanned looks healthy.
+                    </div>
+                </div>
+            </Card>
+        );
+    }
 
     return (
-        <Card padding={0} style={{ marginTop: 20 }}>
-            <div style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div style={{ width: 40, height: 40, borderRadius: 10, background: '#ECFDF5', color: '#059669', border: '1px solid #A7F3D0', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Icon name="image" size={19} strokeWidth={1.9}/>
+        <Card padding={0} style={{ marginBottom: 14, borderColor: 'var(--border-strong)' }}>
+            <div style={{ padding: '14px 18px 12px' }}>
+                <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
+                    Today's Priorities
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 3 }}>
-                        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Your credits also work on Image ALT Text</span>
-                        <Pill tone="neutral" style={{ padding: '1px 8px', fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase' }}>From OpptiAI</Pill>
-                    </div>
-                    <div style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.5 }}>
-                        The same shared credit pool powers <strong style={{ color: 'var(--text)', fontWeight: 600 }}>OpptiAI Alt Text</strong> — generate accessible, SEO-friendly ALT text for your media library. No extra subscription.
-                    </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {priorities.map( ( p ) => (
+                        <div key={p.code} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: 'var(--text)' }}>
+                            <span aria-hidden="true">{SEVERITY_DOT[ p.severity ] || SEVERITY_DOT.information}</span>
+                            <span>{actionCopy( p )}</span>
+                        </div>
+                    ) )}
                 </div>
-                <Button variant="secondary" size="md" icon="external" onClick={openCompanion} disabled={!url}>{label}</Button>
+                {estimatedGain > 0 && (
+                    <div style={{ marginTop: 10, fontSize: 12.5, color: 'var(--text-2)' }}>
+                        Estimated Health Improvement: <strong style={{ color: 'var(--ok-ink)' }}>+{estimatedGain} points</strong>
+                    </div>
+                )}
+            </div>
+            <div style={{ borderTop: '1px solid var(--hairline)', padding: '9px 18px', background: 'var(--surface-2)' }}>
+                <button onClick={onReview} style={{ background: 'transparent', border: 'none', padding: 0, fontSize: 12.5, color: 'var(--text-2)', fontWeight: 600, cursor: 'pointer' }}
+                    onMouseEnter={e => e.currentTarget.style.color = 'var(--text)'}
+                    onMouseLeave={e => e.currentTarget.style.color = 'var(--text-2)'}>
+                    See what OptiAI found today &rarr;
+                </button>
             </div>
         </Card>
     );
 };
 
-const TodaysPassHero = ({ ready = true, queuePages, dailyUsed, dailyLimit, dailyRemaining, hasDailyLimit, monthlyRemaining, newSince, needsAttn, onGenerate, onUpgrade }) => {
-    const creditsRemaining = hasDailyLimit ? dailyRemaining : monthlyRemaining;
-    // Don't decide the pass state until quota + stats have loaded — otherwise the
-    // optimistic placeholder quota shows a queue that vanishes once the real
-    // (e.g. 0-credit) quota arrives, causing a flash.
-    const queueCount = ready ? Math.min( creditsRemaining, Math.min( needsAttn, 5 ), queuePages?.length || 0 ) : 0;
-    const showQueue = queueCount > 0;
-    // "Out of credits with work still pending" is NOT the same as "caught up".
-    const outOfCredits = ready && ! showQueue && needsAttn > 0 && creditsRemaining <= 0;
-    const [hover, setHover] = useState( false );
-    const [pressed, setPressed] = useState( false );
+// ── Hero Score — the single largest element on the page ────────────────
+const HeroScoreCard = ({ ready, health, previousScore, creditsRemaining, onQuickScan, onFullScan, onOptimiseCritical }) => {
+    const [scanning, setScanning] = useState( null ); // 'quick' | 'full' | 'critical' | null
+    const score = health?.score ?? 0;
+    const animScore = useCountUp( ready ? score : 0 );
+    const tone = toneForStatus( health?.status );
+    const trend = health?.trend ?? ( previousScore != null && health ? health.score - previousScore : null );
+    const lastScanned = health?.last_scanned_at
+        ? new Date( health.last_scanned_at.replace( ' ', 'T' ) ).toLocaleDateString( undefined, { month: 'short', day: 'numeric' } )
+        : 'Never';
 
-    const handleActivate = () => { if ( showQueue ) onGenerate(); };
-    const handleKey = ( e ) => { if ( showQueue && ( e.key === 'Enter' || e.key === ' ' ) ) { e.preventDefault(); onGenerate(); } };
-
-    const displayPages = ( queuePages || [] ).slice( 0, queueCount );
+    const run = ( kind, fn ) => async () => {
+        setScanning( kind );
+        try { await fn?.(); } finally { setScanning( null ); }
+    };
 
     return (
-        <div
-            role={showQueue ? 'button' : undefined}
-            tabIndex={showQueue ? 0 : -1}
-            aria-label={showQueue ? `Start today's pass — ${queueCount} pages ready` : undefined}
-            onClick={showQueue ? handleActivate : undefined}
-            onKeyDown={handleKey}
-            onMouseEnter={() => setHover( true )}
-            onMouseLeave={() => { setHover( false ); setPressed( false ); }}
-            onMouseDown={() => showQueue && setPressed( true )}
-            onMouseUp={() => setPressed( false )}
-            style={{
-                background: 'var(--surface)', border: '1px solid var(--border)',
-                borderRadius: 'var(--r-lg)',
-                boxShadow: showQueue && hover ? 'var(--shadow-md)' : 'var(--shadow-sm)',
-                borderColor: showQueue && hover ? 'var(--border-strong)' : 'var(--border)',
-                transform: pressed ? 'scale(0.998)' : 'scale(1)',
-                transition: 'box-shadow .18s ease, border-color .18s ease, transform .08s ease',
-                cursor: showQueue ? 'pointer' : 'default',
-                overflow: 'hidden', outline: 'none',
-            }}
-        >
-            <div style={{ padding: '16px 20px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                        <Icon name="zap" size={13} style={{ color: 'var(--primary)' }}/>
-                        <span style={{ fontSize: 11, color: 'var(--primary-ink)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Today's pass</span>
+        <Card padding={0}>
+            <div style={{ padding: '22px 24px 18px', display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
+                <Ring value={ready ? animScore : 0} size={104} stroke={9} tone={tone}>
+                    <div style={{ textAlign: 'center' }}>
+                        <div className="mono tnum" style={{ fontSize: 30, fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1 }}>
+                            {ready ? animScore : '\u2013'}
+                        </div>
+                        <div style={{ fontSize: 10.5, color: 'var(--text-3)' }}>/ 100</div>
                     </div>
-                    <div style={{ fontSize: 19, fontWeight: 600, letterSpacing: '-0.015em', lineHeight: 1.3 }}>
-                        {! ready
-                            ? <>Checking today's pass…</>
-                            : showQueue
-                                ? newSince > 0
-                                    ? <><span className="mono tnum">{newSince}</span> new page{newSince === 1 ? '' : 's'} detected since your last scan</>
-                                    : <><span className="mono tnum">{queueCount}</span> pages ready for today's pass</>
-                                : outOfCredits
-                                    ? <><span className="mono tnum">{needsAttn}</span> page{needsAttn === 1 ? '' : 's'} still need optimising</>
-                                    : <>Today's pass complete</>}
+                </Ring>
+                <div style={{ flex: 1, minWidth: 220 }}>
+                    <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>
+                        Metadata Health
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
+                        <Pill tone={tone}>{ready ? ( health?.label || '\u2013' ) : 'Checking\u2026'}</Pill>
+                        {ready && trend != null && trend !== 0 && (
+                            <span style={{ fontSize: 12.5, fontWeight: 600, color: trend > 0 ? 'var(--ok-ink)' : 'var(--danger-ink)', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                                <Icon name={trend > 0 ? 'trend' : 'chevron-down'} size={12}/>
+                                {trend > 0 ? '+' : ''}{trend} since last scan
+                            </span>
+                        )}
+                    </div>
+                    <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', fontSize: 12.5, color: 'var(--text-2)' }}>
+                        <span><strong className="mono tnum" style={{ color: 'var(--text)' }}>{ready ? ( health?.items_scanned ?? 0 ) : '\u2013'}</strong> items scanned</span>
+                        <span><strong className="mono tnum" style={{ color: 'var(--danger-ink)' }}>{ready ? ( health?.critical_issues ?? 0 ) : '\u2013'}</strong> critical issues</span>
+                        <span><strong className="mono tnum" style={{ color: 'var(--text)' }}>{creditsRemaining}</strong> credits remaining</span>
+                        <span>Last scan <strong style={{ color: 'var(--text)' }}>{ready ? lastScanned : '\u2013'}</strong></span>
                     </div>
                 </div>
             </div>
-
-            {showQueue ? (
-                <div style={{ padding: '12px 20px 0', display: 'grid', gridTemplateColumns: `repeat(${Math.min( queueCount, 5 )}, minmax(0, 1fr))`, gap: 8 }}>
-                    {displayPages.map( ( pg, i ) => (
-                        <div key={pg.id || i} style={{ padding: 10, background: 'var(--surface-2)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)', display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                            <PageAvatar type={pg.type} section={pg.section} hue={pg.hue ?? 220} size={36} style={{ flexShrink: 0 }}/>
-                            <div style={{ minWidth: 0, flex: 1 }}>
-                                <div className="mono" style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pg.url}</div>
-                                <div style={{ marginTop: 3 }}>
-                                    <SignalChip tone={pg.status === 'missing-both' || pg.status === 'missing-title' ? 'danger' : 'warn'}>
-                                        {pg.status === 'missing-both' ? 'Missing both' : pg.status === 'missing-title' ? 'Missing title' : 'Missing meta'}
-                                    </SignalChip>
-                                </div>
-                            </div>
-                        </div>
-                    ) )}
-                </div>
-            ) : ! ready ? (
-                <div style={{ padding: '10px 20px 0' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--surface-2)', border: '1px solid var(--hairline)', borderRadius: 'var(--r-md)' }}>
-                        <span className="pulse-dot" style={{ width: 8, height: 8, background: 'var(--text-3)' }}/>
-                        <div style={{ flex: 1, fontSize: 13, color: 'var(--text-3)', lineHeight: 1.45 }}>Checking your library and credits…</div>
-                    </div>
-                </div>
-            ) : outOfCredits ? (
-                <div style={{ padding: '10px 20px 0' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--warn-soft)', border: '1px solid var(--warn-border)', borderRadius: 'var(--r-md)' }}>
-                        <Icon name="alert" size={16} style={{ color: 'var(--warn-ink)' }}/>
-                        <div style={{ flex: 1, fontSize: 13, color: 'var(--warn-ink)', lineHeight: 1.45 }}>
-                            <strong>Out of credits.</strong> <span className="mono tnum">{needsAttn}</span> page{needsAttn === 1 ? '' : 's'} still need optimising — you've used all your credits this billing cycle.
-                        </div>
-                    </div>
-                </div>
-            ) : (
-                <div style={{ padding: '10px 20px 0' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--ok-soft)', border: '1px solid var(--ok-border)', borderRadius: 'var(--r-md)' }}>
-                        <Icon name="check" size={16} style={{ color: 'var(--ok-ink)' }}/>
-                        <div style={{ flex: 1, fontSize: 13, color: 'var(--ok-ink)', lineHeight: 1.45 }}>
-                            <><strong>All caught up.</strong> <span className="mono tnum">{monthlyRemaining}</span> credits left this billing cycle.</>
-                        </div>
-                    </div>
+            <div style={{ borderTop: '1px solid var(--hairline)', padding: '12px 24px', display: 'flex', gap: 8, flexWrap: 'wrap', background: 'var(--surface-2)' }}>
+                <Button variant="secondary" size="md" icon="refresh" onClick={run( 'quick', onQuickScan )} disabled={scanning !== null}>
+                    {scanning === 'quick' ? 'Scanning\u2026' : 'Quick Scan'}
+                </Button>
+                <Button variant="primary" size="md" icon="zap" onClick={run( 'critical', onOptimiseCritical )} disabled={scanning !== null || ! ( health?.critical_issues > 0 )}>
+                    Optimise Critical Issues
+                </Button>
+                <Button variant="secondary" size="md" icon="search" onClick={run( 'full', onFullScan )} disabled={scanning !== null}>
+                    {scanning === 'full' ? 'Scanning\u2026' : 'Run Full Scan'}
+                </Button>
+            </div>
+            {ready && health?.combined_score != null && (
+                <div style={{ borderTop: '1px solid var(--hairline)', padding: '10px 24px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', fontSize: 12.5, color: 'var(--text-2)' }}>
+                    <Icon name="shield-check" size={14} style={{ color: 'var(--primary)' }}/>
+                    <span>Combined OptiAI Health: <strong className="mono tnum" style={{ color: 'var(--text)' }}>{health.combined_score}</strong></span>
+                    <span style={{ color: 'var(--text-3)' }}>
+                        ({( health.combined_modules || [] ).map( m => `${m.name}: ${m.score}` ).join( ' · ' )})
+                    </span>
                 </div>
             )}
+        </Card>
+    );
+};
 
-            <div style={{ padding: '12px 20px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-                <div className="tnum" style={{ fontSize: 12, color: 'var(--text-3)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    {! ready ? (
-                        <span style={{ color: 'var(--text-3)' }}>Checking your credits…</span>
-                    ) : showQueue ? (
-                        <>
-                            <span style={{ color: 'var(--text-2)', fontWeight: 500 }}>
-                                {hasDailyLimit
-                                    ? <><span className="mono tnum">{dailyUsed}</span> of <span className="mono tnum">{dailyLimit}</span> today's free generations</>
-                                    : <><span className="mono tnum">{monthlyRemaining}</span> credits left this billing cycle</>}
-                            </span>
-                        </>
-                    ) : outOfCredits ? (
-                        <span style={{ color: 'var(--warn-ink)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                            <Icon name="alert" size={12} strokeWidth={2.6}/>
-                            <span><span className="mono tnum">{needsAttn}</span> page{needsAttn === 1 ? '' : 's'} waiting · 0 credits left</span>
-                        </span>
-                    ) : (
-                        <>
-                            <Icon name="check" size={12} style={{ color: 'var(--ok-ink)' }} strokeWidth={2.6}/>
-                            <span style={{ color: 'var(--text-2)', fontWeight: 500 }}>Library fully optimised</span>
-                        </>
-                    )}
+// ── Summary Cards ────────────────────────────────────────────────────
+const findIssue = ( priorities, code ) => priorities.find( p => p.code === code );
+
+const SummaryCardsRow = ({ ready, health, priorities, aeo }) => {
+    const byStatus = health?.by_status || {};
+    const missingTitles = findIssue( priorities, 'missing_title' )?.count || 0;
+    const missingDescriptions = findIssue( priorities, 'missing_description' )?.count || 0;
+    const duplicateMetadata = ( findIssue( priorities, 'duplicate_title' )?.count || 0 ) + ( findIssue( priorities, 'duplicate_description' )?.count || 0 );
+    const weakMetadataCodes = [ 'title_too_short', 'title_too_long', 'description_too_short', 'description_too_long', 'generic_title', 'generic_description' ];
+    const weakMetadata = weakMetadataCodes.reduce( ( sum, code ) => sum + ( findIssue( priorities, code )?.count || 0 ), 0 );
+
+    const cards = [
+        { label: 'Pages Scanned', value: health?.items_scanned ?? 0, tone: 'neutral' },
+        { label: 'Missing Titles', value: missingTitles, tone: missingTitles > 0 ? 'danger' : 'ok' },
+        { label: 'Missing Descriptions', value: missingDescriptions, tone: missingDescriptions > 0 ? 'danger' : 'ok' },
+        { label: 'Duplicate Metadata', value: duplicateMetadata, tone: duplicateMetadata > 0 ? 'warn' : 'ok' },
+        { label: 'Weak Metadata', value: weakMetadata, tone: weakMetadata > 0 ? 'warn' : 'ok' },
+        { label: 'Excellent Pages', value: byStatus.excellent || 0, tone: 'ok' },
+        aeo
+            ? { label: 'AI Search Readiness', value: aeo.label, tone: aeo.score >= 55 ? 'ok' : aeo.score >= 30 ? 'warn' : 'danger' }
+            : { label: 'AI Search Readiness', value: 'Checking\u2026', tone: 'neutral', muted: true },
+    ];
+
+    return (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginTop: 14 }}>
+            {cards.map( ( c ) => (
+                <Card key={c.label} padding={0}>
+                    <div style={{ padding: '12px 14px' }}>
+                        <div style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>{c.label}</div>
+                        <div
+                            className={typeof c.value === 'number' ? 'mono tnum' : ''}
+                            style={{
+                                fontSize: typeof c.value === 'number' ? 22 : 13,
+                                fontWeight: typeof c.value === 'number' ? 700 : 500,
+                                letterSpacing: '-0.02em',
+                                color: c.muted ? 'var(--text-3)' : c.tone === 'danger' ? 'var(--danger-ink)' : c.tone === 'warn' ? 'var(--warn-ink)' : c.tone === 'ok' ? 'var(--ok-ink)' : 'var(--text)',
+                            }}
+                        >
+                            {! ready && typeof c.value === 'number' ? '\u2013' : c.value}
+                        </div>
+                    </div>
+                </Card>
+            ) )}
+        </div>
+    );
+};
+
+// ── Priority Action Centre — the heart of the dashboard ─────────────
+const SEVERITY_LABEL = { critical: 'Critical', warning: 'High', review: 'Medium', information: 'Low' };
+const SEVERITY_TONE  = { critical: 'danger', warning: 'warn', review: 'warn', information: 'neutral' };
+
+const PriorityActionCentre = ({ ready, priorities, onOptimiseIssue, onLoadIssueItems, onOptimiseSingleItem, onViewAll }) => {
+    const [expanded, setExpanded] = useState( null );
+    const [items, setItems] = useState( [] );
+    const [loadingItems, setLoadingItems] = useState( false );
+    const [optimising, setOptimising] = useState( null );
+
+    const toggleExpand = async ( code ) => {
+        if ( expanded === code ) { setExpanded( null ); return; }
+        setExpanded( code );
+        setLoadingItems( true );
+        const rows = await onLoadIssueItems?.( code, { limit: 20 } ) ?? [];
+        setItems( rows );
+        setLoadingItems( false );
+    };
+
+    const handleOptimiseAll = async ( code ) => {
+        setOptimising( code );
+        try { await onOptimiseIssue?.( code ); } finally { setOptimising( null ); }
+    };
+
+    return (
+        <div style={{ marginTop: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                    Priority Action Centre
                 </div>
-                <div onClick={e => e.stopPropagation()}>
-                    {! ready ? null : showQueue ? (
-                        <Button variant="primary" size="lg" icon="sparkles" onClick={onGenerate}>
-                            Start today's pass
-                        </Button>
-                    ) : outOfCredits ? (
-                        <Button variant="pro" size="sm" icon="crown" onClick={onUpgrade}>Get more credits</Button>
-                    ) : (
-                        <Button variant="secondary" size="md" disabled>All caught up</Button>
-                    )}
+                <button onClick={onViewAll} style={{ background: 'transparent', border: 'none', fontSize: 12, color: 'var(--text-2)', fontWeight: 600, cursor: 'pointer' }}>
+                    Advanced Library &rarr;
+                </button>
+            </div>
+
+            {! ready ? (
+                <Card padding={16}><div style={{ fontSize: 13, color: 'var(--text-3)' }}>{'Checking for issues\u2026'}</div></Card>
+            ) : ! priorities.length ? (
+                <Card padding={16}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <Icon name="check" size={18} style={{ color: 'var(--ok-ink)' }}/>
+                        <div style={{ fontSize: 13.5, color: 'var(--text-2)' }}><strong style={{ color: 'var(--text)' }}>Nothing needs attention.</strong> Every scanned page looks healthy.</div>
+                    </div>
+                </Card>
+            ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {priorities.map( ( p ) => {
+                        const isOpen = expanded === p.code;
+                        return (
+                            <Card key={p.code} padding={0}>
+                                <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+                                    <Pill tone={SEVERITY_TONE[ p.severity ] || 'neutral'} style={{ flexShrink: 0 }}>
+                                        {SEVERITY_LABEL[ p.severity ] || 'Info'}
+                                    </Pill>
+                                    <div style={{ flex: 1, minWidth: 220 }}>
+                                        <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--text)', marginBottom: 3 }}>
+                                            {actionCopy( p )}
+                                        </div>
+                                        <div style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.5 }}>{p.message}</div>
+                                        {p.estimated_gain > 0 && (
+                                            <div style={{ fontSize: 12, color: 'var(--ok-ink)', fontWeight: 600, marginTop: 4 }}>
+                                                Estimated improvement: +{p.estimated_gain} score
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                                        <Button variant="secondary" size="sm" onClick={() => toggleExpand( p.code )}>
+                                            {isOpen ? 'Hide' : 'Review'}
+                                        </Button>
+                                        <Button variant="primary" size="sm" icon="zap" onClick={() => handleOptimiseAll( p.code )} disabled={optimising !== null}>
+                                            {optimising === p.code ? 'Queuing\u2026' : 'Optimise All'}
+                                        </Button>
+                                    </div>
+                                </div>
+                                {isOpen && (
+                                    <div style={{ borderTop: '1px solid var(--hairline)', background: 'var(--surface-2)', padding: '10px 16px' }}>
+                                        {loadingItems ? (
+                                            <div style={{ fontSize: 12.5, color: 'var(--text-3)', padding: '8px 0' }}>{'Loading affected items\u2026'}</div>
+                                        ) : ! items.length ? (
+                                            <div style={{ fontSize: 12.5, color: 'var(--text-3)', padding: '8px 0' }}>No items found for this issue.</div>
+                                        ) : (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                                {items.map( ( item ) => (
+                                                    <div key={item.site_item_id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 4px', borderRadius: 'var(--r-md)' }}>
+                                                        <PageAvatar type={item.item_type} section="" hue={( Number( item.site_item_id ) * 47 ) % 360} size={28}/>
+                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                            <div style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                {item.post_title || `#${item.site_item_id}`}
+                                                            </div>
+                                                        </div>
+                                                        <span className="mono tnum" style={{ fontSize: 11.5, color: 'var(--text-3)', flexShrink: 0 }}>Score {item.score}</span>
+                                                        <Button variant="secondary" size="sm" onClick={() => onOptimiseSingleItem?.( item )}>Optimise</Button>
+                                                    </div>
+                                                ) )}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </Card>
+                        );
+                    } )}
+                </div>
+            )}
+        </div>
+    );
+};
+
+// ── Recent Progress — celebrate improvement, not just show numbers ──
+const RecentProgressCard = ({ health, previousScore, optimisedThisWeek }) => {
+    const hasDelta = previousScore != null && health?.score != null && previousScore !== health.score;
+    return (
+        <Card padding={0} style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--hairline)' }}>
+                <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Recent Progress</div>
+            </div>
+            <div style={{ padding: '16px 18px', flex: 1 }}>
+                {hasDelta ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                        <span className="mono tnum" style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-3)', textDecoration: 'line-through', opacity: 0.6 }}>{previousScore}</span>
+                        <Icon name="arrow-right" size={16} style={{ color: 'var(--ok-ink)' }}/>
+                        <span className="mono tnum" style={{ fontSize: 24, fontWeight: 700, color: 'var(--ok-ink)' }}>{health.score}</span>
+                        <span style={{ fontSize: 12.5, color: 'var(--ok-ink)', fontWeight: 600 }}>Health Score improved</span>
+                    </div>
+                ) : (
+                    <div style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 10 }}>Keep optimising to see your score climb here.</div>
+                )}
+                <div style={{ fontSize: 12.5, color: 'var(--text-2)' }}>
+                    <strong className="mono tnum" style={{ color: 'var(--text)' }}>{optimisedThisWeek}</strong> item{optimisedThisWeek === 1 ? '' : 's'} improved this week
                 </div>
             </div>
-        </div>
+        </Card>
+    );
+};
+
+const CompanionBanner = ({ companion, icon: fallbackIcon = 'image', iconBg = '#ECFDF5', iconColor = '#059669', iconBorder = '#A7F3D0', title, body }) => {
+    const state = companion?.state || 'missing';
+    const label = companion?.label || 'Install';
+    const url = companion?.url || '';
+    const icon = companion?.icon || ( state === 'active' ? 'external' : state === 'installed' ? 'play' : 'upload' );
+    const openCompanion = () => {
+        if ( url ) window.location.href = url;
+    };
+
+    return (
+        <Card padding={0} style={{ marginTop: 12 }}>
+            <div style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: iconBg, color: iconColor, border: `1px solid ${iconBorder}`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Icon name={fallbackIcon} size={19} strokeWidth={1.9}/>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 3 }}>
+                        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{title}</span>
+                        <Pill tone="neutral" style={{ padding: '1px 8px', fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase' }}>From OptiAI</Pill>
+                    </div>
+                    <div style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.5 }}>
+                        {body}
+                    </div>
+                </div>
+                <Button variant="secondary" size="md" icon={icon} onClick={openCompanion} disabled={!url}>{label}</Button>
+            </div>
+        </Card>
     );
 };
 
@@ -282,90 +541,14 @@ const SignalChip = ({ tone = 'neutral', children }) => {
     );
 };
 
-const LibraryHealthCard = ({ coverage, tone, nextMilestone, hoursSaved, totalGenerated, projectionTarget, weeksToTarget }) => {
-    const distance = Math.max( 0, nextMilestone - coverage );
-    const animCoverage = useCountUp( coverage );
-    const animHours = useCountUp( parseFloat( hoursSaved ), { decimals: 1 } );
-    const stageLabel = coverage >= 90 ? 'Healthy coverage' : coverage >= 50 ? 'Coverage building' : coverage >= 15 ? 'Early optimisation stage' : 'Getting started';
-
-    return (
-        <Card padding={0} style={{ display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '14px 18px 12px', display: 'flex', gap: 14, alignItems: 'center' }}>
-                <Ring value={animCoverage} size={56} stroke={5} tone={tone}>
-                    <div className="mono tnum" style={{ fontSize: 15, fontWeight: 600, letterSpacing: '-0.02em' }}>{animCoverage}</div>
-                </Ring>
-                <div style={{ flex: 1, minWidth: 0 }} aria-label={stageLabel}>
-                    <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>Site SEO health</div>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-                        <span className="mono tnum" style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.02em', lineHeight: 1.1 }}>{animCoverage}</span>
-                        <span style={{ fontSize: 13, color: 'var(--text-3)' }}>/ 100</span>
-                        {coverage > 0 && <span style={{ fontSize: 12, color: 'var(--ok-ink)', fontWeight: 600, marginLeft: 2, whiteSpace: 'nowrap' }}>+12 this week</span>}
-                    </div>
-                    {distance > 0 && (
-                        <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>
-                            Next milestone <span className="mono tnum" style={{ color: 'var(--text)', fontWeight: 600 }}>{nextMilestone}</span>
-                        </div>
-                    )}
-                </div>
-            </div>
-            <div style={{ padding: '12px 18px 14px', borderTop: '1px solid var(--hairline)', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4 }}>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    <span className="ambient-pulse" style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--ok-ink)', flexShrink: 0 }}/>
-                    <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text)', letterSpacing: '-0.005em' }}>Steady improvement</span>
-                </div>
-                <div style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.55, paddingLeft: 12 }}>
-                    At your current pace, your site could reach{' '}
-                    <span className="mono tnum" style={{ color: 'var(--text)', fontWeight: 600 }}>{projectionTarget}%</span>{' '}
-                    coverage in around{' '}
-                    <span className="mono tnum" style={{ color: 'var(--text)', fontWeight: 600 }}>{weeksToTarget}</span>{' '}
-                    week{weeksToTarget === 1 ? '' : 's'}.
-                </div>
-            </div>
-            <div style={{ borderTop: '1px solid var(--hairline)', padding: '9px 18px', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Work saved</div>
-                <div className="tnum" style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 400, whiteSpace: 'nowrap' }}>
-                    ~<span className="mono" style={{ fontWeight: 500, color: 'var(--text-2)' }}>{animHours.toFixed(1)}</span> hours saved
-                    <span style={{ color: 'var(--text-3)', margin: '0 6px', opacity: 0.6 }}>·</span>
-                    <span className="mono" style={{ fontWeight: 500, color: 'var(--text-2)' }}>{totalGenerated}</span> pages improved
-                </div>
-            </div>
-        </Card>
-    );
-};
-
-const LibraryCoverageCard = ({ total, optimised }) => {
-    const pct = total > 0 ? Math.round( ( optimised / total ) * 100 ) : 0;
-    const remaining = total - optimised;
-    const tone = pct >= 90 ? 'ok' : 'primary';
-    return (
-        <Card padding={0} style={{ marginTop: 20 }}>
-            <div style={{ padding: '12px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, minWidth: 0 }}>
-                        <span style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Site coverage</span>
-                        <span className="mono tnum" style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{pct}%</span>
-                        <span style={{ fontSize: 12, color: 'var(--text-3)' }}>optimised</span>
-                    </div>
-                    <div className="tnum" style={{ fontSize: 11.5, color: 'var(--text-3)' }}>
-                        <span className="mono" style={{ color: 'var(--text-2)', fontWeight: 500 }}>{optimised}</span> improved
-                        <span> · </span>
-                        <span className="mono" style={{ color: 'var(--text-2)', fontWeight: 500 }}>{remaining}</span> remaining
-                    </div>
-                </div>
-                <Progress value={optimised} max={Math.max( total, 1 )} tone={tone} height={6}/>
-            </div>
-        </Card>
-    );
-};
-
 const AutopilotActiveCard = ({ autoOptimise, onToggle }) => (
     <Card padding={0}>
         <div style={{ padding: '18px 22px 12px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
             <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>Autopilot</div>
+                <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>Continuous Optimisation</div>
                 <div style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.01em' }}>{autoOptimise ? 'Running in the background.' : 'Paused.'}</div>
                 <div style={{ fontSize: 12.5, color: 'var(--text-2)', marginTop: 4 }}>
-                    {autoOptimise ? 'New pages request title and meta generation from the OpptiAI service.' : 'Enable automatic generation for newly published pages.'}
+                    {autoOptimise ? 'New pages are scanned, scored, and optimised automatically as they publish.' : 'Enable continuous optimisation for newly published pages.'}
                 </div>
             </div>
             <SmallToggle on={autoOptimise} onChange={() => onToggle( !autoOptimise )}/>
@@ -392,16 +575,22 @@ const SmallToggle = ({ on, onChange, disabled }) => (
 );
 
 const ACTIVITY_KINDS = {
-    generated: { icon: 'sparkles', tone: 'primary', verb: 'Generated title & meta for' },
-    auto:      { icon: 'zap',      tone: 'ok',      verb: 'Autopilot optimised' },
+    generated: { icon: 'sparkles', tone: 'primary', verb: 'Optimised title & meta for' },
+    auto:      { icon: 'zap',      tone: 'ok',      verb: 'Continuous optimisation improved' },
     edited:    { icon: 'edit',     tone: 'primary', verb: 'Edited' },
 };
 
-const ActivityStrip = ({ onView, newSince, activity }) => {
+const ActivityStrip = ({ onView, newSince, activity, onUndo }) => {
+    const [undoing, setUndoing] = useState( null );
     const real = ( activity || [] ).map( ( e ) => {
         const kind  = ACTIVITY_KINDS[ e.kind ] || ACTIVITY_KINDS.edited;
         const title = e.title?.trim() || 'Untitled';
-        return { time: e.ago || '', icon: kind.icon, tone: kind.tone, text: `${kind.verb} “${title}”`, action: null };
+        const canUndo = onUndo && e.post_id && ( e.kind === 'generated' || e.kind === 'auto' );
+        return {
+            time: e.ago || '', icon: kind.icon, tone: kind.tone, text: `${kind.verb} “${title}”`,
+            action: canUndo ? ( undoing === e.post_id ? 'Undoing…' : 'Undo' ) : null,
+            onAction: canUndo ? () => { setUndoing( e.post_id ); Promise.resolve( onUndo( e.post_id ) ).finally( () => setUndoing( null ) ); } : null,
+        };
     } );
     const events = [
         ...(newSince > 0 ? [{ time: 'Just now', icon: 'upload', tone: 'warn', text: `${newSince} new page${newSince === 1 ? '' : 's'} detected`, action: 'Review', onAction: () => onView && onView( 'library' ) }] : []),
@@ -414,7 +603,7 @@ const ActivityStrip = ({ onView, newSince, activity }) => {
             </div>
             <div>
                 {events.length === 0 && (
-                    <div style={{ fontSize: 12.5, color: 'var(--text-3)', padding: '4px 0' }}>No improvements yet — generate titles & meta to see activity here.</div>
+                    <div style={{ fontSize: 12.5, color: 'var(--text-3)', padding: '4px 0' }}>No improvements yet — optimise titles & meta to see activity here.</div>
                 )}
                 {events.map( ( e, i ) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '4px 0', borderTop: i ? '1px solid var(--hairline)' : 'none' }}>
@@ -458,7 +647,7 @@ const FooterMetrics = ({ streak, dailyUsed, dailyLimit, hasDailyLimit, monthlyUs
                 }/>
             )}
             <Item label="Monthly service usage" value={<><span className="mono tnum">{monthlyUsed}</span> of <span className="mono tnum">{monthlyLimit}</span> used</>}/>
-            <Item label="Autopilot" value={autoOptimise ? 'Enabled' : 'Paused'}/>
+            <Item label="Continuous Optimisation" value={autoOptimise ? 'Enabled' : 'Paused'}/>
             <Item label="Remaining" value={<><span className="mono tnum">{monthlyRemaining}</span> service credits</>}/>
         </div>
     );

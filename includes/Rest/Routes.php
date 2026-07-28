@@ -19,6 +19,7 @@ class Routes {
     private readonly BillingController $billing;
     private readonly PagesController $pages;
     private readonly SupportController $support;
+    private readonly HealthController $health;
 
     public function __construct() {
         $client = new Client();
@@ -26,6 +27,7 @@ class Routes {
         $this->billing  = new BillingController( $client );
         $this->pages    = new PagesController( $client );
         $this->support  = new SupportController( $client );
+        $this->health   = new HealthController( $client );
     }
 
     public function register(): void {
@@ -38,6 +40,48 @@ class Routes {
         $b  = $this->billing;
         $p  = $this->pages;
         $s  = $this->support;
+        $h  = $this->health;
+
+        // ── Health (dashboard-first score, priorities, item drill-down) ──
+        register_rest_route( $ns, '/health', [
+            'methods'             => 'GET',
+            'callback'            => [ $h, 'get_health' ],
+            'permission_callback' => [ $this, 'require_editor' ],
+        ] );
+
+        register_rest_route( $ns, '/health/priorities', [
+            'methods'             => 'GET',
+            'callback'            => [ $h, 'get_priorities' ],
+            'permission_callback' => [ $this, 'require_editor' ],
+            'args'                => [
+                'limit' => [ 'type' => 'integer', 'default' => 5, 'minimum' => 1, 'maximum' => 10 ],
+            ],
+        ] );
+
+        register_rest_route( $ns, '/health/items', [
+            'methods'             => 'GET',
+            'callback'            => [ $h, 'get_items' ],
+            'permission_callback' => [ $this, 'require_editor' ],
+            'args'                => [
+                'status'   => [ 'type' => 'string', 'default' => '', 'sanitize_callback' => 'sanitize_text_field' ],
+                'issue'    => [ 'type' => 'string', 'default' => '', 'sanitize_callback' => 'sanitize_text_field' ],
+                'sort'     => [ 'type' => 'string', 'default' => 'lowest-score', 'sanitize_callback' => 'sanitize_text_field' ],
+                'page'     => [ 'type' => 'integer', 'default' => 1, 'minimum' => 1 ],
+                'per_page' => [ 'type' => 'integer', 'default' => 20, 'maximum' => 200 ],
+            ],
+        ] );
+
+        register_rest_route( $ns, '/health/scan', [
+            'methods'             => 'POST',
+            'callback'            => [ $h, 'run_scan' ],
+            'permission_callback' => [ $this, 'require_editor' ],
+        ] );
+
+        register_rest_route( $ns, '/health/aeo', [
+            'methods'             => 'GET',
+            'callback'            => [ $h, 'get_aeo' ],
+            'permission_callback' => [ $this, 'require_editor' ],
+        ] );
 
         // ── Generation ─────────────────────────────────────────────
         register_rest_route( $ns, '/generate', [
@@ -48,6 +92,23 @@ class Routes {
                 'post_id'  => [ 'required' => true, 'type' => 'integer', 'sanitize_callback' => 'absint' ],
                 'previous' => [ 'type' => 'object' ],
             ],
+        ] );
+
+        // ── Undo (Phase 2: revert to the value before the last optimise) ──
+        register_rest_route( $ns, '/undo', [
+            'methods'             => 'POST',
+            'callback'            => [ $g, 'undo' ],
+            'permission_callback' => [ $this, 'can_edit_requested_post' ],
+            'args'                => [
+                'post_id' => [ 'required' => true, 'type' => 'integer', 'sanitize_callback' => 'absint' ],
+            ],
+        ] );
+
+        // ── Reset (Settings → Danger zone: revert every AI-optimised page) ──
+        register_rest_route( $ns, '/reset', [
+            'methods'             => 'POST',
+            'callback'            => [ $g, 'reset_all' ],
+            'permission_callback' => [ $this, 'require_admin' ],
         ] );
 
         // ── Bulk jobs ──────────────────────────────────────────────

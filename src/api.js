@@ -208,6 +208,41 @@ export async function runScan() {
     return request( 'POST', '/scan' );
 }
 
+// ── Health (dashboard-first score, priorities, item drill-down) ────
+// All free/local — nothing here touches AI credits.
+export async function fetchHealth() {
+    return request( 'GET', '/health' );
+}
+
+export async function fetchPriorities( { limit = 5 } = {} ) {
+    return request( 'GET', `/health/priorities?limit=${ encodeURIComponent( limit ) }` );
+}
+
+export async function fetchHealthItems( { status = '', issue = '', sort = 'lowest-score', page = 1, perPage = 20 } = {} ) {
+    const qs = new URLSearchParams( { status, issue, sort, page: String( page ), per_page: String( perPage ) } );
+    return request( 'GET', `/health/items?${ qs }` );
+}
+
+/** Free, local rescan — recomputes every page's score without spending credits. */
+export async function runHealthScan() {
+    return request( 'POST', '/health/scan' );
+}
+
+/** Site-wide AI Search Readiness (AEO) summary — Weak/Developing/Good/Strong. */
+export async function fetchAeo() {
+    return request( 'GET', '/health/aeo' );
+}
+
+/** Revert a page to whatever it was before its most recent optimise. Does not refund the credit spent. */
+export async function undoPage( postId ) {
+    return request( 'POST', '/undo', { post_id: postId } );
+}
+
+/** Settings → Danger zone: revert every page this plugin has ever optimised back to its pre-optimise state. Resolves to { success, reset_count }. */
+export async function resetGenerated() {
+    return request( 'POST', '/reset' );
+}
+
 // ── Support (contact form) ──────────────────────────────────────────
 /**
  * Send a support message. The backend auto-attaches diagnostics + the recent
@@ -241,7 +276,8 @@ export function getInitialData() {
         phpVersion: data.phpVersion ?? '',
         version:    data.version    ?? '',
         siteUrl:    data.siteUrl    ?? ( typeof window !== 'undefined' ? window.location?.origin : '' ),
-        altTextCompanion: data.altTextCompanion ?? { state: 'missing', label: 'Add ALT Text', url: '' },
+        altTextCompanion: data.altTextCompanion ?? { state: 'missing', label: 'Install ALT Text', icon: 'upload', url: '' },
+        internalLinkingCompanion: data.internalLinkingCompanion ?? { state: 'missing', label: 'Install Internal Linking', icon: 'upload', url: '' },
         // Quota is fetched on mount; this is just a neutral placeholder so the
         // first render doesn't crash before /quota resolves.
         quota:     { plan: 'free', connected: data.connected ?? false },

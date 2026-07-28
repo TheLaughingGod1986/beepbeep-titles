@@ -49,6 +49,19 @@ class Scanner {
         return array_values( array_filter( array_map( 'strval', (array) $types ) ) );
     }
 
+    /**
+     * Every public post type, unfiltered by the user's scan-scope setting —
+     * the full option list the onboarding "choose what to scan" step and
+     * Settings screen render as checkboxes.
+     *
+     * @return string[]
+     */
+    public static function all_public_post_types(): array {
+        $types = get_post_types( [ 'public' => true ], 'names' );
+        unset( $types['attachment'] );
+        return array_values( $types );
+    }
+
     // ----------------------------------------------------------------
     // Paginated page list
     // ----------------------------------------------------------------

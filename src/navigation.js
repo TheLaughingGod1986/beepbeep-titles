@@ -1,6 +1,6 @@
 export const TABS = [
     { id: 'dashboard',  label: 'Home' },
-    { id: 'library',    label: 'Library' },
+    { id: 'library',    label: 'Advanced Library' },
     { id: 'automation', label: 'Autopilot' },
     { id: 'settings',   label: 'Settings' },
     { id: 'billing',    label: 'Billing', adminOnly: true },

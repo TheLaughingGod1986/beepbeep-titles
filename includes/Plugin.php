@@ -14,6 +14,9 @@ namespace BeepBeep_Titles;
 
 use BeepBeep_Titles\Api\Client;
 use BeepBeep_Titles\Seo\MetaWriter;
+use OptiAI\Core\Module_Registry;
+use OptiAI\Core\Module_Report;
+use OptiAI\Core\Scan\Schema;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -22,6 +25,24 @@ class Plugin {
     public function init(): void {
         ( new Admin( $this ) )->init();
         ( new RestApi( $this ) )->init();
+
+        // Let sibling OptiAI plugins (and, later, a shared Hub) detect this
+        // module the same way this plugin already detects Alt Text.
+        Module_Registry::register( 'titles', BEEPTI_SLUG . '/' . basename( BEEPTI_FILE ), admin_url( 'admin.php?page=beepbeep-titles' ), BEEPTI_PLUGIN_TITLE );
+        Module_Report::expose( 'titles', BEEPTI_PLUGIN_TITLE );
+
+        // Narrow scanning to the post types chosen on the onboarding "what to
+        // scan" step / Settings screen. An empty selection (the default)
+        // scans every public post type — never narrows to nothing.
+        add_filter( 'beepti_scanned_post_types', static function ( array $types ): array {
+            $settings   = get_option( 'beepti_settings', [] );
+            $chosen     = is_array( $settings['scan_post_types'] ?? null ) ? $settings['scan_post_types'] : [];
+            if ( empty( $chosen ) ) {
+                return $types;
+            }
+            $narrowed = array_values( array_intersect( $types, $chosen ) );
+            return empty( $narrowed ) ? $types : $narrowed;
+        } );
 
         // When no SEO plugin owns the head, emit our generated title + meta.
         if ( MetaWriter::active() === 'fallback' ) {
@@ -45,6 +66,69 @@ class Plugin {
 
         // Surface deferred admin notices (e.g. auto-generate failures).
         add_action( 'admin_notices', [ $this, 'render_admin_notices' ] );
+
+        // Scheduled scans (free — no credits) — see run_scheduled_scan().
+        add_action( 'beepti_scheduled_scan', [ $this, 'run_scheduled_scan' ] );
+        self::sync_scheduled_scan();
+    }
+
+    // ----------------------------------------------------------------
+    // Scheduled scans (Phase 2) — free, local, no AI credits
+    // ----------------------------------------------------------------
+
+    /**
+     * Reconciles the WP-Cron schedule with the `scan_daily` setting. Cheap
+     * (wp_next_scheduled() reads the cached cron array) so it is safe to run
+     * on every `init`, and is also called immediately after a settings save
+     * so toggling the option takes effect without waiting for the next
+     * request's init to notice a drift.
+     */
+    public static function sync_scheduled_scan(): void {
+        $settings = get_option( 'beepti_settings', [] );
+        $enabled  = ! empty( $settings['scan_daily'] );
+        $next     = wp_next_scheduled( 'beepti_scheduled_scan' );
+
+        if ( $enabled && ! $next ) {
+            wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'beepti_scheduled_scan' );
+        } elseif ( ! $enabled && $next ) {
+            wp_unschedule_event( $next, 'beepti_scheduled_scan' );
+        }
+    }
+
+    /**
+     * Runs the free local scan/score pass and, if it found anything new,
+     * queues a plain-language admin notice — never runs paid optimisation.
+     */
+    public function run_scheduled_scan(): void {
+        $before_summary = ( new \OptiAI\Core\Scan\Scan_Repository( 'titles' ) )->get_summary();
+
+        ( new Scanner() )->scan_and_cache();
+        ( new Scoring\Metadata_Scoring_Engine() )->run();
+
+        $settings = get_option( 'beepti_settings', [] );
+        if ( empty( $settings['notify_new_pages'] ) ) {
+            return;
+        }
+
+        $after_summary = ( new \OptiAI\Core\Scan\Scan_Repository( 'titles' ) )->get_summary();
+        $new_issues    = max( 0, ( $after_summary['total'] - $after_summary['by_status']['excellent'] )
+            - ( $before_summary['total'] - $before_summary['by_status']['excellent'] ) );
+
+        if ( $new_issues > 0 ) {
+            $this->queue_admin_notice(
+                sprintf(
+                    /* translators: %d: number of newly found optimisation opportunities. */
+                    _n(
+                        '%d new optimisation opportunity was found on your last scheduled scan.',
+                        '%d new optimisation opportunities were found on your last scheduled scan.',
+                        $new_issues,
+                        'beepbeep-titles'
+                    ),
+                    $new_issues
+                ),
+                'info'
+            );
+        }
     }
 
     // ----------------------------------------------------------------
@@ -54,6 +138,11 @@ class Plugin {
     public static function activate(): void {
         self::set_defaults();
         self::drop_legacy_table();
+
+        // Shared OptiAI scan-storage tables — safe to call even if a sibling
+        // OptiAI plugin already created them (dbDelta reconciles, it does
+        // not fail on "already exists").
+        Schema::install();
 
         // Establish stable identity + detect the SEO plugin once.
         $client = new Client();
@@ -67,6 +156,10 @@ class Plugin {
     public static function deactivate(): void {
         delete_transient( 'beepti_scan_lock' );
         delete_transient( 'beepti_stats' );
+        $next = wp_next_scheduled( 'beepti_scheduled_scan' );
+        if ( $next ) {
+            wp_unschedule_event( $next, 'beepti_scheduled_scan' );
+        }
         flush_rewrite_rules();
     }
 

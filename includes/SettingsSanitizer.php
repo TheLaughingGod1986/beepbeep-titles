@@ -25,6 +25,7 @@ class SettingsSanitizer {
         'notify_quota_warning',
         'delete_on_uninstall',
         'onboarding_complete',
+        'scan_post_types',
     ];
 
     private const TONES = [ 'direct', 'benefit', 'authoritative', 'conversational' ];
@@ -87,8 +88,24 @@ class SettingsSanitizer {
             'custom_instructions' => self::truncate_textarea( $value, 2000 ),
             'brand_name_override' => self::truncate_text( $value, 120 ),
             'notifications'       => self::sanitize_notifications( $value ),
+            'scan_post_types'     => self::sanitize_post_types( $value ),
             default               => null,
         };
+    }
+
+    /**
+     * @return string[]|null Empty array means "scan every public post type"
+     *                        (the default) — never null-out to "scan nothing".
+     */
+    private static function sanitize_post_types( mixed $value ): ?array {
+        if ( ! is_array( $value ) ) {
+            return null;
+        }
+        $valid = array_intersect(
+            array_map( 'sanitize_key', $value ),
+            Scanner::all_public_post_types()
+        );
+        return array_values( $valid );
     }
 
     private static function to_bool( mixed $value ): bool {

@@ -10,7 +10,10 @@ namespace BeepBeep_Titles\Rest;
 use BeepBeep_Titles\ActivityLog;
 use BeepBeep_Titles\Api\Client;
 use BeepBeep_Titles\PostPresenter;
+use BeepBeep_Titles\Scoring\Metadata_Scoring_Engine;
 use BeepBeep_Titles\Seo\MetaWriter;
+use OptiAI\Core\Scan\History_Repository;
+use OptiAI\Core\Scan\Scan_Repository;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -37,12 +40,29 @@ class GenerateController {
             return ErrorResponder::from_wp_error( $result );
         }
 
+        // Snapshot the pre-optimise state so this can be undone.
+        $before       = MetaWriter::read( $post->ID );
+        $score_before = $this->current_item_score( $post->ID );
+
         // Persist into the active SEO plugin.
         $title = (string) ( $result['title'] ?? '' );
         $meta  = (string) ( $result['meta'] ?? '' );
         MetaWriter::write( $post->ID, $title, $meta );
         ActivityLog::record( $post->ID, 'generated' );
         $this->bust_stats();
+        // Refresh the local health score so the dashboard shows the
+        // improvement immediately — free, no credits used.
+        ( new Metadata_Scoring_Engine() )->run();
+        $score_after = $this->current_item_score( $post->ID );
+
+        ( new History_Repository( 'titles' ) )->record(
+            (string) $post->ID,
+            wp_json_encode( [ 'title' => $before['title'], 'meta' => $before['meta'] ] ),
+            wp_json_encode( [ 'title' => $title, 'meta' => $meta ] ),
+            $score_before,
+            $score_after,
+            1
+        );
 
         $result['wp_post_id'] = $post->ID;
         return new \WP_REST_Response( $result, 200 );
@@ -127,12 +147,102 @@ class GenerateController {
             $this->bust_stats();
         }
 
-        // Clean up the mapping once the job is terminal.
+        // Clean up the mapping once the job is terminal, and refresh the
+        // local health score exactly once (not on every poll tick) so the
+        // dashboard's "before / after" celebration reflects the new scores.
         if ( in_array( $result['status'] ?? '', [ 'completed', 'failed' ], true ) ) {
             delete_transient( 'beepti_job_' . $job_id );
+            if ( $wrote ) {
+                ( new Metadata_Scoring_Engine() )->run();
+            }
         }
 
         return new \WP_REST_Response( $result, 200 );
+    }
+
+    /**
+     * Revert one page's title/meta to whatever it was immediately before the
+     * most recent optimisation, per the shared history log. Undoing does not
+     * refund the credit that was spent — it only reverts the content.
+     */
+    public function undo( \WP_REST_Request $req ): \WP_REST_Response|\WP_Error {
+        $post_id = (int) $req->get_param( 'post_id' );
+        $post    = get_post( $post_id );
+        if ( ! $post ) {
+            return new \WP_Error( 'beepti_not_found', __( 'Page not found.', 'beepbeep-titles' ), [ 'status' => 404 ] );
+        }
+
+        $history = ( new History_Repository( 'titles' ) )->get_latest_for_item( (string) $post_id );
+        if ( ! $history ) {
+            return new \WP_Error( 'beepti_no_history', __( 'Nothing to undo for this page.', 'beepbeep-titles' ), [ 'status' => 404 ] );
+        }
+
+        $old = json_decode( (string) $history['old_value'], true );
+        if ( ! is_array( $old ) ) {
+            return new \WP_Error( 'beepti_undo_failed', __( 'Could not read the previous version.', 'beepbeep-titles' ), [ 'status' => 500 ] );
+        }
+
+        // restore() (not write()) — the pre-optimise value may genuinely be
+        // empty, and write() treats an empty string as "leave unchanged",
+        // which would silently no-op the undo for exactly the pages that
+        // had no title/meta before OptiAI touched them.
+        MetaWriter::restore( $post_id, (string) ( $old['title'] ?? '' ), (string) ( $old['meta'] ?? '' ) );
+        ActivityLog::record( $post_id, 'edited' );
+        $this->bust_stats();
+        ( new Metadata_Scoring_Engine() )->run();
+
+        return new \WP_REST_Response( ( new \BeepBeep_Titles\Scanner() )->format_post( get_post( $post_id ) ) );
+    }
+
+    /**
+     * Bulk "Reset generated title & meta" (Settings → Danger zone). Reverts
+     * every page this plugin has ever optimised back to its earliest
+     * recorded pre-optimise snapshot — i.e. how it looked before OptiAI
+     * touched it for the first time — using the same history log undo()
+     * relies on. Manual edits made through the Library's edit modal are
+     * untouched since they never go through GenerateController and so never
+     * write a history row.
+     */
+    public function reset_all( \WP_REST_Request $req ): \WP_REST_Response {
+        $snapshots = ( new History_Repository( 'titles' ) )->earliest_snapshots();
+        $reset     = 0;
+
+        foreach ( $snapshots as $site_item_id => $old_value_json ) {
+            $post_id = (int) $site_item_id;
+            $post    = get_post( $post_id );
+            if ( ! $post ) {
+                continue;
+            }
+            $old = json_decode( (string) $old_value_json, true );
+            if ( ! is_array( $old ) ) {
+                continue;
+            }
+            MetaWriter::restore( $post_id, (string) ( $old['title'] ?? '' ), (string) ( $old['meta'] ?? '' ) );
+            ActivityLog::record( $post_id, 'edited' );
+            ++$reset;
+        }
+
+        if ( $reset > 0 ) {
+            $this->bust_stats();
+            ( new Metadata_Scoring_Engine() )->run();
+        }
+
+        return new \WP_REST_Response( [ 'success' => true, 'reset_count' => $reset ] );
+    }
+
+    private function current_item_score( int $post_id ): ?int {
+        global $wpdb;
+        if ( ! \OptiAI\Core\Scan\Schema::items_table_exists() ) {
+            return null;
+        }
+        $table = \OptiAI\Core\Scan\Schema::items_table();
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared -- values bound via prepare().
+        $score = $wpdb->get_var( $wpdb->prepare(
+            "SELECT score FROM {$table} WHERE module = %s AND site_item_id = %s",
+            'titles',
+            (string) $post_id
+        ) );
+        return null === $score ? null : (int) $score;
     }
 
     /** Options block shared by single + bulk generation. */

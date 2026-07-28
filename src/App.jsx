@@ -6,9 +6,9 @@ import { PagesLibrary } from './screens/Library';
 import { AutopilotScreen } from './screens/Autopilot';
 import { BillingScreen } from './screens/Billing';
 import { SettingsScreen } from './screens/Settings';
-import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal, ConnectModal } from './modals/index';
+import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal, ConnectModal, BulkConfirm } from './modals/index';
 import { SignOutConfirm } from './auth';
-import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, createCheckout, createBillingPortal, clearLicense, saveSettings } from './api';
+import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, createCheckout, createBillingPortal, clearLicense, saveSettings, fetchSettings, fetchHealth, fetchPriorities, fetchHealthItems, runHealthScan, undoPage, fetchAeo, resetGenerated } from './api';
 import { paywallTrigger, errorToast, checkoutErrorToast } from './errors';
 import { hasDailyCap } from './quota';
 import { usePaywallGate } from './hooks/usePaywallGate';
@@ -48,11 +48,17 @@ export default function App() {
     const [quotaReady, setQuotaReady] = useState( false );
     const [activity, setActivity] = useState( [] );
     const [queuePages, setQueuePages] = useState( [] );
+    const [health, setHealth] = useState( null );
+    const [healthReady, setHealthReady] = useState( false );
+    const [priorities, setPriorities] = useState( [] );
+    const [previousScore, setPreviousScore] = useState( null );
+    const [aeo, setAeo] = useState( null );
     const [autoOptimise, setAutoOptimise] = useState( initial.settings?.auto_generate ?? false );
     const [connected, setConnected] = useState( initial.connected );
 
     const [paywall, setPaywall]       = useState( { open: false, trigger: 'default', entitlement: null } );
     const [drawer, setDrawer]         = useState( { open: false, pages: null } );
+    const [bulkConfirm, setBulkConfirm] = useState( { open: false, pages: [] } );
     const [toast, setToast]           = useState( null );
     const [onboardingOpen, setOnboardingOpen] = useState( false );
     const [helpOpen, setHelpOpen]     = useState( false );
@@ -95,6 +101,10 @@ export default function App() {
         loadQueuePages();
         loadStats();
         loadActivity();
+        loadHealth();
+        loadPriorities();
+        loadSettings();
+        loadAeo();
 
         // Returning from Stripe checkout?
         const params  = new URLSearchParams( window.location.search );
@@ -147,7 +157,18 @@ export default function App() {
             setQuota( q );
             setConnected( !! q.connected );
             return q;
-        } catch ( e ) { return null; }
+        } catch ( e ) {
+            // A stored license key that the backend no longer recognises
+            // (revoked, expired, or from a different environment) must not
+            // leave the UI showing "Active"/connected while every real
+            // feature 401s — flip to the disconnected state so the reconnect
+            // path surfaces instead of a silent, confusing failure.
+            if ( e?.code === 'INVALID_LICENSE' ) {
+                setConnected( false );
+                setQuota( normalizeQuota( null ) );
+            }
+            return null;
+        }
         finally { setQuotaReady( true ); }
     };
 
@@ -201,6 +222,155 @@ export default function App() {
         }
     };
 
+    // ── Health (dashboard-first score + Today's Priorities) ──
+    const loadHealth = async () => {
+        try {
+            const res = await fetchHealth();
+            setHealth( prev => {
+                if ( prev && prev.score !== res.score ) setPreviousScore( prev.score );
+                return res;
+            } );
+        } catch ( e ) {
+            // Keep the last known score rather than flashing to zero.
+        } finally {
+            setHealthReady( true );
+        }
+    };
+
+    /** Pulls available_post_types (and any other server-computed fields) into local settings state. */
+    const loadSettings = async () => {
+        try {
+            const res = await fetchSettings();
+            setSettings( s => ( { ...s, ...res } ) );
+        } catch ( e ) {
+            // Keep whatever settings we already have (from initial PHP data).
+        }
+    };
+
+    /** Onboarding's "choose what to scan" step — persists before the first scan runs. */
+    const handleSaveScanScope = async ( postTypes ) => {
+        try {
+            await saveSettings( { scan_post_types: postTypes } );
+            setSettings( s => ( { ...s, scan_post_types: postTypes } ) );
+        } catch ( e ) {
+            // Non-fatal — the scan still runs against every post type.
+        }
+    };
+
+    const loadAeo = async () => {
+        try {
+            setAeo( await fetchAeo() );
+        } catch ( e ) {
+            // Leave null — the Summary Card shows "Coming soon" until this loads.
+        }
+    };
+
+    const loadPriorities = async () => {
+        try {
+            // Fetch every issue group the backend will return (capped at 10)
+            // so the Summary Cards can look up specific codes without a
+            // second request; the Priority Action Centre + Today's
+            // Priorities banner only render the top few of these.
+            const res = await fetchPriorities( { limit: 10 } );
+            setPriorities( res.priorities || [] );
+        } catch ( e ) {
+            setPriorities( [] );
+        }
+    };
+
+    /** Free, local rescore — no credits used. Used by Quick Scan. */
+    const handleQuickScan = async () => {
+        try {
+            await runHealthScan();
+        } catch ( e ) { /* fall through to refresh with whatever we have */ }
+        await loadHealth();
+        await loadPriorities();
+        loadAeo();
+    };
+
+    /** Full scan: coverage stats + health score together (the existing "Run Full Scan" path). */
+    const handleFullScan = async () => {
+        const result = await handleScan();
+        loadHealth();
+        loadPriorities();
+        loadAeo();
+        return result;
+    };
+
+    /**
+     * Onboarding's "Run My Free Health Check" — deliberately lighter than
+     * handleFullScan: only the two calls the results screen needs (score +
+     * issue count), not the whole library/activity/queue reload.
+     */
+    const handleOnboardingScan = async () => {
+        const scan = await runHealthScan();
+        loadPriorities();
+        return { health: scan };
+    };
+
+    /** Pull up to `limit` affected items for one issue code, for an expanded Priority card. */
+    const loadIssueItems = async ( issueCode, { limit = 50 } = {} ) => {
+        try {
+            const res = await fetchHealthItems( { issue: issueCode, sort: 'lowest-score', perPage: limit } );
+            return res.items || [];
+        } catch ( e ) {
+            return [];
+        }
+    };
+
+    /** "Optimise All" on a Priority card — queue every affected item into the existing credit-consuming generation flow. */
+    const handleOptimiseIssue = async ( issueCode ) => {
+        const items = await loadIssueItems( issueCode, { limit: 100 } );
+        const pages = items.map( ( item ) => ( {
+            id: Number( item.site_item_id ),
+            url: item.edit_url || '',
+            title: item.post_title || '',
+            hue: ( Number( item.site_item_id ) * 47 ) % 360,
+        } ) );
+        openBulk( pages );
+    };
+
+    /** Settings → Danger zone: revert every page this plugin has ever optimised. Does not refund credits already spent. */
+    const handleResetGenerated = async () => {
+        const res = await resetGenerated();
+        loadQueuePages();
+        loadStats();
+        loadActivity();
+        loadHealth();
+        loadPriorities();
+        return res;
+    };
+
+    /** Revert one page to its pre-optimise value. Does not refund the credit spent. */
+    const handleUndo = async ( postId ) => {
+        try {
+            await undoPage( postId );
+            setToast( { message: 'Change undone', sub: 'The page is back to its previous title and meta description.', icon: 'check', tone: 'ok' } );
+            loadHealth();
+            loadPriorities();
+            loadActivity();
+            loadStats();
+        } catch ( e ) {
+            handleApiError( e );
+        }
+    };
+
+    /** "Optimise Critical Issues" hero button — every item currently scored critical. */
+    const handleOptimiseCritical = async () => {
+        try {
+            const res = await fetchHealthItems( { status: 'critical', sort: 'lowest-score', perPage: 100 } );
+            const pages = ( res.items || [] ).map( ( item ) => ( {
+                id: Number( item.site_item_id ),
+                url: item.edit_url || '',
+                title: item.post_title || '',
+                hue: ( Number( item.site_item_id ) * 47 ) % 360,
+            } ) );
+            openBulk( pages );
+        } catch ( e ) {
+            handleApiError( e );
+        }
+    };
+
     // ── Error → paywall / toast ──
     const handleApiError = ( err ) => {
         if ( err?.name === 'AbortError' ) return;
@@ -246,6 +416,18 @@ export default function App() {
             return;
         }
         if ( ! pages.length ) return;
+        // Single items already get a preview/confirm inside the drawer
+        // itself — the pre-flight estimate below is specifically for bulk.
+        if ( pages.length === 1 ) {
+            setDrawer( { open: true, pages } );
+            return;
+        }
+        setBulkConfirm( { open: true, pages } );
+    };
+
+    const confirmBulk = () => {
+        const pages = bulkConfirm.pages;
+        setBulkConfirm( { open: false, pages: [] } );
         setDrawer( { open: true, pages } );
     };
 
@@ -271,6 +453,8 @@ export default function App() {
         loadQueuePages();
         loadStats();
         loadActivity();
+        loadHealth();
+        loadPriorities();
         refreshQuota();
     };
 
@@ -385,6 +569,24 @@ export default function App() {
                     onUpgrade={() => setPaywall( { open: true, trigger: 'default', entitlement: null } )}
                     onView={selectTab}
                     altTextCompanion={initial.altTextCompanion}
+                    internalLinkingCompanion={initial.internalLinkingCompanion}
+                    health={health}
+                    healthReady={healthReady}
+                    previousScore={previousScore}
+                    priorities={priorities}
+                    aeo={aeo}
+                    onQuickScan={handleQuickScan}
+                    onFullScan={handleFullScan}
+                    onOptimiseCritical={handleOptimiseCritical}
+                    onOptimiseIssue={handleOptimiseIssue}
+                    onLoadIssueItems={loadIssueItems}
+                    onOptimiseSingleItem={( item ) => openGenSingle( {
+                        id: Number( item.site_item_id ),
+                        url: item.edit_url || '',
+                        title: item.post_title || '',
+                        hue: ( Number( item.site_item_id ) * 47 ) % 360,
+                    } )}
+                    onUndo={handleUndo}
                 />
             ) : (
                 <AuditSignedOutScreen
@@ -393,18 +595,6 @@ export default function App() {
                     onHelp={() => setHelpOpen( true )}
                     onLibrary={() => selectTab( 'library' )}
                     onAutopilot={() => selectTab( 'automation' )}
-                />
-            );
-            break;
-        case 'library':
-            body = (
-                <PagesLibrary
-                    quota={quota}
-                    connected={connected}
-                    onConnect={() => setConnectOpen( true )}
-                    onGenerate={openGenSingle}
-                    onBulkGenerate={openBulk}
-                    onUpgrade={() => setPaywall( { open: true, trigger: 'bulk', entitlement: quota } )}
                 />
             );
             break;
@@ -431,6 +621,7 @@ export default function App() {
                     onManageBilling={handleManageBilling}
                     onToast={setToast}
                     onConnect={refreshQuota}
+                    onReset={handleResetGenerated}
                 />
             );
             break;
@@ -464,12 +655,33 @@ export default function App() {
                 onUpgrade={() => setPaywall( { open: true, trigger: 'default', entitlement: null } )}
             >
                 {body}
+                {/*
+                 * Kept mounted (not swapped in/out via the switch above) and
+                 * hidden with CSS rather than unmounted, for two reasons:
+                 *  1. It starts fetching as soon as the app loads, in parallel
+                 *     with the dashboard's own bootstrap calls, so by the time
+                 *     someone clicks the tab the list is often already there.
+                 *  2. Once loaded, switching away and back is instant — no
+                 *     more re-fetch + blank "Loading…" flash on every visit.
+                 */}
+                <div style={{ display: tab === 'library' ? 'block' : 'none' }}>
+                    <PagesLibrary
+                        quota={quota}
+                        connected={connected}
+                        onConnect={() => setConnectOpen( true )}
+                        onGenerate={openGenSingle}
+                        onBulkGenerate={openBulk}
+                        onUpgrade={() => setPaywall( { open: true, trigger: 'bulk', entitlement: quota } )}
+                    />
+                </div>
             </WPChrome>
 
             <Onboarding
                 open={onboardingOpen}
                 onClose={() => setOnboardingOpen( false )}
-                onScan={handleScan}
+                onScan={handleOnboardingScan}
+                availablePostTypes={settings?.available_post_types || []}
+                onSaveScanScope={handleSaveScanScope}
                 onComplete={async () => {
                     try {
                         await saveSettings( { onboarding_complete: true } );
@@ -500,6 +712,14 @@ export default function App() {
                 open={signOutOpen}
                 onCancel={() => setSignOutOpen( false )}
                 onConfirm={() => { setSignOutOpen( false ); handleSignOut(); }}
+            />
+
+            <BulkConfirm
+                open={bulkConfirm.open}
+                count={bulkConfirm.pages.length}
+                creditsRemaining={quota?.credits_remaining ?? null}
+                onCancel={() => setBulkConfirm( { open: false, pages: [] } )}
+                onConfirm={confirmBulk}
             />
 
             <GenerationDrawer

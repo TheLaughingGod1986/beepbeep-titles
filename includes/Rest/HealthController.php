@@ -13,6 +13,7 @@ namespace BeepBeep_Titles\Rest;
 use BeepBeep_Titles\Api\Client;
 use BeepBeep_Titles\Scoring\Metadata_Scoring_Engine;
 use OptiAI\Core\Health_Score;
+use OptiAI\Core\Module_Registry;
 use OptiAI\Core\Scan\History_Repository;
 use OptiAI\Core\Scan\Scan_Repository;
 
@@ -45,6 +46,10 @@ class HealthController {
             'by_status'             => $summary['by_status'],
             'last_scanned_at'       => $summary['last_scanned_at'],
             'disclaimer'            => Health_Score::disclaimer(),
+            // Cross-plugin (Phase 3): null unless a sibling OptiAI module is
+            // also active and has reported — see Module_Registry::all_reports().
+            'combined_score'        => Module_Registry::aggregate_score(),
+            'combined_modules'      => array_map( static fn( $r ) => [ 'name' => $r['name'], 'score' => $r['score'] ], Module_Registry::all_reports() ),
         ] );
     }
 

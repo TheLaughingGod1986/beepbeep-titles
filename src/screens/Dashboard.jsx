@@ -288,6 +288,15 @@ const HeroScoreCard = ({ ready, health, previousScore, creditsRemaining, onQuick
                     {scanning === 'full' ? 'Scanning\u2026' : 'Run Full Scan'}
                 </Button>
             </div>
+            {ready && health?.combined_score != null && (
+                <div style={{ borderTop: '1px solid var(--hairline)', padding: '10px 24px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', fontSize: 12.5, color: 'var(--text-2)' }}>
+                    <Icon name="shield-check" size={14} style={{ color: 'var(--primary)' }}/>
+                    <span>Combined OptiAI Health: <strong className="mono tnum" style={{ color: 'var(--text)' }}>{health.combined_score}</strong></span>
+                    <span style={{ color: 'var(--text-3)' }}>
+                        ({( health.combined_modules || [] ).map( m => `${m.name}: ${m.score}` ).join( ' · ' )})
+                    </span>
+                </div>
+            )}
         </Card>
     );
 };

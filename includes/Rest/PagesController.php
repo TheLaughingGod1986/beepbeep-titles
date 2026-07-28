@@ -144,6 +144,9 @@ class PagesController {
 
         $current = SettingsSanitizer::normalize_settings( $current );
         update_option( 'beepti_settings', $current );
+        // Immediately reconcile the scheduled-scan cron if scan_daily changed,
+        // rather than waiting for the next request's init to notice the drift.
+        \BeepBeep_Titles\Plugin::sync_scheduled_scan();
         return new \WP_REST_Response( $current );
     }
 

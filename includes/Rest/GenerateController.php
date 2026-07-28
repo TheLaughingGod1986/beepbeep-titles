@@ -12,6 +12,8 @@ use BeepBeep_Titles\Api\Client;
 use BeepBeep_Titles\PostPresenter;
 use BeepBeep_Titles\Scoring\Metadata_Scoring_Engine;
 use BeepBeep_Titles\Seo\MetaWriter;
+use OptiAI\Core\Scan\History_Repository;
+use OptiAI\Core\Scan\Scan_Repository;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -38,6 +40,10 @@ class GenerateController {
             return ErrorResponder::from_wp_error( $result );
         }
 
+        // Snapshot the pre-optimise state so this can be undone.
+        $before       = MetaWriter::read( $post->ID );
+        $score_before = $this->current_item_score( $post->ID );
+
         // Persist into the active SEO plugin.
         $title = (string) ( $result['title'] ?? '' );
         $meta  = (string) ( $result['meta'] ?? '' );
@@ -47,6 +53,16 @@ class GenerateController {
         // Refresh the local health score so the dashboard shows the
         // improvement immediately — free, no credits used.
         ( new Metadata_Scoring_Engine() )->run();
+        $score_after = $this->current_item_score( $post->ID );
+
+        ( new History_Repository( 'titles' ) )->record(
+            (string) $post->ID,
+            wp_json_encode( [ 'title' => $before['title'], 'meta' => $before['meta'] ] ),
+            wp_json_encode( [ 'title' => $title, 'meta' => $meta ] ),
+            $score_before,
+            $score_after,
+            1
+        );
 
         $result['wp_post_id'] = $post->ID;
         return new \WP_REST_Response( $result, 200 );
@@ -142,6 +158,51 @@ class GenerateController {
         }
 
         return new \WP_REST_Response( $result, 200 );
+    }
+
+    /**
+     * Revert one page's title/meta to whatever it was immediately before the
+     * most recent optimisation, per the shared history log. Undoing does not
+     * refund the credit that was spent — it only reverts the content.
+     */
+    public function undo( \WP_REST_Request $req ): \WP_REST_Response|\WP_Error {
+        $post_id = (int) $req->get_param( 'post_id' );
+        $post    = get_post( $post_id );
+        if ( ! $post ) {
+            return new \WP_Error( 'beepti_not_found', __( 'Page not found.', 'beepbeep-titles' ), [ 'status' => 404 ] );
+        }
+
+        $history = ( new History_Repository( 'titles' ) )->get_latest_for_item( (string) $post_id );
+        if ( ! $history ) {
+            return new \WP_Error( 'beepti_no_history', __( 'Nothing to undo for this page.', 'beepbeep-titles' ), [ 'status' => 404 ] );
+        }
+
+        $old = json_decode( (string) $history['old_value'], true );
+        if ( ! is_array( $old ) ) {
+            return new \WP_Error( 'beepti_undo_failed', __( 'Could not read the previous version.', 'beepbeep-titles' ), [ 'status' => 500 ] );
+        }
+
+        MetaWriter::write( $post_id, (string) ( $old['title'] ?? '' ), (string) ( $old['meta'] ?? '' ) );
+        ActivityLog::record( $post_id, 'edited' );
+        $this->bust_stats();
+        ( new Metadata_Scoring_Engine() )->run();
+
+        return new \WP_REST_Response( ( new \BeepBeep_Titles\Scanner() )->format_post( get_post( $post_id ) ) );
+    }
+
+    private function current_item_score( int $post_id ): ?int {
+        global $wpdb;
+        if ( ! \OptiAI\Core\Scan\Schema::items_table_exists() ) {
+            return null;
+        }
+        $table = \OptiAI\Core\Scan\Schema::items_table();
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared -- values bound via prepare().
+        $score = $wpdb->get_var( $wpdb->prepare(
+            "SELECT score FROM {$table} WHERE module = %s AND site_item_id = %s",
+            'titles',
+            (string) $post_id
+        ) );
+        return null === $score ? null : (int) $score;
     }
 
     /** Options block shared by single + bulk generation. */

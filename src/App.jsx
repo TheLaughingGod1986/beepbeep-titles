@@ -6,9 +6,9 @@ import { PagesLibrary } from './screens/Library';
 import { AutopilotScreen } from './screens/Autopilot';
 import { BillingScreen } from './screens/Billing';
 import { SettingsScreen } from './screens/Settings';
-import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal, ConnectModal } from './modals/index';
+import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal, ConnectModal, BulkConfirm } from './modals/index';
 import { SignOutConfirm } from './auth';
-import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, createCheckout, createBillingPortal, clearLicense, saveSettings, fetchSettings, fetchHealth, fetchPriorities, fetchHealthItems, runHealthScan } from './api';
+import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, createCheckout, createBillingPortal, clearLicense, saveSettings, fetchSettings, fetchHealth, fetchPriorities, fetchHealthItems, runHealthScan, undoPage } from './api';
 import { paywallTrigger, errorToast, checkoutErrorToast } from './errors';
 import { hasDailyCap } from './quota';
 import { usePaywallGate } from './hooks/usePaywallGate';
@@ -57,6 +57,7 @@ export default function App() {
 
     const [paywall, setPaywall]       = useState( { open: false, trigger: 'default', entitlement: null } );
     const [drawer, setDrawer]         = useState( { open: false, pages: null } );
+    const [bulkConfirm, setBulkConfirm] = useState( { open: false, pages: [] } );
     const [toast, setToast]           = useState( null );
     const [onboardingOpen, setOnboardingOpen] = useState( false );
     const [helpOpen, setHelpOpen]     = useState( false );
@@ -306,6 +307,20 @@ export default function App() {
         openBulk( pages );
     };
 
+    /** Revert one page to its pre-optimise value. Does not refund the credit spent. */
+    const handleUndo = async ( postId ) => {
+        try {
+            await undoPage( postId );
+            setToast( { message: 'Change undone', sub: 'The page is back to its previous title and meta description.', icon: 'check', tone: 'ok' } );
+            loadHealth();
+            loadPriorities();
+            loadActivity();
+            loadStats();
+        } catch ( e ) {
+            handleApiError( e );
+        }
+    };
+
     /** "Optimise Critical Issues" hero button — every item currently scored critical. */
     const handleOptimiseCritical = async () => {
         try {
@@ -367,6 +382,18 @@ export default function App() {
             return;
         }
         if ( ! pages.length ) return;
+        // Single items already get a preview/confirm inside the drawer
+        // itself — the pre-flight estimate below is specifically for bulk.
+        if ( pages.length === 1 ) {
+            setDrawer( { open: true, pages } );
+            return;
+        }
+        setBulkConfirm( { open: true, pages } );
+    };
+
+    const confirmBulk = () => {
+        const pages = bulkConfirm.pages;
+        setBulkConfirm( { open: false, pages: [] } );
         setDrawer( { open: true, pages } );
     };
 
@@ -523,6 +550,7 @@ export default function App() {
                         title: item.post_title || '',
                         hue: ( Number( item.site_item_id ) * 47 ) % 360,
                     } )}
+                    onUndo={handleUndo}
                 />
             ) : (
                 <AuditSignedOutScreen
@@ -640,6 +668,14 @@ export default function App() {
                 open={signOutOpen}
                 onCancel={() => setSignOutOpen( false )}
                 onConfirm={() => { setSignOutOpen( false ); handleSignOut(); }}
+            />
+
+            <BulkConfirm
+                open={bulkConfirm.open}
+                count={bulkConfirm.pages.length}
+                creditsRemaining={quota?.credits_remaining ?? null}
+                onCancel={() => setBulkConfirm( { open: false, pages: [] } )}
+                onConfirm={confirmBulk}
             />
 
             <GenerationDrawer

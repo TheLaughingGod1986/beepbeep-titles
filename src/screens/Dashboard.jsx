@@ -100,7 +100,7 @@ const ISSUE_TITLES = {
 export const Dashboard = ({
     quota, quotaReady, stats, activity, queuePages, autoOptimise, onAutoToggle, onGenerate, onUpgrade, onView, altTextCompanion,
     health, healthReady, previousScore, priorities,
-    onQuickScan, onFullScan, onOptimiseCritical, onOptimiseIssue, onLoadIssueItems, onOptimiseSingleItem,
+    onQuickScan, onFullScan, onOptimiseCritical, onOptimiseIssue, onLoadIssueItems, onOptimiseSingleItem, onUndo,
 }) => {
     const dailyUsed = quota?.daily_used || 0;
     const dailyLimit = quota?.daily_limit || QUOTA_DEFAULTS.daily_limit;
@@ -158,7 +158,7 @@ export const Dashboard = ({
             </div>
 
             <CompanionBanner companion={altTextCompanion}/>
-            <ActivityStrip onView={onView} newSince={newSince} activity={activity}/>
+            <ActivityStrip onView={onView} newSince={newSince} activity={activity} onUndo={onUndo}/>
             <FooterMetrics
                 streak={streak}
                 dailyUsed={dailyUsed}
@@ -556,11 +556,17 @@ const ACTIVITY_KINDS = {
     edited:    { icon: 'edit',     tone: 'primary', verb: 'Edited' },
 };
 
-const ActivityStrip = ({ onView, newSince, activity }) => {
+const ActivityStrip = ({ onView, newSince, activity, onUndo }) => {
+    const [undoing, setUndoing] = useState( null );
     const real = ( activity || [] ).map( ( e ) => {
         const kind  = ACTIVITY_KINDS[ e.kind ] || ACTIVITY_KINDS.edited;
         const title = e.title?.trim() || 'Untitled';
-        return { time: e.ago || '', icon: kind.icon, tone: kind.tone, text: `${kind.verb} “${title}”`, action: null };
+        const canUndo = onUndo && e.post_id && ( e.kind === 'generated' || e.kind === 'auto' );
+        return {
+            time: e.ago || '', icon: kind.icon, tone: kind.tone, text: `${kind.verb} “${title}”`,
+            action: canUndo ? ( undoing === e.post_id ? 'Undoing…' : 'Undo' ) : null,
+            onAction: canUndo ? () => { setUndoing( e.post_id ); Promise.resolve( onUndo( e.post_id ) ).finally( () => setUndoing( null ) ); } : null,
+        };
     } );
     const events = [
         ...(newSince > 0 ? [{ time: 'Just now', icon: 'upload', tone: 'warn', text: `${newSince} new page${newSince === 1 ? '' : 's'} detected`, action: 'Review', onAction: () => onView && onView( 'library' ) }] : []),

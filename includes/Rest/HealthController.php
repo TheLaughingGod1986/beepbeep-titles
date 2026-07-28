@@ -13,6 +13,7 @@ namespace BeepBeep_Titles\Rest;
 use BeepBeep_Titles\Api\Client;
 use BeepBeep_Titles\Scoring\Metadata_Scoring_Engine;
 use OptiAI\Core\Health_Score;
+use OptiAI\Core\Scan\History_Repository;
 use OptiAI\Core\Scan\Scan_Repository;
 
 defined( 'ABSPATH' ) || exit;
@@ -30,18 +31,20 @@ class HealthController {
         $repo    = new Scan_Repository( self::MODULE );
         $summary = $repo->get_summary();
         $prev    = $repo->get_previous_score();
+        $history = new History_Repository( self::MODULE );
 
         return new \WP_REST_Response( [
-            'score'               => $summary['score'],
-            'status'              => $summary['status'],
-            'label'               => Health_Score::label( $summary['score'] ),
-            'trend'               => Health_Score::trend( $summary['score'], $prev ),
-            'items_scanned'       => $summary['total'],
-            'critical_issues'     => $summary['critical'],
-            'optimised_this_week' => $summary['optimised_this_week'],
-            'by_status'           => $summary['by_status'],
-            'last_scanned_at'     => $summary['last_scanned_at'],
-            'disclaimer'          => Health_Score::disclaimer(),
+            'score'                 => $summary['score'],
+            'status'                => $summary['status'],
+            'label'                 => Health_Score::label( $summary['score'] ),
+            'trend'                 => Health_Score::trend( $summary['score'], $prev ),
+            'items_scanned'         => $summary['total'],
+            'critical_issues'       => $summary['critical'],
+            'optimised_this_week'   => $summary['optimised_this_week'],
+            'credits_used_this_week' => $history->credits_used_this_week(),
+            'by_status'             => $summary['by_status'],
+            'last_scanned_at'       => $summary['last_scanned_at'],
+            'disclaimer'            => Health_Score::disclaimer(),
         ] );
     }
 

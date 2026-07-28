@@ -228,6 +228,11 @@ export async function runHealthScan() {
     return request( 'POST', '/health/scan' );
 }
 
+/** Revert a page to whatever it was before its most recent optimise. Does not refund the credit spent. */
+export async function undoPage( postId ) {
+    return request( 'POST', '/undo', { post_id: postId } );
+}
+
 // ── Support (contact form) ──────────────────────────────────────────
 /**
  * Send a support message. The backend auto-attaches diagnostics + the recent

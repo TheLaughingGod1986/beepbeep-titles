@@ -88,6 +88,16 @@ class Routes {
             ],
         ] );
 
+        // ── Undo (Phase 2: revert to the value before the last optimise) ──
+        register_rest_route( $ns, '/undo', [
+            'methods'             => 'POST',
+            'callback'            => [ $g, 'undo' ],
+            'permission_callback' => [ $this, 'can_edit_requested_post' ],
+            'args'                => [
+                'post_id' => [ 'required' => true, 'type' => 'integer', 'sanitize_callback' => 'absint' ],
+            ],
+        ] );
+
         // ── Bulk jobs ──────────────────────────────────────────────
         register_rest_route( $ns, '/jobs', [
             'methods'             => 'POST',

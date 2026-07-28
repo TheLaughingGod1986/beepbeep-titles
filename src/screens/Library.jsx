@@ -164,7 +164,7 @@ export const PagesLibrary = ({ quota, connected = true, onConnect, onGenerate, o
 
             <Card padding={0} style={{ marginTop: 14, overflow: 'hidden' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '32px 44px 1.5fr 1.4fr 130px 110px', padding: '10px 18px', gap: 14, alignItems: 'center', borderBottom: '1px solid var(--hairline)', fontSize: 10.5, fontWeight: 600, color: 'var(--text-3)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                    <Checkbox checked={selected.size === pages.length && pages.length > 0} indeterminate={selected.size > 0 && selected.size < pages.length} onChange={toggleAll}/>
+                    <Checkbox checked={selected.size === pages.length && pages.length > 0} indeterminate={selected.size > 0 && selected.size < pages.length} onChange={toggleAll} label="Select all"/>
                     <span/>
                     <span>Content</span>
                     <span>Title & meta</span>
@@ -259,7 +259,7 @@ const PageRow = ({ pg, selected, onToggle, onGenerate, onEdit, justSaved, genera
                 background: justSaved ? 'var(--ok-soft)' : selected ? 'var(--primary-soft)' : hover ? 'var(--surface-2)' : 'transparent',
                 transition: 'background .35s cubic-bezier(0.16,1,0.3,1)',
             }}>
-            <Checkbox checked={selected} onChange={onToggle}/>
+            <Checkbox checked={selected} onChange={onToggle} label={`Select ${pg.title || pg.url || 'item'}`}/>
 
             <PageAvatar type={pg.type} section={pg.section} hue={pg.hue ?? 220} size={36} style={{ flexShrink: 0 }}/>
 
@@ -463,8 +463,13 @@ const BulkActionBar = ({ count, allowed = 0, overLimit, generationUnavailable, s
     </div>
 );
 
-const Checkbox = ({ checked, indeterminate, onChange }) => (
-    <button onClick={onChange} style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${checked || indeterminate ? 'var(--primary)' : 'var(--border-strong)'}`, background: checked || indeterminate ? 'var(--primary)' : 'var(--surface)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0, transition: 'all .12s ease' }}>
+const Checkbox = ({ checked, indeterminate, onChange, label = 'Select item' }) => (
+    <button
+        onClick={onChange}
+        role="checkbox"
+        aria-checked={indeterminate ? 'mixed' : checked}
+        aria-label={label}
+        style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${checked || indeterminate ? 'var(--primary)' : 'var(--border-strong)'}`, background: checked || indeterminate ? 'var(--primary)' : 'var(--surface)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0, transition: 'all .12s ease' }}>
         {checked && <Icon name="check" size={11} style={{ color: '#fff' }} strokeWidth={3}/>}
         {indeterminate && !checked && <span style={{ width: 8, height: 2, background: '#fff', borderRadius: 1 }}/>}
     </button>

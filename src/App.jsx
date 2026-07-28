@@ -8,7 +8,7 @@ import { BillingScreen } from './screens/Billing';
 import { SettingsScreen } from './screens/Settings';
 import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal, ConnectModal, BulkConfirm } from './modals/index';
 import { SignOutConfirm } from './auth';
-import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, createCheckout, createBillingPortal, clearLicense, saveSettings, fetchSettings, fetchHealth, fetchPriorities, fetchHealthItems, runHealthScan, undoPage, fetchAeo } from './api';
+import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, createCheckout, createBillingPortal, clearLicense, saveSettings, fetchSettings, fetchHealth, fetchPriorities, fetchHealthItems, runHealthScan, undoPage, fetchAeo, resetGenerated } from './api';
 import { paywallTrigger, errorToast, checkoutErrorToast } from './errors';
 import { hasDailyCap } from './quota';
 import { usePaywallGate } from './hooks/usePaywallGate';
@@ -157,7 +157,18 @@ export default function App() {
             setQuota( q );
             setConnected( !! q.connected );
             return q;
-        } catch ( e ) { return null; }
+        } catch ( e ) {
+            // A stored license key that the backend no longer recognises
+            // (revoked, expired, or from a different environment) must not
+            // leave the UI showing "Active"/connected while every real
+            // feature 401s — flip to the disconnected state so the reconnect
+            // path surfaces instead of a silent, confusing failure.
+            if ( e?.code === 'INVALID_LICENSE' ) {
+                setConnected( false );
+                setQuota( normalizeQuota( null ) );
+            }
+            return null;
+        }
         finally { setQuotaReady( true ); }
     };
 
@@ -317,6 +328,17 @@ export default function App() {
             hue: ( Number( item.site_item_id ) * 47 ) % 360,
         } ) );
         openBulk( pages );
+    };
+
+    /** Settings → Danger zone: revert every page this plugin has ever optimised. Does not refund credits already spent. */
+    const handleResetGenerated = async () => {
+        const res = await resetGenerated();
+        loadQueuePages();
+        loadStats();
+        loadActivity();
+        loadHealth();
+        loadPriorities();
+        return res;
     };
 
     /** Revert one page to its pre-optimise value. Does not refund the credit spent. */
@@ -599,6 +621,7 @@ export default function App() {
                     onManageBilling={handleManageBilling}
                     onToast={setToast}
                     onConnect={refreshQuota}
+                    onReset={handleResetGenerated}
                 />
             );
             break;

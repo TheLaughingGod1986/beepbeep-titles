@@ -182,12 +182,52 @@ class GenerateController {
             return new \WP_Error( 'beepti_undo_failed', __( 'Could not read the previous version.', 'beepbeep-titles' ), [ 'status' => 500 ] );
         }
 
-        MetaWriter::write( $post_id, (string) ( $old['title'] ?? '' ), (string) ( $old['meta'] ?? '' ) );
+        // restore() (not write()) — the pre-optimise value may genuinely be
+        // empty, and write() treats an empty string as "leave unchanged",
+        // which would silently no-op the undo for exactly the pages that
+        // had no title/meta before OptiAI touched them.
+        MetaWriter::restore( $post_id, (string) ( $old['title'] ?? '' ), (string) ( $old['meta'] ?? '' ) );
         ActivityLog::record( $post_id, 'edited' );
         $this->bust_stats();
         ( new Metadata_Scoring_Engine() )->run();
 
         return new \WP_REST_Response( ( new \BeepBeep_Titles\Scanner() )->format_post( get_post( $post_id ) ) );
+    }
+
+    /**
+     * Bulk "Reset generated title & meta" (Settings → Danger zone). Reverts
+     * every page this plugin has ever optimised back to its earliest
+     * recorded pre-optimise snapshot — i.e. how it looked before OptiAI
+     * touched it for the first time — using the same history log undo()
+     * relies on. Manual edits made through the Library's edit modal are
+     * untouched since they never go through GenerateController and so never
+     * write a history row.
+     */
+    public function reset_all( \WP_REST_Request $req ): \WP_REST_Response {
+        $snapshots = ( new History_Repository( 'titles' ) )->earliest_snapshots();
+        $reset     = 0;
+
+        foreach ( $snapshots as $site_item_id => $old_value_json ) {
+            $post_id = (int) $site_item_id;
+            $post    = get_post( $post_id );
+            if ( ! $post ) {
+                continue;
+            }
+            $old = json_decode( (string) $old_value_json, true );
+            if ( ! is_array( $old ) ) {
+                continue;
+            }
+            MetaWriter::restore( $post_id, (string) ( $old['title'] ?? '' ), (string) ( $old['meta'] ?? '' ) );
+            ActivityLog::record( $post_id, 'edited' );
+            ++$reset;
+        }
+
+        if ( $reset > 0 ) {
+            $this->bust_stats();
+            ( new Metadata_Scoring_Engine() )->run();
+        }
+
+        return new \WP_REST_Response( [ 'success' => true, 'reset_count' => $reset ] );
     }
 
     private function current_item_score( int $post_id ): ?int {

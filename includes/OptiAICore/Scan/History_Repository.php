@@ -112,4 +112,40 @@ class History_Repository {
 			gmdate( 'Y-m-d H:i:s', strtotime( '-7 days' ) )
 		) );
 	}
+
+	/**
+	 * Every item this module has ever touched, mapped to its EARLIEST
+	 * recorded old_value — i.e. the state the item was in before this
+	 * module's very first optimisation. Powers a bulk "reset everything
+	 * this plugin generated" action: reverting to the earliest snapshot
+	 * (not the latest one, which undo() uses) restores an item to how it
+	 * looked before OptiAI ever touched it, even if it's been optimised
+	 * more than once since.
+	 *
+	 * @return array<string,string> site_item_id => old_value (module-defined shape, usually JSON)
+	 */
+	public function earliest_snapshots() {
+		global $wpdb;
+		if ( ! Schema::items_table_exists() ) {
+			return array();
+		}
+		$table = Schema::history_table();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared -- values bound via prepare().
+		$rows = $wpdb->get_results( $wpdb->prepare(
+			"SELECT h1.site_item_id, h1.old_value
+			 FROM {$table} h1
+			 WHERE h1.module = %s
+			 AND h1.id = (
+			     SELECT MIN(h2.id) FROM {$table} h2
+			     WHERE h2.module = h1.module AND h2.site_item_id = h1.site_item_id
+			 )",
+			$this->module
+		), ARRAY_A );
+
+		$snapshots = array();
+		foreach ( (array) $rows as $row ) {
+			$snapshots[ (string) $row['site_item_id'] ] = (string) $row['old_value'];
+		}
+		return $snapshots;
+	}
 }

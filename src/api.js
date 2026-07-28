@@ -238,6 +238,11 @@ export async function undoPage( postId ) {
     return request( 'POST', '/undo', { post_id: postId } );
 }
 
+/** Settings → Danger zone: revert every page this plugin has ever optimised back to its pre-optimise state. Resolves to { success, reset_count }. */
+export async function resetGenerated() {
+    return request( 'POST', '/reset' );
+}
+
 // ── Support (contact form) ──────────────────────────────────────────
 /**
  * Send a support message. The backend auto-attaches diagnostics + the recent

@@ -175,6 +175,88 @@ class MetaWriter {
         }
     }
 
+    /**
+     * Restore a title/meta pair literally — including clearing a field back
+     * to empty. Unlike write(), an empty string here is a real value, not a
+     * "leave unchanged" signal: undo() and the Settings "Reset generated
+     * title & meta" action both need to be able to put a page back to
+     * genuinely having no title/meta, not just skip touching it.
+     */
+    public static function restore( int $post_id, string $title, string $meta ): void {
+        $title = trim( $title );
+        $meta  = trim( $meta );
+
+        switch ( self::active() ) {
+            case 'yoast':
+                self::set_or_delete_meta( $post_id, '_yoast_wpseo_title', $title );
+                self::set_or_delete_meta( $post_id, '_yoast_wpseo_metadesc', $meta );
+                break;
+
+            case 'rank_math':
+                self::set_or_delete_meta( $post_id, 'rank_math_title', $title );
+                self::set_or_delete_meta( $post_id, 'rank_math_description', $meta );
+                break;
+
+            case 'aioseo':
+                self::restore_aioseo( $post_id, $title, $meta );
+                break;
+
+            default:
+                self::set_or_delete_meta( $post_id, self::FALLBACK_TITLE_KEY, $title );
+                self::set_or_delete_meta( $post_id, self::FALLBACK_META_KEY, $meta );
+                break;
+        }
+    }
+
+    private static function set_or_delete_meta( int $post_id, string $key, string $value ): void {
+        if ( $value === '' ) {
+            delete_post_meta( $post_id, $key );
+        } else {
+            update_post_meta( $post_id, $key, $value );
+        }
+    }
+
+    private static function restore_aioseo( int $post_id, string $title, string $meta ): void {
+        if ( class_exists( '\AIOSEO\Plugin\Common\Models\Post' ) ) {
+            try {
+                $aioseo_post = \AIOSEO\Plugin\Common\Models\Post::getPost( $post_id );
+                if ( $aioseo_post ) {
+                    $aioseo_post->title       = $title;
+                    $aioseo_post->description = $meta;
+                    $aioseo_post->post_id     = $post_id;
+                    $aioseo_post->save();
+                    return;
+                }
+            } catch ( \Throwable $e ) {
+                // Fall through to direct table write.
+            }
+        }
+
+        global $wpdb;
+        $table = $wpdb->prefix . 'aioseo_posts';
+        $now   = current_time( 'mysql' );
+
+        // phpcs:disable WordPress.DB.PreparedSQL, WordPress.DB.PreparedSQLPlaceholders -- $table is prefix-built; post_id bound via prepare().
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery, PluginCheck.Security.DirectDB.UnescapedDBParameter
+        $exists = (int) $wpdb->get_var(
+            $wpdb->prepare( "SELECT id FROM {$table} WHERE post_id = %d", $post_id )
+        );
+        // phpcs:enable WordPress.DB.PreparedSQL, WordPress.DB.PreparedSQLPlaceholders
+
+        $fields = [ 'title' => $title, 'description' => $meta ];
+        if ( $exists ) {
+            $fields['updated'] = $now;
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+            $wpdb->update( $table, $fields, [ 'post_id' => $post_id ], [ '%s', '%s', '%s' ], [ '%d' ] );
+        } else {
+            $fields['post_id'] = $post_id;
+            $fields['created'] = $now;
+            $fields['updated'] = $now;
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+            $wpdb->insert( $table, $fields, [ '%s', '%s', '%d', '%s', '%s' ] );
+        }
+    }
+
     // ----------------------------------------------------------------
     // AIOSEO custom-table path
     // ----------------------------------------------------------------

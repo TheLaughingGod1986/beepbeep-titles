@@ -104,6 +104,13 @@ class Routes {
             ],
         ] );
 
+        // ── Reset (Settings → Danger zone: revert every AI-optimised page) ──
+        register_rest_route( $ns, '/reset', [
+            'methods'             => 'POST',
+            'callback'            => [ $g, 'reset_all' ],
+            'permission_callback' => [ $this, 'require_admin' ],
+        ] );
+
         // ── Bulk jobs ──────────────────────────────────────────────
         register_rest_route( $ns, '/jobs', [
             'methods'             => 'POST',

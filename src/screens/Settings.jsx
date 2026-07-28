@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Icon, Card, Pill, Button, Progress, Toggle, Divider } from '../components';
 import { Input, PageShell, Textarea, Row } from '../ui';
+import { Modal } from '../modals/Modal';
 import { saveSettings, setLicense, clearLicense, submitSupport } from '../api';
 import { creditUsageRows } from '../usage';
 
@@ -11,7 +12,7 @@ const formatResetDate = value => {
     return new Intl.DateTimeFormat( undefined, { month: 'long', day: 'numeric', year: 'numeric' } ).format( date );
 };
 
-export const SettingsScreen = ({ plan, quota, user, settings, connected, onUpgrade, onBuyCredits, onManageBilling, onToast, onConnect }) => {
+export const SettingsScreen = ({ plan, quota, user, settings, connected, onUpgrade, onBuyCredits, onManageBilling, onToast, onConnect, onReset }) => {
     const isPro = plan === 'pro';
     const [advancedOpen, setAdvancedOpen] = useState( false );
     const [notifFresh, setNotifFresh]     = useState( settings?.notify_new_pages ?? true );
@@ -21,6 +22,8 @@ export const SettingsScreen = ({ plan, quota, user, settings, connected, onUpgra
     const [licenseInput, setLicenseInput] = useState( '' );
     const [connecting, setConnecting]     = useState( false );
     const [saving, setSaving]             = useState( false );
+    const [resetOpen, setResetOpen]       = useState( false );
+    const [resetting, setResetting]       = useState( false );
 
     const handleConnect = async () => {
         const key = licenseInput.trim();
@@ -47,6 +50,22 @@ export const SettingsScreen = ({ plan, quota, user, settings, connected, onUpgra
             onToast?.( { message: 'License removed', sub: 'Generation is paused until you reconnect.', icon: 'info', tone: 'warn' } );
             onConnect?.();
         } catch ( err ) {}
+    };
+
+    const handleResetGenerated = async () => {
+        setResetting( true );
+        try {
+            const res = await onReset?.();
+            const count = res?.reset_count ?? 0;
+            setResetOpen( false );
+            onToast?.( count > 0
+                ? { message: `${ count } page${ count === 1 ? '' : 's' } reset`, sub: 'Titles & meta descriptions are back to how they looked before OptiAI optimised them.', icon: 'check', tone: 'ok' }
+                : { message: 'Nothing to reset', sub: 'OptiAI hasn\u2019t generated a title or meta description on this site yet.', icon: 'info', tone: 'warn' } );
+        } catch ( err ) {
+            onToast?.( { message: 'Reset failed', sub: err?.message || 'Please try again.', icon: 'alert', tone: 'warn' } );
+        } finally {
+            setResetting( false );
+        }
     };
 
     const monthlyUsed  = quota?.monthly_used  || 0;
@@ -176,7 +195,7 @@ export const SettingsScreen = ({ plan, quota, user, settings, connected, onUpgra
                 <SettingsRow
                     label="Reset generated title & meta"
                     desc="Clear all OpptiAI Titles-generated titles and meta descriptions from your site. This cannot be undone."
-                    right={<Button variant="secondary" size="sm">Reset…</Button>}
+                    right={<Button variant="secondary" size="sm" onClick={() => setResetOpen( true )}>Reset…</Button>}
                 />
                 <SettingsRow
                     label="Delete data on uninstall"
@@ -185,9 +204,31 @@ export const SettingsScreen = ({ plan, quota, user, settings, connected, onUpgra
                     last
                 />
             </SettingsSection>
+
+            <ResetConfirm open={resetOpen} resetting={resetting} onCancel={() => setResetOpen( false )} onConfirm={handleResetGenerated}/>
         </PageShell>
     );
 };
+
+const ResetConfirm = ({ open, resetting, onCancel, onConfirm }) => (
+    <Modal open={open} onClose={resetting ? () => {} : onCancel} width={440}>
+        <div style={{ padding: '22px 24px 20px' }}>
+            <div style={{ width: 38, height: 38, borderRadius: 999, background: 'var(--danger-soft)', border: '1px solid var(--danger-border)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+                <Icon name="alert" size={17} style={{ color: 'var(--danger-ink)' }}/>
+            </div>
+            <h2 style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.015em', margin: '0 0 6px' }}>Reset generated title &amp; meta?</h2>
+            <p style={{ fontSize: 13, color: 'var(--text-2)', margin: 0, lineHeight: 1.55 }}>
+                Every page OptiAI Titles has ever optimised will be reverted to how it looked before its first optimisation — including pages that had no title or meta description at all. Manual edits you made yourself in the Library are not affected. <strong style={{ color: 'var(--text)' }}>This cannot be undone</strong>, and any AI service credits already spent are not refunded.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
+                <Button variant="ghost" size="md" onClick={onCancel} disabled={resetting}>Cancel</Button>
+                <Button variant="secondary" size="md" icon="alert" onClick={onConfirm} disabled={resetting} style={{ color: 'var(--danger-ink)', borderColor: 'var(--danger-border)' }}>
+                    {resetting ? 'Resetting…' : 'Reset everything'}
+                </Button>
+            </div>
+        </div>
+    </Modal>
+);
 
 const PlanCard = ({ isPro, monthlyUsed, monthlyLimit, pct, resetDate, onUpgrade, onBuyCredits, onManageBilling }) => (
     <Card padding={0} style={{ marginBottom: 18, overflow: 'hidden', ...( isPro ? { background: 'var(--primary-soft)', borderColor: 'var(--primary-border)' } : {} ) }}>

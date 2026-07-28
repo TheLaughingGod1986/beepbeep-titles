@@ -8,7 +8,7 @@ import { BillingScreen } from './screens/Billing';
 import { SettingsScreen } from './screens/Settings';
 import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal, ConnectModal, BulkConfirm } from './modals/index';
 import { SignOutConfirm } from './auth';
-import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, createCheckout, createBillingPortal, clearLicense, saveSettings, fetchSettings, fetchHealth, fetchPriorities, fetchHealthItems, runHealthScan, undoPage } from './api';
+import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, createCheckout, createBillingPortal, clearLicense, saveSettings, fetchSettings, fetchHealth, fetchPriorities, fetchHealthItems, runHealthScan, undoPage, fetchAeo } from './api';
 import { paywallTrigger, errorToast, checkoutErrorToast } from './errors';
 import { hasDailyCap } from './quota';
 import { usePaywallGate } from './hooks/usePaywallGate';
@@ -52,6 +52,7 @@ export default function App() {
     const [healthReady, setHealthReady] = useState( false );
     const [priorities, setPriorities] = useState( [] );
     const [previousScore, setPreviousScore] = useState( null );
+    const [aeo, setAeo] = useState( null );
     const [autoOptimise, setAutoOptimise] = useState( initial.settings?.auto_generate ?? false );
     const [connected, setConnected] = useState( initial.connected );
 
@@ -103,6 +104,7 @@ export default function App() {
         loadHealth();
         loadPriorities();
         loadSettings();
+        loadAeo();
 
         // Returning from Stripe checkout?
         const params  = new URLSearchParams( window.location.search );
@@ -244,6 +246,14 @@ export default function App() {
         }
     };
 
+    const loadAeo = async () => {
+        try {
+            setAeo( await fetchAeo() );
+        } catch ( e ) {
+            // Leave null — the Summary Card shows "Coming soon" until this loads.
+        }
+    };
+
     const loadPriorities = async () => {
         try {
             // Fetch every issue group the backend will return (capped at 10)
@@ -264,6 +274,7 @@ export default function App() {
         } catch ( e ) { /* fall through to refresh with whatever we have */ }
         await loadHealth();
         await loadPriorities();
+        loadAeo();
     };
 
     /** Full scan: coverage stats + health score together (the existing "Run Full Scan" path). */
@@ -271,6 +282,7 @@ export default function App() {
         const result = await handleScan();
         loadHealth();
         loadPriorities();
+        loadAeo();
         return result;
     };
 
@@ -535,10 +547,12 @@ export default function App() {
                     onUpgrade={() => setPaywall( { open: true, trigger: 'default', entitlement: null } )}
                     onView={selectTab}
                     altTextCompanion={initial.altTextCompanion}
+                    internalLinkingCompanion={initial.internalLinkingCompanion}
                     health={health}
                     healthReady={healthReady}
                     previousScore={previousScore}
                     priorities={priorities}
+                    aeo={aeo}
                     onQuickScan={handleQuickScan}
                     onFullScan={handleFullScan}
                     onOptimiseCritical={handleOptimiseCritical}

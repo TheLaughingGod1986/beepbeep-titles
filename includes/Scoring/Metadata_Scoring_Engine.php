@@ -97,6 +97,7 @@ final class Metadata_Scoring_Engine {
 
             $title_result = $this->title_scorer->evaluate_item( $context );
             $desc_result  = $this->description_scorer->evaluate_item( $context );
+            $aeo_result   = AEO_Scoring_Engine::evaluate( $post );
 
             $overall_score = (int) round( ( $title_result['score'] + $desc_result['score'] ) / 2 );
             $all_issues    = array_merge( $title_result['issues'], $desc_result['issues'] );
@@ -112,6 +113,8 @@ final class Metadata_Scoring_Engine {
                     'meta'           => $seo['meta'],
                     'title_score'    => $title_result['score'],
                     'description_score' => $desc_result['score'],
+                    'aeo_score'      => $aeo_result['score'],
+                    'aeo_label'      => $aeo_result['label'],
                 ] )
             );
 

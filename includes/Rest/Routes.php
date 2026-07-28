@@ -77,6 +77,12 @@ class Routes {
             'permission_callback' => [ $this, 'require_editor' ],
         ] );
 
+        register_rest_route( $ns, '/health/aeo', [
+            'methods'             => 'GET',
+            'callback'            => [ $h, 'get_aeo' ],
+            'permission_callback' => [ $this, 'require_editor' ],
+        ] );
+
         // ── Generation ─────────────────────────────────────────────
         register_rest_route( $ns, '/generate', [
             'methods'             => 'POST',

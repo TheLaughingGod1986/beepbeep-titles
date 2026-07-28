@@ -98,8 +98,8 @@ const ISSUE_TITLES = {
 };
 
 export const Dashboard = ({
-    quota, quotaReady, stats, activity, queuePages, autoOptimise, onAutoToggle, onGenerate, onUpgrade, onView, altTextCompanion,
-    health, healthReady, previousScore, priorities,
+    quota, quotaReady, stats, activity, queuePages, autoOptimise, onAutoToggle, onGenerate, onUpgrade, onView, altTextCompanion, internalLinkingCompanion,
+    health, healthReady, previousScore, priorities, aeo,
     onQuickScan, onFullScan, onOptimiseCritical, onOptimiseIssue, onLoadIssueItems, onOptimiseSingleItem, onUndo,
 }) => {
     const dailyUsed = quota?.daily_used || 0;
@@ -137,7 +137,7 @@ export const Dashboard = ({
                 onOptimiseCritical={onOptimiseCritical}
             />
 
-            <SummaryCardsRow ready={healthReady} health={health} priorities={priorities || []}/>
+            <SummaryCardsRow ready={healthReady} health={health} priorities={priorities || []} aeo={aeo}/>
 
             <PriorityActionCentre
                 ready={healthReady}
@@ -157,7 +157,20 @@ export const Dashboard = ({
                 <AutopilotActiveCard autoOptimise={autoOptimise} onToggle={onAutoToggle}/>
             </div>
 
-            <CompanionBanner companion={altTextCompanion}/>
+            <CompanionBanner
+                companion={altTextCompanion}
+                icon="image"
+                iconBg="#ECFDF5" iconColor="#059669" iconBorder="#A7F3D0"
+                title="Your credits also work on Image ALT Text"
+                body={<>The same shared credit pool powers <strong style={{ color: 'var(--text)', fontWeight: 600 }}>OptiAI Alt Text</strong> — continuously health-check and improve your media library. No extra subscription.</>}
+            />
+            <CompanionBanner
+                companion={internalLinkingCompanion}
+                icon="link"
+                iconBg="#EFF6FF" iconColor="#2563EB" iconBorder="#BFDBFE"
+                title="Your credits also work on Internal Linking"
+                body={<>The same shared credit pool powers <strong style={{ color: 'var(--text)', fontWeight: 600 }}>OptiAI Internal Linking</strong> — find and fix missing links between your own pages. No extra subscription.</>}
+            />
             <ActivityStrip onView={onView} newSince={newSince} activity={activity} onUndo={onUndo}/>
             <FooterMetrics
                 streak={streak}
@@ -304,7 +317,7 @@ const HeroScoreCard = ({ ready, health, previousScore, creditsRemaining, onQuick
 // ── Summary Cards ────────────────────────────────────────────────────
 const findIssue = ( priorities, code ) => priorities.find( p => p.code === code );
 
-const SummaryCardsRow = ({ ready, health, priorities }) => {
+const SummaryCardsRow = ({ ready, health, priorities, aeo }) => {
     const byStatus = health?.by_status || {};
     const missingTitles = findIssue( priorities, 'missing_title' )?.count || 0;
     const missingDescriptions = findIssue( priorities, 'missing_description' )?.count || 0;
@@ -319,7 +332,9 @@ const SummaryCardsRow = ({ ready, health, priorities }) => {
         { label: 'Duplicate Metadata', value: duplicateMetadata, tone: duplicateMetadata > 0 ? 'warn' : 'ok' },
         { label: 'Weak Metadata', value: weakMetadata, tone: weakMetadata > 0 ? 'warn' : 'ok' },
         { label: 'Excellent Pages', value: byStatus.excellent || 0, tone: 'ok' },
-        { label: 'AI Search Readiness', value: 'Coming soon', tone: 'neutral', muted: true },
+        aeo
+            ? { label: 'AI Search Readiness', value: aeo.label, tone: aeo.score >= 55 ? 'ok' : aeo.score >= 30 ? 'warn' : 'danger' }
+            : { label: 'AI Search Readiness', value: 'Checking\u2026', tone: 'neutral', muted: true },
     ];
 
     return (
@@ -480,9 +495,9 @@ const RecentProgressCard = ({ health, previousScore, optimisedThisWeek }) => {
     );
 };
 
-const CompanionBanner = ({ companion }) => {
+const CompanionBanner = ({ companion, icon: fallbackIcon = 'image', iconBg = '#ECFDF5', iconColor = '#059669', iconBorder = '#A7F3D0', title, body }) => {
     const state = companion?.state || 'missing';
-    const label = companion?.label || ( state === 'missing' ? 'Install ALT Text' : 'Add ALT Text' );
+    const label = companion?.label || 'Install';
     const url = companion?.url || '';
     const icon = companion?.icon || ( state === 'active' ? 'external' : state === 'installed' ? 'play' : 'upload' );
     const openCompanion = () => {
@@ -490,18 +505,18 @@ const CompanionBanner = ({ companion }) => {
     };
 
     return (
-        <Card padding={0} style={{ marginTop: 20 }}>
+        <Card padding={0} style={{ marginTop: 12 }}>
             <div style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div style={{ width: 40, height: 40, borderRadius: 10, background: '#ECFDF5', color: '#059669', border: '1px solid #A7F3D0', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Icon name="image" size={19} strokeWidth={1.9}/>
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: iconBg, color: iconColor, border: `1px solid ${iconBorder}`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Icon name={fallbackIcon} size={19} strokeWidth={1.9}/>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 3 }}>
-                        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Your credits also work on Image ALT Text</span>
+                        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{title}</span>
                         <Pill tone="neutral" style={{ padding: '1px 8px', fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase' }}>From OptiAI</Pill>
                     </div>
                     <div style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.5 }}>
-                        The same shared credit pool powers <strong style={{ color: 'var(--text)', fontWeight: 600 }}>OptiAI Alt Text</strong> — continuously health-check and improve your media library. No extra subscription.
+                        {body}
                     </div>
                 </div>
                 <Button variant="secondary" size="md" icon={icon} onClick={openCompanion} disabled={!url}>{label}</Button>

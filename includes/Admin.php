@@ -81,7 +81,8 @@ class Admin {
         // If another OpptiAI plugin on this site already stores a license
         // (same key works across all of them), connect with it automatically.
         $adopted = $client->adopt_shared_license();
-        $alt_text_companion = $this->get_alt_text_companion();
+        $alt_text_companion        = $this->get_alt_text_companion();
+        $internal_linking_companion = $this->get_internal_linking_companion();
 
         wp_localize_script( 'beepti-admin', 'beeptiAdminData', [
             'nonce'      => wp_create_nonce( 'wp_rest' ),
@@ -105,6 +106,7 @@ class Admin {
             'backendUrl' => BEEPTI_API_BASE,
             'lastScan'   => (string) get_option( 'beepti_last_scan', '' ),
             'altTextCompanion' => $alt_text_companion,
+            'internalLinkingCompanion' => $internal_linking_companion,
         ] );
     }
 
@@ -112,39 +114,47 @@ class Admin {
     // Helpers
     // ----------------------------------------------------------------
 
+    /**
+     * Both companion detections below delegate to OptiAI Core's
+     * Module_Registry::detect() (generalised from this method's original,
+     * hand-rolled version) so every OptiAI plugin on this site is detected
+     * the same way, ready for a future Hub to reuse the same call.
+     */
     private function get_alt_text_companion(): array {
-        $basename = 'beepbeep-ai-alt-text-generator/beepbeep-ai-alt-text-generator.php';
-        if ( ! function_exists( 'is_plugin_active' ) ) {
-            require_once ABSPATH . 'wp-admin/includes/plugin.php';
-        }
-
-        if ( is_plugin_active( $basename ) ) {
-            return [
-                'state' => 'active',
-                'label' => __( 'Open ALT Text', 'beepbeep-titles' ),
-                'url'   => admin_url( 'admin.php?page=bbai' ),
-            ];
-        }
-
-        if ( file_exists( WP_PLUGIN_DIR . '/' . $basename ) ) {
-            return [
-                'state' => 'installed',
-                'label' => __( 'Activate ALT Text', 'beepbeep-titles' ),
-                'url'   => add_query_arg(
-                    [ 'plugin_status' => 'inactive', 's' => 'OpptiAI Alt Text' ],
-                    admin_url( 'plugins.php' )
-                ),
-            ];
-        }
-
-        return [
-            'state' => 'missing',
-            'label' => __( 'Add ALT Text', 'beepbeep-titles' ),
-            'url'   => add_query_arg(
-                [ 'tab' => 'search', 's' => 'OpptiAI Alt Text' ],
-                admin_url( 'plugin-install.php' )
-            ),
+        $companion = \OptiAI\Core\Module_Registry::detect(
+            'beepbeep-ai-alt-text-generator/beepbeep-ai-alt-text-generator.php',
+            admin_url( 'admin.php?page=bbai' ),
+            'OpptiAI Alt Text'
+        );
+        $labels = [
+            'active'    => __( 'Open ALT Text', 'beepbeep-titles' ),
+            'installed' => __( 'Activate ALT Text', 'beepbeep-titles' ),
+            'missing'   => __( 'Install ALT Text', 'beepbeep-titles' ),
         ];
+        $companion['label'] = $labels[ $companion['state'] ] ?? $companion['label'];
+        return $companion;
+    }
+
+    /**
+     * OpptiAI Internal Linking — a sibling module already sharing this
+     * site's OptiAI credit wallet (see its own plugin description). Not yet
+     * scored/optimised through OptiAI Core (it is still v0.1.0, building
+     * out its own REST/account plumbing) — this is detection only, exactly
+     * how the Alt Text companion started before it had its own dashboard.
+     */
+    private function get_internal_linking_companion(): array {
+        $companion = \OptiAI\Core\Module_Registry::detect(
+            'oppti-internal-linking/oppti-internal-linking.php',
+            admin_url( 'admin.php?page=oppti-internal-linking' ),
+            'OpptiAI Internal Linking'
+        );
+        $labels = [
+            'active'    => __( 'Open Internal Linking', 'beepbeep-titles' ),
+            'installed' => __( 'Activate Internal Linking', 'beepbeep-titles' ),
+            'missing'   => __( 'Install Internal Linking', 'beepbeep-titles' ),
+        ];
+        $companion['label'] = $labels[ $companion['state'] ] ?? $companion['label'];
+        return $companion;
     }
 
     private function get_menu_icon(): string {

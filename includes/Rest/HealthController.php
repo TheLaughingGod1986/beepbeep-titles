@@ -11,6 +11,7 @@
 namespace BeepBeep_Titles\Rest;
 
 use BeepBeep_Titles\Api\Client;
+use BeepBeep_Titles\Scoring\AEO_Scoring_Engine;
 use BeepBeep_Titles\Scoring\Metadata_Scoring_Engine;
 use OptiAI\Core\Health_Score;
 use OptiAI\Core\Module_Registry;
@@ -121,5 +122,45 @@ class HealthController {
     public function run_scan( \WP_REST_Request $req ): \WP_REST_Response {
         $result = ( new Metadata_Scoring_Engine() )->run();
         return new \WP_REST_Response( $result );
+    }
+
+    /**
+     * Site-wide AI Search Readiness (AEO) summary — powers the "AI Search
+     * Readiness" Summary Card. Computed from the same scan pass as the
+     * regular health score, so it never requires a separate scan.
+     */
+    public function get_aeo( \WP_REST_Request $req ): \WP_REST_Response {
+        global $wpdb;
+        $table = \OptiAI\Core\Scan\Schema::items_table();
+
+        if ( ! \OptiAI\Core\Scan\Schema::items_table_exists() ) {
+            return new \WP_REST_Response( [
+                'score' => 0, 'label' => 'Weak', 'items_scanned' => 0,
+                'disclaimer' => AEO_Scoring_Engine::disclaimer(),
+            ] );
+        }
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared -- value bound via prepare().
+        $rows = $wpdb->get_col( $wpdb->prepare(
+            "SELECT current_value FROM {$table} WHERE module = %s",
+            self::MODULE
+        ) );
+
+        $scores = [];
+        foreach ( (array) $rows as $row ) {
+            $decoded = json_decode( (string) $row, true );
+            if ( is_array( $decoded ) && isset( $decoded['aeo_score'] ) ) {
+                $scores[] = (int) $decoded['aeo_score'];
+            }
+        }
+
+        $average = empty( $scores ) ? 0 : (int) round( array_sum( $scores ) / count( $scores ) );
+
+        return new \WP_REST_Response( [
+            'score'         => $average,
+            'label'         => AEO_Scoring_Engine::label_for_score( $average ),
+            'items_scanned' => count( $scores ),
+            'disclaimer'    => AEO_Scoring_Engine::disclaimer(),
+        ] );
     }
 }

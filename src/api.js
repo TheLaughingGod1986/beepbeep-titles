@@ -228,6 +228,11 @@ export async function runHealthScan() {
     return request( 'POST', '/health/scan' );
 }
 
+/** Site-wide AI Search Readiness (AEO) summary — Weak/Developing/Good/Strong. */
+export async function fetchAeo() {
+    return request( 'GET', '/health/aeo' );
+}
+
 /** Revert a page to whatever it was before its most recent optimise. Does not refund the credit spent. */
 export async function undoPage( postId ) {
     return request( 'POST', '/undo', { post_id: postId } );
@@ -266,7 +271,8 @@ export function getInitialData() {
         phpVersion: data.phpVersion ?? '',
         version:    data.version    ?? '',
         siteUrl:    data.siteUrl    ?? ( typeof window !== 'undefined' ? window.location?.origin : '' ),
-        altTextCompanion: data.altTextCompanion ?? { state: 'missing', label: 'Add ALT Text', url: '' },
+        altTextCompanion: data.altTextCompanion ?? { state: 'missing', label: 'Install ALT Text', icon: 'upload', url: '' },
+        internalLinkingCompanion: data.internalLinkingCompanion ?? { state: 'missing', label: 'Install Internal Linking', icon: 'upload', url: '' },
         // Quota is fetched on mount; this is just a neutral placeholder so the
         // first render doesn't crash before /quota resolves.
         quota:     { plan: 'free', connected: data.connected ?? false },

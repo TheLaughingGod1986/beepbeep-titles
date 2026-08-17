@@ -8,7 +8,7 @@ import { BillingScreen } from './screens/Billing';
 import { SettingsScreen } from './screens/Settings';
 import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal, ConnectModal, BulkConfirm } from './modals/index';
 import { SignOutConfirm } from './auth';
-import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, createCheckout, createBillingPortal, clearLicense, saveSettings, fetchSettings, fetchHealth, fetchPriorities, fetchHealthItems, runHealthScan, undoPage, fetchAeo, resetGenerated } from './api';
+import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, normalizeStats, createCheckout, createBillingPortal, clearLicense, saveSettings, fetchSettings, fetchHealth, fetchPriorities, fetchHealthItems, runHealthScan, undoPage, fetchAeo, resetGenerated } from './api';
 import { paywallTrigger, errorToast, checkoutErrorToast } from './errors';
 import { hasDailyCap } from './quota';
 import { usePaywallGate } from './hooks/usePaywallGate';
@@ -46,7 +46,7 @@ export default function App() {
     const [user, setUser]     = useState( initial.user );
     const [quota, setQuota]   = useState( initial.quota );
     const [settings, setSettings] = useState( initial.settings );
-    const [stats, setStats]   = useState( null );
+    const [stats, setStats]   = useState( () => initial.stats ?? null );
     const [quotaReady, setQuotaReady] = useState( false );
     const [activity, setActivity] = useState( [] );
     const [queuePages, setQueuePages] = useState( [] );
@@ -222,24 +222,17 @@ export default function App() {
     const loadStats = async () => {
         try {
             const res   = await fetchPages( { filter: 'needs', perPage: 1 } );
-            const s     = res.stats || {};
-            const total = s.total || 0;
-            setStats( {
-                total,
-                optimised:           s.optimised || 0,
-                needs_attention:     s.remaining || res.total || 0,
-                missing_title:       Math.max( 0, total - ( s.with_title ?? total ) ),
-                missing_meta:        Math.max( 0, total - ( s.with_meta ?? total ) ),
-                coverage:            s.coverage ?? ( total > 0 ? Math.round( ( ( s.optimised || 0 ) / total ) * 100 ) : 0 ),
-                new_since_last_visit: 0,
-                streak:              0,
+            const next  = normalizeStats( {
+                ...( res.stats || {} ),
+                needs_attention: ( res.stats || {} ).remaining ?? res.total ?? 0,
             } );
+            if ( next ) setStats( next );
         } catch ( e ) {
             // A failed request must NOT render as real zeros — "0% coverage, 0
             // needing" is indistinguishable from "all optimised" and hides
             // pages that need work. Keep the last known figures and surface the
             // failure instead of silently overwriting with zeros.
-            setStats( prev => prev ?? { total: 0, optimised: 0, needs_attention: 0, missing_title: 0, missing_meta: 0, coverage: 0, new_since_last_visit: 0, streak: 0 } );
+            setStats( prev => prev ?? normalizeStats( { total: 0 } ) );
             setToast( { message: 'Couldn’t refresh your library stats', sub: 'Showing the last known figures — check your connection and try again.', icon: 'alert', tone: 'warn' } );
         }
     };

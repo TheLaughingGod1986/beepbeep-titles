@@ -71,7 +71,8 @@ class Admin {
 
         // Localize initial state so the React app can hydrate immediately.
         // Quota is backend-owned and fetched on mount via /quota — we only
-        // seed identity, settings, and the license-connected flag here.
+        // seed identity, settings, coverage stats, and the license-connected
+        // flag here so Home/Audit never flash a false empty/0-scanned state.
         global $wp_version;
         $user_id  = get_current_user_id();
         $settings = get_option( 'beepti_settings', [] );
@@ -83,6 +84,11 @@ class Admin {
         $adopted = $client->adopt_shared_license();
         $alt_text_companion        = $this->get_alt_text_companion();
         $internal_linking_companion = $this->get_internal_linking_companion();
+        // Coverage stats power the signed-out Home audit KPIs. Prefer the
+        // 15-minute transient; compute_stats() fills it on a cache miss so a
+        // successful prior scan (or any published pages) paint correctly.
+        $scan_stats = ( new Scanner() )->get_stats();
+        $total      = (int) ( $scan_stats['total'] ?? 0 );
 
         wp_localize_script( 'beepti-admin', 'beeptiAdminData', [
             'nonce'      => wp_create_nonce( 'wp_rest' ),
@@ -108,6 +114,17 @@ class Admin {
             'altTextCompanion' => $alt_text_companion,
             'internalLinkingCompanion' => $internal_linking_companion,
             'telemetry'  => Telemetry::client_config(),
+            // Same shape App.normalizeStats() / loadStats() consume.
+            'stats'      => [
+                'total'               => $total,
+                'optimised'           => (int) ( $scan_stats['optimised'] ?? 0 ),
+                'needs_attention'     => (int) ( $scan_stats['remaining'] ?? 0 ),
+                'missing_title'       => max( 0, $total - (int) ( $scan_stats['with_title'] ?? $total ) ),
+                'missing_meta'        => max( 0, $total - (int) ( $scan_stats['with_meta'] ?? $total ) ),
+                'coverage'            => (int) ( $scan_stats['coverage'] ?? 0 ),
+                'new_since_last_visit'=> 0,
+                'streak'              => 0,
+            ],
         ] );
     }
 

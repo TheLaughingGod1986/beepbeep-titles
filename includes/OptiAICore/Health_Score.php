@@ -60,7 +60,7 @@ class Health_Score {
 	 */
 	public static function disclaimer() {
 		return __(
-			'This is an OptiAI health indicator based on the checks in this plugin, not a formal certification or a ranking guarantee. Improving these issues may strengthen accessibility, search visibility and content quality.',
+			'This is an OpptiAI health indicator based on the checks in this plugin, not a formal certification or a ranking guarantee. Improving these issues may strengthen accessibility, search visibility and content quality.',
 			'optiai-core'
 		);
 	}

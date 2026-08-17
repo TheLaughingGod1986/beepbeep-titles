@@ -286,6 +286,24 @@ export async function saveSettings( settings ) {
 }
 
 // ── Localised initial state (from PHP) ──────────────────────────────
+/** Shape Home/Audit consume — also used when seeding from beeptiAdminData.stats. */
+export function normalizeStats( s ) {
+    if ( ! s || typeof s !== 'object' ) return null;
+    const total = Math.max( 0, Number( s.total ) || 0 );
+    return {
+        total,
+        optimised:            Math.max( 0, Number( s.optimised ) || 0 ),
+        needs_attention:      Math.max( 0, Number( s.needs_attention ?? s.remaining ) || 0 ),
+        missing_title:        Math.max( 0, Number( s.missing_title ?? ( total - ( s.with_title ?? total ) ) ) || 0 ),
+        missing_meta:         Math.max( 0, Number( s.missing_meta ?? ( total - ( s.with_meta ?? total ) ) ) || 0 ),
+        coverage:             Number.isFinite( Number( s.coverage ) )
+            ? Number( s.coverage )
+            : ( total > 0 ? Math.round( ( ( Number( s.optimised ) || 0 ) / total ) * 100 ) : 0 ),
+        new_since_last_visit: Math.max( 0, Number( s.new_since_last_visit ) || 0 ),
+        streak:               Math.max( 0, Number( s.streak ) || 0 ),
+    };
+}
+
 export function getInitialData() {
     return {
         user:         data.user         ?? { id: 0, name: 'Admin', email: '' },
@@ -302,6 +320,8 @@ export function getInitialData() {
         siteUrl:    data.siteUrl    ?? ( typeof window !== 'undefined' ? window.location?.origin : '' ),
         altTextCompanion: data.altTextCompanion ?? { state: 'missing', label: 'Install ALT Text', icon: 'upload', url: '' },
         internalLinkingCompanion: data.internalLinkingCompanion ?? { state: 'missing', label: 'Install Internal Linking', icon: 'upload', url: '' },
+        // Seeded from PHP so Home/Audit first paint has real coverage numbers.
+        stats:     normalizeStats( data.stats ),
         // Quota is fetched on mount; this is just a neutral placeholder so the
         // first render doesn't crash before /quota resolves.
         quota:     { plan: 'free', connected: data.connected ?? false },

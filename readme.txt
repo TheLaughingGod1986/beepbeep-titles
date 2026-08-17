@@ -4,7 +4,7 @@ Tags: seo, ai seo, meta description, title tag, site audit
 Requires at least: 6.3
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.0.19
+Stable tag: 1.0.20
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -246,6 +246,11 @@ WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, R
 
 == Changelog ==
 
+= 1.0.20 - 2026-08-17 =
+* Correct user-facing branding from “OptiAI” to “OpptiAI” (including the health-score disclaimer). Internal namespaces, text domain, REST slug, and option names are unchanged.
+* Prevent the signed-out Home / Audit screen from flashing a false “No published pages… / 0 scanned” state on first paint after a successful scan. Coverage stats are seeded from PHP and the empty copy only shows once loaded totals are known.
+* Signed-out SEO Health Check / local scanning remains free and account-free. Free monthly AI allowance stays at 25. Paid plans unchanged.
+
 = 1.0.19 - 2026-08-17 =
 * Raise the Free plan monthly AI allowance from 15 to 25 credits (user-facing defaults, paywall, and WordPress.org copy).
 * SEO Health Check / signed-out scanning remains free and does not require an account or consume credits.
@@ -320,6 +325,9 @@ WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, R
 * Plugin Check and WordPress.org packaging readiness.
 
 == Upgrade Notice ==
+
+= 1.0.20 =
+Fixes OpptiAI branding in user-facing copy and stops the Home audit from flashing a false empty/0-scanned state on first paint. Free monthly allowance remains 25; signed-out scans stay account-free.
 
 = 1.0.19 =
 Free monthly AI allowance is now 25 credits. Signed-out SEO health scans remain free and account-free.

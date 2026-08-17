@@ -1,15 +1,21 @@
 import { Icon, Card, Button } from '../components';
 import { QUOTA_DEFAULTS } from '../quota';
 import { PageShell } from '../ui';
+import { auditStatusMessage } from '../auditStatus';
 
 const EST_GAIN = '12–18%';
 
+const metricValue = ( ready, value ) => ( ready ? String( value ) : '\u2013' );
+
+export { auditStatusMessage };
+
 export const AuditSignedOutScreen = ({ stats, onConnect, onHelp, onLibrary, onAutopilot }) => {
+    // stats === null means bootstrap hasn't painted coverage yet — do not flash 0 / empty.
+    const ready        = stats != null;
     const total        = Math.max( 0, stats?.total ?? 0 );
     const fixCount     = Math.max( 0, stats?.needs_attention ?? 0 );
     const missingTitle = Math.max( 0, stats?.missing_title ?? 0 );
     const missingMeta  = Math.max( 0, stats?.missing_meta ?? 0 );
-    const hasScan      = total > 0;
 
     const connectFromHero = () => {
         onConnect?.();
@@ -19,9 +25,7 @@ export const AuditSignedOutScreen = ({ stats, onConnect, onHelp, onLibrary, onAu
         onHelp?.();
     };
 
-    const statusMessage = hasScan
-        ? `We scanned ${ total.toLocaleString() } pages and found metadata opportunities.`
-        : 'No published pages were found in the local metadata audit.';
+    const statusMessage = auditStatusMessage( stats );
 
     return (
         <div className="beepti-audit" style={{ background: 'var(--bg)', minHeight: 'calc(100vh - 32px - 52px)', overflowX: 'hidden' }}>
@@ -67,10 +71,11 @@ export const AuditSignedOutScreen = ({ stats, onConnect, onHelp, onLibrary, onAu
                         </div>
                     </Card>
 
-                    <CoveragePreviewCard total={total} fixCount={fixCount} missingTitle={missingTitle} missingMeta={missingMeta} onLibrary={onLibrary}/>
+                    <CoveragePreviewCard ready={ready} total={total} fixCount={fixCount} missingTitle={missingTitle} missingMeta={missingMeta} onLibrary={onLibrary}/>
                 </div>
 
                 <SiteAuditPreviewCard
+                    ready={ready}
                     total={total}
                     fixCount={fixCount}
                     missingTitle={missingTitle}
@@ -81,11 +86,11 @@ export const AuditSignedOutScreen = ({ stats, onConnect, onHelp, onLibrary, onAu
                 <SearchOpportunityCard/>
 
                 <SectionLabel>SEO coverage &amp; website health</SectionLabel>
-                <WebsiteHealthCards total={total} fixCount={fixCount} missingTitle={missingTitle} missingMeta={missingMeta}/>
+                <WebsiteHealthCards ready={ready} total={total} fixCount={fixCount} missingTitle={missingTitle} missingMeta={missingMeta}/>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '0.9fr 1.1fr', gap: 14, marginBottom: 28 }}>
-                    <TimeSavedCard fixCount={fixCount}/>
-                    <SerpOverviewCard fixCount={fixCount} missingTitle={missingTitle} missingMeta={missingMeta}/>
+                    <TimeSavedCard ready={ready} fixCount={fixCount}/>
+                    <SerpOverviewCard ready={ready} fixCount={fixCount} missingTitle={missingTitle} missingMeta={missingMeta}/>
                 </div>
 
                 <AutopilotCard onConfigure={() => {
@@ -122,7 +127,7 @@ export const AuditSignedOutScreen = ({ stats, onConnect, onHelp, onLibrary, onAu
     );
 };
 
-const CoveragePreviewCard = ({ total, fixCount, missingTitle, missingMeta, onLibrary }) => (
+const CoveragePreviewCard = ({ ready, total, fixCount, missingTitle, missingMeta, onLibrary }) => (
     <Card padding={0} style={{ display: 'flex', flexDirection: 'column', padding: '22px 22px 20px' }}>
         <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 14 }}>SEO Coverage Preview</div>
         <div style={{ position: 'relative', width: 120, height: 120, margin: '0 auto 14px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -141,10 +146,10 @@ const CoveragePreviewCard = ({ total, fixCount, missingTitle, missingMeta, onLib
             </span>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 0, marginBottom: 14 }}>
-            <PreviewMetric label="Pages scanned" value={String( total )}/>
-            <PreviewMetric label="Pages needing review" value={String( fixCount )}/>
-            <PreviewMetric label="Missing SEO titles" value={String( missingTitle )}/>
-            <PreviewMetric label="Missing meta descriptions" value={String( missingMeta )}/>
+            <PreviewMetric label="Pages scanned" value={metricValue( ready, total )}/>
+            <PreviewMetric label="Pages needing review" value={metricValue( ready, fixCount )}/>
+            <PreviewMetric label="Missing SEO titles" value={metricValue( ready, missingTitle )}/>
+            <PreviewMetric label="Missing meta descriptions" value={metricValue( ready, missingMeta )}/>
         </div>
         <p style={{ margin: '0 0 14px', fontSize: 12.5, color: 'var(--text-3)', lineHeight: 1.45, textAlign: 'center' }}>
             The full local report and manual metadata editor are available without connecting an account.
@@ -166,8 +171,8 @@ const PreviewMetric = ({ label, value }) => (
     </div>
 );
 
-const SiteAuditPreviewCard = ({ total, fixCount, missingTitle, missingMeta, onLibrary }) => {
-    const timeSaved = `${ ( fixCount * 3 ).toLocaleString() } minutes`;
+const SiteAuditPreviewCard = ({ ready, total, fixCount, missingTitle, missingMeta, onLibrary }) => {
+    const timeSaved = ready ? `${ ( fixCount * 3 ).toLocaleString() } minutes` : '\u2013';
 
     return (
         <Card padding={0} style={{ marginBottom: 28, overflow: 'hidden' }}>
@@ -176,10 +181,10 @@ const SiteAuditPreviewCard = ({ total, fixCount, missingTitle, missingMeta, onLi
                 <h3 style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.015em', margin: '0 0 14px' }}>Metadata Opportunities Found</h3>
             </div>
             <div style={{ padding: '0 20px 16px' }}>
-                <PreviewMetric label="Pages scanned" value={String( total )}/>
-                <PreviewMetric label="Missing SEO titles" value={String( missingTitle )}/>
-                <PreviewMetric label="Missing meta descriptions" value={String( missingMeta )}/>
-                <PreviewMetric label="Pages needing review" value={String( fixCount )}/>
+                <PreviewMetric label="Pages scanned" value={metricValue( ready, total )}/>
+                <PreviewMetric label="Missing SEO titles" value={metricValue( ready, missingTitle )}/>
+                <PreviewMetric label="Missing meta descriptions" value={metricValue( ready, missingMeta )}/>
+                <PreviewMetric label="Pages needing review" value={metricValue( ready, fixCount )}/>
                 <PreviewMetric label="Estimated time saved" value={timeSaved}/>
             </div>
             <div style={{ padding: '0 20px 18px', display: 'flex', justifyContent: 'flex-end' }}>
@@ -217,32 +222,32 @@ const SearchOpportunityCard = () => (
     </Card>
 );
 
-const WebsiteHealthCards = ({ total, fixCount, missingTitle, missingMeta }) => (
+const WebsiteHealthCards = ({ ready, total, fixCount, missingTitle, missingMeta }) => (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 28 }}>
         <KPICard
             label="SEO coverage"
-            value={`${ fixCount } to review`}
+            value={ready ? `${ fixCount } to review` : '\u2013'}
             tone="primary"
             icon="search"
             foot="Open the Library for page-level insights"
         />
         <KPICard
             label="Pages scanned"
-            value={String( total )}
+            value={metricValue( ready, total )}
             tone="primary"
             icon="search"
             foot="Live scan from your WordPress site"
         />
         <KPICard
             label="Missing meta descriptions"
-            value={String( missingMeta )}
+            value={metricValue( ready, missingMeta )}
             tone="warn"
             icon="alert"
             foot="Detected locally"
         />
         <KPICard
             label="Missing SEO titles"
-            value={String( missingTitle )}
+            value={metricValue( ready, missingTitle )}
             tone="warn"
             icon="trend"
             foot="Detected locally"
@@ -250,7 +255,7 @@ const WebsiteHealthCards = ({ total, fixCount, missingTitle, missingMeta }) => (
     </div>
 );
 
-const SerpOverviewCard = ({ fixCount, missingTitle, missingMeta }) => (
+const SerpOverviewCard = ({ ready, fixCount, missingTitle, missingMeta }) => (
     <AuditCard
         eyebrow="Search appearance"
         title="SERP Overview"
@@ -258,9 +263,9 @@ const SerpOverviewCard = ({ fixCount, missingTitle, missingMeta }) => (
         tone="danger"
         callout="Some pages may be missing titles or descriptions that help search engines understand and display your content."
         metrics={[
-            { label: 'Pages missing meta description', value: String( missingMeta ), tone: 'warn' },
-            { label: 'Pages missing SEO title', value: String( missingTitle ), tone: 'warn' },
-            { label: 'Pages needing review', value: String( fixCount ), tone: 'primary' },
+            { label: 'Pages missing meta description', value: metricValue( ready, missingMeta ), tone: 'warn' },
+            { label: 'Pages missing SEO title', value: metricValue( ready, missingTitle ), tone: 'warn' },
+            { label: 'Pages needing review', value: metricValue( ready, fixCount ), tone: 'primary' },
             { label: 'Typical CTR improvement', value: `+${ EST_GAIN }`, tone: 'ok' },
         ]}
     />
@@ -585,12 +590,12 @@ const MetricValue = ({ value, tone }) => {
     );
 };
 
-const TimeSavedCard = ({ fixCount }) => (
+const TimeSavedCard = ({ ready, fixCount }) => (
     <Card padding={0} style={{ display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '18px 20px 6px' }}>
             <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>Time saved</div>
             <h3 style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.015em', margin: 0 }}>Reduce repetitive SEO work</h3>
-            {fixCount > 0 && (
+            {ready && fixCount > 0 && (
                 <p style={{ fontSize: 12.5, color: 'var(--text-3)', margin: '6px 0 0', lineHeight: 1.45 }}>
                     Estimated { ( fixCount * 3 ).toLocaleString() } minutes saved on pages needing review.
                 </p>

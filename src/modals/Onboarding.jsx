@@ -63,9 +63,9 @@ export const Onboarding = ({ open, onClose, onComplete, onScan, availablePostTyp
             {step === 0 && (
                 <div style={{ padding: '16px 28px 28px' }}>
                     <Icon name="logo" size={44} style={{ color: 'var(--primary-strong)', marginBottom: 14 }}/>
-                    <h2 style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em', margin: '0 0 8px' }}>Improve your website continuously with OptiAI.</h2>
+                    <h2 style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em', margin: '0 0 8px' }}>Improve your website continuously with OpptiAI.</h2>
                     <p style={{ fontSize: 14, color: 'var(--text-2)', margin: 0, lineHeight: 1.55 }}>
-                        OptiAI scans your content, identifies issues and helps you improve them with AI-powered recommendations. The health check is free — you only spend credits when you choose to fix something.
+                        OpptiAI scans your content, identifies issues and helps you improve them with AI-powered recommendations. The health check is free — you only spend credits when you choose to fix something.
                     </p>
                     <Stack gap={12} style={{ marginTop: 20, padding: 16, background: 'var(--bg-sunken)', borderRadius: 'var(--r-md)' }}>
                         {[

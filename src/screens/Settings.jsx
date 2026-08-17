@@ -79,8 +79,8 @@ export const SettingsScreen = ({
             const count = res?.reset_count ?? 0;
             setResetOpen( false );
             onToast?.( count > 0
-                ? { message: `${ count } page${ count === 1 ? '' : 's' } reset`, sub: 'Titles & meta descriptions are back to how they looked before OptiAI optimised them.', icon: 'check', tone: 'ok' }
-                : { message: 'Nothing to reset', sub: 'OptiAI hasn\u2019t generated a title or meta description on this site yet.', icon: 'info', tone: 'warn' } );
+                ? { message: `${ count } page${ count === 1 ? '' : 's' } reset`, sub: 'Titles & meta descriptions are back to how they looked before OpptiAI optimised them.', icon: 'check', tone: 'ok' }
+                : { message: 'Nothing to reset', sub: 'OpptiAI hasn\u2019t generated a title or meta description on this site yet.', icon: 'info', tone: 'warn' } );
         } catch ( err ) {
             onToast?.( { message: 'Reset failed', sub: err?.message || 'Please try again.', icon: 'alert', tone: 'warn' } );
         } finally {
@@ -255,7 +255,7 @@ const ResetConfirm = ({ open, resetting, onCancel, onConfirm }) => (
             </div>
             <h2 style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.015em', margin: '0 0 6px' }}>Reset generated title &amp; meta?</h2>
             <p style={{ fontSize: 13, color: 'var(--text-2)', margin: 0, lineHeight: 1.55 }}>
-                Every page OptiAI Titles has ever optimised will be reverted to how it looked before its first optimisation — including pages that had no title or meta description at all. Manual edits you made yourself in the Library are not affected. <strong style={{ color: 'var(--text)' }}>This cannot be undone</strong>, and any AI service credits already spent are not refunded.
+                Every page OpptiAI Titles has ever optimised will be reverted to how it looked before its first optimisation — including pages that had no title or meta description at all. Manual edits you made yourself in the Library are not affected. <strong style={{ color: 'var(--text)' }}>This cannot be undone</strong>, and any AI service credits already spent are not refunded.
             </p>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
                 <Button variant="ghost" size="md" onClick={onCancel} disabled={resetting}>Cancel</Button>

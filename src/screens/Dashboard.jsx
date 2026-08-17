@@ -173,14 +173,14 @@ export const Dashboard = ({
                 icon="image"
                 iconBg="#ECFDF5" iconColor="#059669" iconBorder="#A7F3D0"
                 title="Your credits also work on Image ALT Text"
-                body={<>The same shared credit pool powers <strong style={{ color: 'var(--text)', fontWeight: 600 }}>OptiAI Alt Text</strong> — continuously health-check and improve your media library. No extra subscription.</>}
+                body={<>The same shared credit pool powers <strong style={{ color: 'var(--text)', fontWeight: 600 }}>OpptiAI Alt Text</strong> — continuously health-check and improve your media library. No extra subscription.</>}
             />
             <CompanionBanner
                 companion={internalLinkingCompanion}
                 icon="link"
                 iconBg="#EFF6FF" iconColor="#2563EB" iconBorder="#BFDBFE"
                 title="Your credits also work on Internal Linking"
-                body={<>The same shared credit pool powers <strong style={{ color: 'var(--text)', fontWeight: 600 }}>OptiAI Internal Linking</strong> — find and fix missing links between your own pages. No extra subscription.</>}
+                body={<>The same shared credit pool powers <strong style={{ color: 'var(--text)', fontWeight: 600 }}>OpptiAI Internal Linking</strong> — find and fix missing links between your own pages. No extra subscription.</>}
                 comingSoon
             />
             <ActivityStrip onView={onView} newSince={newSince} activity={activity} onUndo={onUndo}/>
@@ -229,7 +229,7 @@ const TodaysPriorities = ({ ready, scanned, priorities, estimatedGain, onReview 
                 <div style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 10 }}>
                     <Icon name="check" size={16} style={{ color: 'var(--ok-ink)' }}/>
                     <div style={{ fontSize: 13, color: 'var(--text-2)' }}>
-                        <strong style={{ color: 'var(--text)' }}>No priorities today.</strong> Everything OptiAI has scanned looks healthy.
+                        <strong style={{ color: 'var(--text)' }}>No priorities today.</strong> Everything OpptiAI has scanned looks healthy.
                     </div>
                 </div>
             </Card>
@@ -260,7 +260,7 @@ const TodaysPriorities = ({ ready, scanned, priorities, estimatedGain, onReview 
                 <button onClick={onReview} style={{ background: 'transparent', border: 'none', padding: 0, fontSize: 12.5, color: 'var(--text-2)', fontWeight: 600, cursor: 'pointer' }}
                     onMouseEnter={e => e.currentTarget.style.color = 'var(--text)'}
                     onMouseLeave={e => e.currentTarget.style.color = 'var(--text-2)'}>
-                    See what OptiAI found today &rarr;
+                    See what OpptiAI found today &rarr;
                 </button>
             </div>
         </Card>
@@ -339,7 +339,7 @@ const HeroScoreCard = ({ ready, health, previousScore, creditsRemaining, costPer
             {ready && health?.combined_score != null && (
                 <div style={{ borderTop: '1px solid var(--hairline)', padding: '10px 24px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', fontSize: 12.5, color: 'var(--text-2)' }}>
                     <Icon name="shield-check" size={14} style={{ color: 'var(--primary)' }}/>
-                    <span>Combined OptiAI Health: <strong className="mono tnum" style={{ color: 'var(--text)' }}>{health.combined_score}</strong></span>
+                    <span>Combined OpptiAI Health: <strong className="mono tnum" style={{ color: 'var(--text)' }}>{health.combined_score}</strong></span>
                     <span style={{ color: 'var(--text-3)' }}>
                         ({( health.combined_modules || [] ).map( m => `${m.name}: ${m.score}` ).join( ' · ' )})
                     </span>
@@ -673,7 +673,7 @@ const CompanionBanner = ({ companion, icon: fallbackIcon = 'image', iconBg = '#E
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 3 }}>
                         <span style={{ fontSize: 14, fontWeight: 600, color: comingSoon ? 'var(--text-2)' : 'var(--text)' }}>{title}</span>
-                        <Pill tone="neutral" style={{ padding: '1px 8px', fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase' }}>From OptiAI</Pill>
+                        <Pill tone="neutral" style={{ padding: '1px 8px', fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase' }}>From OpptiAI</Pill>
                         {comingSoon && (
                             <Pill tone="neutral" style={{ padding: '1px 8px', fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Coming soon</Pill>
                         )}

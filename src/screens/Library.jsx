@@ -350,7 +350,7 @@ const PageRow = ({ pg, selected, onToggle, onGenerate, onEdit, justSaved, genera
             <div style={{ textAlign: 'right' }}>
                 {!isOk ? (
                     generationUnavailable ? (
-                        <span title="AI optimisation requires a connected OptiAI service account with available credits">
+                        <span title="AI optimisation requires a connected OpptiAI service account with available credits">
                             <Button variant="secondary" size="sm" icon="external" onClick={onServiceAction} style={{ color: 'var(--text-3)' }}>
                                 Optimise
                             </Button>

@@ -362,7 +362,7 @@ const PLAN_COPY = {
     starter: {
         features: [
             '100 AI generations per month',
-            'Credits usable manually, in bulk, or with Autopilot',
+            'Credits usable manually or in bulk',
             'AI titles and descriptions',
             'Shared service credits',
         ],
@@ -372,7 +372,7 @@ const PLAN_COPY = {
     pro: {
         features: [
             '1000 AI generations per month',
-            'Credits usable manually, in bulk, or with Autopilot',
+            'Continuous Optimisation for new pages',
             'Larger service allowance',
             'Priority processing',
             'Agency-friendly usage limits',

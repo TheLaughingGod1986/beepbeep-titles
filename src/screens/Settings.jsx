@@ -4,6 +4,7 @@ import { Input, PageShell, Textarea, Row } from '../ui';
 import { Modal } from '../modals/Modal';
 import { saveSettings, setLicense, clearLicense, submitSupport } from '../api';
 import { creditUsageRows } from '../usage';
+import { QUOTA_DEFAULTS } from '../quota';
 
 const formatResetDate = value => {
     if ( ! value ) return 'Not available';
@@ -12,7 +13,23 @@ const formatResetDate = value => {
     return new Intl.DateTimeFormat( undefined, { month: 'long', day: 'numeric', year: 'numeric' } ).format( date );
 };
 
-export const SettingsScreen = ({ plan, quota, user, settings, connected, onUpgrade, onBuyCredits, onManageBilling, onToast, onConnect, onReset }) => {
+export const SettingsScreen = ({
+    plan,
+    quota,
+    user,
+    accountEmail,
+    settings,
+    connected,
+    onUpgrade,
+    onBuyCredits,
+    onManageBilling,
+    onToast,
+    onConnect,
+    onOpenConnect,
+    onSignIn,
+    onSignOut,
+    onReset,
+}) => {
     const isPro = plan === 'pro';
     const [advancedOpen, setAdvancedOpen] = useState( false );
     const [notifFresh, setNotifFresh]     = useState( settings?.notify_new_pages ?? true );
@@ -24,6 +41,9 @@ export const SettingsScreen = ({ plan, quota, user, settings, connected, onUpgra
     const [saving, setSaving]             = useState( false );
     const [resetOpen, setResetOpen]       = useState( false );
     const [resetting, setResetting]       = useState( false );
+
+    // OpptiAI account email (license/quota) — never the WordPress admin identity.
+    const opptiEmail = accountEmail || quota?.account_email || '';
 
     const handleConnect = async () => {
         const key = licenseInput.trim();
@@ -69,7 +89,7 @@ export const SettingsScreen = ({ plan, quota, user, settings, connected, onUpgra
     };
 
     const monthlyUsed  = quota?.monthly_used  || 0;
-    const monthlyLimit = quota?.monthly_limit || 50;
+    const monthlyLimit = quota?.monthly_limit || QUOTA_DEFAULTS.monthly_limit;
     const pct = monthlyLimit > 0 ? ( monthlyUsed / monthlyLimit ) * 100 : 0;
     const resetDate = formatResetDate( quota?.reset_date );
 
@@ -97,19 +117,36 @@ export const SettingsScreen = ({ plan, quota, user, settings, connected, onUpgra
 
             <CreditUsageCard quota={quota} used={monthlyUsed} limit={monthlyLimit} resetDate={resetDate}/>
 
-            <SettingsSection title="Account" eyebrow="Sign-in">
-                <SettingsRow
-                    label="Email"
-                    desc="The WordPress administrator account connected to this plugin."
-                    right={<span className="mono" style={{ fontSize: 13, color: 'var(--text-2)' }}>{user?.email || 'admin@yoursite.com'}</span>}
-                />
-                <SettingsRow
-                    label="WordPress user"
-                    desc="Logged in as this user when generating titles & meta."
-                    right={<span style={{ fontSize: 13, color: 'var(--text-2)' }}>{user?.name || 'Admin'}</span>}
-                    last
-                />
-            </SettingsSection>
+            <AccountSection
+                connected={connected}
+                isPro={isPro}
+                opptiEmail={opptiEmail}
+                onOpenConnect={onOpenConnect}
+                onSignIn={onSignIn}
+                onSignOut={onSignOut}
+                onUpgrade={onUpgrade}
+                onManageBilling={onManageBilling}
+            />
+
+            {( user?.name || user?.email ) && (
+                <div style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '0 4px', marginBottom: 18, marginTop: -4,
+                    fontSize: 12, color: 'var(--text-3)', lineHeight: 1.45,
+                }}>
+                    <Icon name="info" size={13} style={{ color: 'var(--text-3)', flexShrink: 0 }}/>
+                    <span>
+                        This WordPress site · editing as{' '}
+                        <span style={{ color: 'var(--text-2)', fontWeight: 500 }}>{user?.name || 'Admin'}</span>
+                        {user?.email ? (
+                            <>
+                                {' '}(<span className="mono">{user.email}</span>)
+                            </>
+                        ) : null}
+                        . Not your OpptiAI account.
+                    </span>
+                </div>
+            )}
 
             <SettingsSection title="OpptiAI license" eyebrow="Connection">
                 {connected ? (
@@ -270,8 +307,10 @@ const PlanCard = ({ isPro, monthlyUsed, monthlyLimit, pct, resetDate, onUpgrade,
 
 const CreditUsageCard = ({ quota, used, limit, resetDate }) => {
     const companion = window.beeptiAdminData?.altTextCompanion?.state;
+    const linkingCompanion = window.beeptiAdminData?.internalLinkingCompanion?.state;
     const { rows, attributed } = creditUsageRows( quota, used, {
         alt_text: companion === 'active' || companion === 'installed',
+        internal_linking: linkingCompanion === 'active' || linkingCompanion === 'installed',
     } );
 
     // Only show per-plugin numbers when the credits we could attribute actually
@@ -289,6 +328,8 @@ const CreditUsageCard = ({ quota, used, limit, resetDate }) => {
                 </div>
                 <div className="tnum" style={{ fontSize: 13, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
                     <strong style={{ color: 'var(--text)', fontWeight: 600 }}>{used}</strong> / {limit} credits used
+                    <span style={{ margin: '0 6px', opacity: 0.5 }}>·</span>
+                    <span className="mono">{Math.max( 0, limit - used ).toLocaleString()} remaining</span>
                 </div>
             </Row>
             <Row align="start" gap={9} style={{ padding: '11px 20px', background: 'var(--surface-2)', borderBottom: '1px solid var(--hairline)', fontSize: 12, color: 'var(--text-2)', lineHeight: 1.45 }}>
@@ -341,6 +382,91 @@ const CreditUsageCard = ({ quota, used, limit, resetDate }) => {
                 } )}
             </div>
         </Card>
+    );
+};
+
+const AccountSection = ({
+    connected,
+    isPro,
+    opptiEmail,
+    onOpenConnect,
+    onSignIn,
+    onSignOut,
+    onUpgrade,
+    onManageBilling,
+}) => {
+    if ( ! connected ) {
+        return (
+            <SettingsSection title="Account" eyebrow="OpptiAI">
+                <div style={{ padding: '18px 20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+                        <div style={{
+                            width: 36, height: 36, borderRadius: 9, flexShrink: 0,
+                            background: 'var(--bg-sunken)', border: '1px solid var(--border)',
+                            color: 'var(--text-2)',
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                            <Icon name="user" size={18} strokeWidth={2}/>
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', lineHeight: 1.3 }}>
+                                Not signed in to OpptiAI
+                            </div>
+                            <p style={{ fontSize: 12.5, color: 'var(--text-2)', margin: '4px 0 0', lineHeight: 1.5 }}>
+                                Sign in or create a free account to manage your plan, billing, and credit wallet.
+                                The WordPress user below is only who is logged into this site — not an OpptiAI login.
+                            </p>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
+                                <Button variant="primary" size="md" icon="arrow-right" onClick={() => { if ( onSignIn ) onSignIn(); else onOpenConnect?.(); }}>
+                                    Sign in
+                                </Button>
+                                <Button variant="secondary" size="md" onClick={() => onOpenConnect?.()}>
+                                    Create account
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </SettingsSection>
+        );
+    }
+
+    return (
+        <SettingsSection title="Account" eyebrow="OpptiAI">
+            <SettingsRow
+                label="OpptiAI email"
+                desc="The account that owns this site's plan and shared credit wallet."
+                right={
+                    opptiEmail
+                        ? <span className="mono" style={{ fontSize: 13, color: 'var(--text-2)' }}>{opptiEmail}</span>
+                        : <span style={{ fontSize: 13, color: 'var(--text-3)' }}>Connected</span>
+                }
+            />
+            <SettingsRow
+                label="Plan & billing"
+                desc={isPro
+                    ? 'Upgrade, downgrade, or update payment details in the Stripe customer portal.'
+                    : 'Upgrade to a paid plan, or open Stripe to manage billing details.'}
+                right={
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                        {isPro
+                            ? <Button variant="secondary" size="sm" icon="external" onClick={onManageBilling}>Manage billing</Button>
+                            : (
+                                <>
+                                    <Button variant="pro" size="sm" icon="crown" onClick={onUpgrade}>Upgrade</Button>
+                                    <Button variant="secondary" size="sm" icon="external" onClick={onManageBilling}>Manage billing</Button>
+                                </>
+                            )}
+                    </div>
+                }
+            />
+            <SettingsRow
+                label="Sign out"
+                desc="Disconnect this WordPress site from your OpptiAI account. Generated titles stay on the site."
+                right={<Button variant="secondary" size="sm" icon="logout" onClick={onSignOut}>Sign out</Button>}
+                last
+            />
+        </SettingsSection>
     );
 };
 

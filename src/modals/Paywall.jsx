@@ -2,6 +2,13 @@ import { useState, useEffect } from 'react';
 import { Icon, Button } from '../components';
 import { Modal } from './Modal';
 import { fetchPlans } from '../api';
+import {
+    CREDITS_PER_PAGE,
+    creditsPerPage,
+    isInsufficientCredits,
+    insufficientCreditsMessage,
+    QUOTA_DEFAULTS,
+} from '../quota';
 
 /* Format a plan amount in its own currency (e.g. gbp 12.99 -> "£12.99"). */
 const fmtPrice = ( amount, currency = 'gbp' ) => {
@@ -25,17 +32,25 @@ const fmtCount = ( n ) => ( typeof n === 'number' ? n.toLocaleString() : n );
    ("Fix N SEO issues automatically") → trust → social proof. Alternative
    purchase paths (Starter, credit pack) stay quiet so they never dilute the
    primary CTA. Prices come live from /billing/plans so they always match Stripe. */
-export const Paywall = ({ open, onClose, entitlement, stats, connected = true, onCheckout, onUpgrade, onBuyCredits, onConnect }) => {
+export const Paywall = ({ open, onClose, trigger = 'default', entitlement, stats, connected = true, onCheckout, onUpgrade, onBuyCredits, onConnect }) => {
     const [plans, setPlans] = useState( null );
+    const [plansLoading, setPlansLoading] = useState( false );
+    const [checkoutBusy, setCheckoutBusy] = useState( null ); // 'pro' | 'starter' | 'credits' | null
     const [showMore, setShowMore] = useState( false );
 
     // Pull live Stripe-backed pricing so the modal can never drift.
     useEffect( () => {
-        if ( !open || plans ) return;
+        if ( !open ) {
+            setCheckoutBusy( null );
+            return;
+        }
+        if ( plans ) return;
         let alive = true;
+        setPlansLoading( true );
         fetchPlans()
             .then( res => { if ( alive ) setPlans( res?.plans || [] ); } )
-            .catch( () => { if ( alive ) setPlans( [] ); } );
+            .catch( () => { if ( alive ) setPlans( [] ); } )
+            .finally( () => { if ( alive ) setPlansLoading( false ); } );
         return () => { alive = false; };
     }, [open, plans] );
 
@@ -49,11 +64,17 @@ export const Paywall = ({ open, onClose, entitlement, stats, connected = true, o
     if ( !open ) return null;
 
     const starterPlan  = ( plans || [] ).find( p => p.id === 'starter' );
-    const proPlan      = ( plans || [] ).find( p => p.id === 'pro' );
+    const proPlan      = ( plans || [] ).find( p => p.id === 'pro' || p.id === 'growth' );
     const creditsPlan  = ( plans || [] ).find( p => p.id === 'credits' );
-    const starterPrice = starterPlan ? fmtPrice( starterPlan.price, starterPlan.currency ) : '£4.99';
+    // Prefer live catalog prices; only fall back once the fetch finished empty
+    // so we never flash a stale hardcoded amount over a different Stripe price.
+    const starterPrice = starterPlan
+        ? fmtPrice( starterPlan.price, starterPlan.currency )
+        : ( plansLoading ? '…' : '£4.99' );
     const starterQuota = starterPlan?.quota || 100;
-    const proPrice     = proPlan ? fmtPrice( proPlan.price, proPlan.currency ) : '£12.99';
+    const proPrice     = proPlan
+        ? fmtPrice( proPlan.price, proPlan.currency )
+        : ( plansLoading ? '…' : '£12.99' );
     const proQuota     = proPlan?.quota || 1000;
     const creditsPrice = creditsPlan ? fmtPrice( creditsPlan.price, creditsPlan.currency ) : '£9.99';
     const creditsQuota = creditsPlan?.quota || 100;
@@ -63,34 +84,58 @@ export const Paywall = ({ open, onClose, entitlement, stats, connected = true, o
     const proAvailable     = proPlan?.available !== false;
     const starterAvailable = starterPlan?.available !== false;
     const creditsAvailable = creditsPlan?.available !== false;
-    // Free allowance comes from the live entitlement (currently 15), never hard-coded.
-    const freeLimit    = Number.isFinite( entitlement?.token_limit ) ? entitlement.token_limit : 15;
+    // Free allowance comes from the live entitlement (currently 25), never hard-coded.
+    const freeLimit    = Number.isFinite( entitlement?.token_limit ) ? entitlement.token_limit : QUOTA_DEFAULTS.monthly_limit;
+
+    // Feature gates: Continuous Optimisation is Pro-only; Autopilot screen is paid (Starter/Pro).
+    const continuousOptGate = trigger === 'continuous-optimisation';
+    const autopilotGate     = trigger === 'autopilot';
+    const featureGate       = continuousOptGate || autopilotGate;
+
+    // Quota-triggered paywall: distinguish "out of credits" from "not enough for
+    // this action" (e.g. 1 remaining when each page costs 2 for title + meta).
+    const remainingCredits = Number.isFinite( Number( entitlement?.credits_remaining ) )
+        ? Number( entitlement.credits_remaining )
+        : null;
+    const pageCost = creditsPerPage( entitlement ) || CREDITS_PER_PAGE;
+    const quotaTrigger = trigger === 'daily-limit' || trigger === 'monthly-limit' || trigger === 'bulk';
+    const showInsufficient = ! featureGate
+        && quotaTrigger
+        && remainingCredits != null
+        && isInsufficientCredits( remainingCredits, pageCost );
 
     // Pro-vs-Starter value framing, derived from live prices/quotas.
     const monthlyExtra = ( proPlan && starterPlan && proPlan.price > starterPlan.price )
         ? fmtPrice( Math.round( ( proPlan.price - starterPlan.price ) * 100 ) / 100, proPlan.currency )
-        : '£8';
+        : ( plansLoading ? '…' : '£8' );
     const capacityMult = ( proQuota && starterQuota ) ? Math.max( 2, Math.round( proQuota / starterQuota ) ) : 10;
 
     const checkout = ( planId ) => {
+        if ( checkoutBusy ) return;
         if ( ! connected ) {
             onConnect?.();
             return;
         }
-        const plan = ( plans || [] ).find( p => p.id === planId );
+        const plan = ( plans || [] ).find( p => p.id === planId || ( planId === 'pro' && p.id === 'growth' ) );
         const checkoutArgs = plan?.priceId
             ? { plan: planId, priceId: plan.priceId }
             : { plan: planId };
+        setCheckoutBusy( planId );
+        // Clear the busy flag if the opener stays on this screen (failure toast /
+        // portal). Success navigates away via Stripe so unmount covers it.
+        const clearBusy = () => setCheckoutBusy( null );
+        window.setTimeout( clearBusy, 12000 );
         if ( typeof onCheckout === 'function' ) { onCheckout( checkoutArgs ); return; }
-        if ( planId === 'credits' && onBuyCredits ) { onBuyCredits(); return; }
-        if ( onUpgrade ) onUpgrade();
+        if ( planId === 'credits' && onBuyCredits ) { onBuyCredits(); clearBusy(); return; }
+        if ( onUpgrade ) { onUpgrade(); clearBusy(); }
     };
     const needsSignIn = ! connected;
     const onPro     = () => checkout( 'pro' );
     const onStarter = () => checkout( 'starter' );
     const onCredits = () => checkout( 'credits' );
 
-    const showScanGaps = ( missingTitles !== null || missingMeta !== null )
+    const showScanGaps = ! featureGate
+        && ( missingTitles !== null || missingMeta !== null )
         && ( ( missingTitles || 0 ) > 0 || ( missingMeta || 0 ) > 0 );
     // Total detected issues drives the dynamic, problem-framed primary CTA.
     const totalIssues   = ( missingTitles || 0 ) + ( missingMeta || 0 );
@@ -99,12 +144,26 @@ export const Paywall = ({ open, onClose, entitlement, stats, connected = true, o
     const R = 16; // card / surface radius
 
     // ROI framing — users buy time saved, not generations.
-    const why = [
-        'Generate SEO titles and descriptions in seconds',
-        'Save hours of manual editing',
-        'Improve search visibility',
-        'Use credits with manual, bulk, or Autopilot requests',
-    ];
+    const why = continuousOptGate
+        ? [
+            'Continuously optimise newly published pages',
+            'Generate SEO titles and descriptions automatically',
+            'Save hours of manual editing',
+            'Priority processing on Pro',
+        ]
+        : autopilotGate
+            ? [
+                'Configure tone, length, and custom instructions',
+                'Auto-generate titles and meta on publish',
+                'Hands-off SEO for every new page',
+                'Available on Starter and Pro',
+            ]
+            : [
+                'Generate SEO titles and descriptions in seconds',
+                'Save hours of manual editing',
+                'Improve search visibility',
+                'Use credits with manual, bulk, or Continuous Optimisation',
+            ];
     // Risk reducers kept beside the purchase button.
     const trust = [
         'Secure Stripe checkout',
@@ -123,12 +182,26 @@ export const Paywall = ({ open, onClose, entitlement, stats, connected = true, o
                 {/* ── Section 1: Headline → Issue Summary → SEO Impact → CTA (above the fold) ── */}
                 <div className="beepti-pw__section" style={{ padding: '36px 40px 4px' }}>
                     <h2 style={{ fontSize: 25, fontWeight: 600, letterSpacing: '-0.025em', lineHeight: 1.15, margin: '0 0 8px', maxWidth: 560 }}>
-                        {showScanGaps ? 'We found SEO issues on your site' : 'Add OpptiAI service credits'}
+                        {continuousOptGate
+                            ? 'Continuous Optimisation needs Pro'
+                            : autopilotGate
+                                ? 'Autopilot / hands-off SEO needs a paid subscription'
+                                : showInsufficient
+                                    ? 'Not enough credits for this page'
+                                    : showScanGaps
+                                        ? 'We found SEO issues on your site'
+                                        : 'Add OpptiAI service credits'}
                     </h2>
                     <p style={{ fontSize: 14.5, color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 16px', maxWidth: 580 }}>
-                        {showScanGaps
-                            ? <>Some of your content is missing SEO metadata. OpptiAI service credits can be used for manual, bulk, or Autopilot generation requests.</>
-                            : <>Choose the external-service credit allowance that fits your expected AI generation volume. Local scanning, editing, and Autopilot configuration remain available on every plan.</> }
+                        {continuousOptGate
+                            ? <>A paid Pro subscription unlocks automatic optimisation for newly published pages. Upgrade to Pro to enable Continuous Optimisation.</>
+                            : autopilotGate
+                                ? <>Hands-off page SEO — tone, length, custom instructions, and auto-generate on publish — requires a Starter or Pro subscription.</>
+                                : showInsufficient
+                                    ? insufficientCreditsMessage( remainingCredits, pageCost )
+                                    : showScanGaps
+                                        ? <>Some of your content is missing SEO metadata. OpptiAI service credits can be used for manual, bulk, or Continuous Optimisation requests.</>
+                                        : <>Choose the external-service credit allowance that fits your expected AI generation volume. Local scanning and editing remain available on every plan.</> }
                     </p>
 
                     {showScanGaps && (
@@ -161,14 +234,16 @@ export const Paywall = ({ open, onClose, entitlement, stats, connected = true, o
                     )}
 
                     {/* ── Primary action — problem-framed dynamic CTA, kept above the fold ── */}
-                    <Button variant="pro" size="lg" full icon={needsSignIn ? 'user' : 'zap'} onClick={onPro} disabled={!proAvailable && !needsSignIn} style={{ paddingTop: 15, paddingBottom: 15, fontSize: 16 }}>
+                    <Button variant="pro" size="lg" full icon={needsSignIn ? 'user' : 'zap'} onClick={onPro} disabled={(!proAvailable && !needsSignIn) || !!checkoutBusy || plansLoading} style={{ paddingTop: 15, paddingBottom: 15, fontSize: 16 }}>
                         {!proAvailable && !needsSignIn
                             ? 'Pro temporarily unavailable'
                             : needsSignIn
                                 ? 'Sign in to upgrade'
-                                : totalIssues > 0
-                                    ? `Choose Pro Service Capacity · ${proPrice}/month`
-                                    : `Choose Pro Service Capacity · ${proPrice}/month` }
+                                : checkoutBusy === 'pro'
+                                    ? 'Opening Stripe Checkout…'
+                                    : plansLoading
+                                        ? 'Loading Pro pricing…'
+                                        : `Choose Pro Service Capacity · ${proPrice}/month` }
                     </Button>
                     <p style={{ textAlign: 'center', fontSize: 12.5, color: 'var(--text-3)', margin: '8px 0 0', lineHeight: 1.5 }}>
                         {!proAvailable && !needsSignIn
@@ -227,12 +302,19 @@ export const Paywall = ({ open, onClose, entitlement, stats, connected = true, o
                         </div>
 
                         {/* Starter — lower-friction entry point, deliberately quieter */}
-                        <div className="beepti-pw__plan beepti-pw__plan--starter" style={{ border: '1px solid var(--border)', background: 'var(--surface)', position: 'relative' }}>
+                        <div
+                            className="beepti-pw__plan beepti-pw__plan--starter"
+                            role="button"
+                            tabIndex={0}
+                            onClick={ () => { if ( starterAvailable || needsSignIn ) onStarter(); } }
+                            onKeyDown={ ( e ) => { if ( e.key === 'Enter' || e.key === ' ' ) { e.preventDefault(); if ( starterAvailable || needsSignIn ) onStarter(); } } }
+                            style={{ border: '1px solid var(--border)', background: 'var(--surface)', position: 'relative', cursor: ( starterAvailable || needsSignIn ) && !checkoutBusy ? 'pointer' : 'default' }}
+                        >
                             <div style={{ position: 'absolute', top: -10, left: 16, background: 'var(--bg-sunken)', color: 'var(--text-3)', border: '1px solid var(--border)', fontSize: 9.5, fontWeight: 700, padding: '3px 8px', borderRadius: 999, letterSpacing: '0.04em' }}>GOOD FOR SMALL SITES</div>
                             <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 8, marginTop: 4 }}>Starter</div>
                             <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.02em' }}>{starterPrice}<span style={{ fontSize: 12.5, color: 'var(--text-3)', fontWeight: 400 }}> /mo</span></div>
                             <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                {[ `${ fmtCount( starterQuota ) } SEO generations every month`, 'Use credits manually, in bulk, or with Autopilot', 'Great for bloggers and small business sites' ].map( ( f, i ) => (
+                                {[ `${ fmtCount( starterQuota ) } SEO generations every month`, 'Use credits manually or in bulk', 'Great for bloggers and small business sites' ].map( ( f, i ) => (
                                     <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.4 }}>
                                         <Icon name="check" size={12} strokeWidth={2.4} style={{ color: 'var(--text-3)', flexShrink: 0, marginTop: 2 }}/> {f}
                                     </div>
@@ -241,7 +323,14 @@ export const Paywall = ({ open, onClose, entitlement, stats, connected = true, o
                         </div>
 
                         {/* Pro — dominant, recommended */}
-                        <div className="beepti-pw__plan beepti-pw__plan--pro" style={{ border: '2.5px solid var(--primary)', background: 'var(--surface)', boxShadow: '0 14px 36px rgba(37,99,235,0.18)', position: 'relative' }}>
+                        <div
+                            className="beepti-pw__plan beepti-pw__plan--pro"
+                            role="button"
+                            tabIndex={0}
+                            onClick={ () => { if ( proAvailable || needsSignIn ) onPro(); } }
+                            onKeyDown={ ( e ) => { if ( e.key === 'Enter' || e.key === ' ' ) { e.preventDefault(); if ( proAvailable || needsSignIn ) onPro(); } } }
+                            style={{ border: '2.5px solid var(--primary)', background: 'var(--surface)', boxShadow: '0 14px 36px rgba(37,99,235,0.18)', position: 'relative', cursor: ( proAvailable || needsSignIn ) && !checkoutBusy ? 'pointer' : 'default' }}
+                        >
                             <div style={{ position: 'absolute', top: -12, left: 18, background: 'var(--primary)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 999, letterSpacing: '0.05em' }}>⭐ MOST POPULAR</div>
                             <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--primary-ink)', marginBottom: 8 }}>Pro</div>
                             <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em' }}>{proPrice}<span style={{ fontSize: 13, color: 'var(--text-3)', fontWeight: 400 }}> /mo</span></div>
@@ -250,7 +339,7 @@ export const Paywall = ({ open, onClose, entitlement, stats, connected = true, o
                                 For only {monthlyExtra} more than Starter
                             </div>
                             <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 9 }}>
-                                {[ `${ capacityMult }× more SEO generations (${ fmtCount( proQuota ) }/mo)`, 'Use credits manually, in bulk, or with Autopilot', 'Priority processing', 'Shared across all OpptiAI plugins' ].map( ( f, i ) => (
+                                {[ `${ capacityMult }× more SEO generations (${ fmtCount( proQuota ) }/mo)`, 'Continuous Optimisation for new pages', 'Priority processing', 'Shared across all OpptiAI plugins' ].map( ( f, i ) => (
                                     <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12.5, color: 'var(--text)', fontWeight: i === 0 ? 600 : 500, lineHeight: 1.4 }}>
                                         <Icon name="check" size={13} strokeWidth={2.6} style={{ color: 'var(--primary-ink)', flexShrink: 0, marginTop: 1 }}/> {f}
                                     </div>
@@ -284,10 +373,12 @@ export const Paywall = ({ open, onClose, entitlement, stats, connected = true, o
                 {/* ── Section 4: Secondary actions — quieter Starter + credit top-up ── */}
                 <div className="beepti-pw__section" style={{ padding: '20px 40px 0' }}>
                     {starterPlan && (
-                        <Button variant="secondary" size="md" full onClick={onStarter} disabled={!starterAvailable && !needsSignIn} style={{ background: 'var(--surface)', color: 'var(--text-2)', border: '1px solid var(--border-strong)', fontSize: 13.5 }}>
+                        <Button variant="secondary" size="md" full onClick={onStarter} disabled={(!starterAvailable && !needsSignIn) || !!checkoutBusy || plansLoading} style={{ background: 'var(--surface)', color: 'var(--text-2)', border: '1px solid var(--border-strong)', fontSize: 13.5 }}>
                             {needsSignIn
                                 ? 'Sign in to view Starter'
-                                : starterAvailable ? `Or start with Starter · ${starterPrice}/month` : 'Starter temporarily unavailable'}
+                                : checkoutBusy === 'starter'
+                                    ? 'Opening Stripe Checkout…'
+                                    : starterAvailable ? `Or start with Starter · ${starterPrice}/month` : 'Starter temporarily unavailable'}
                         </Button>
                     )}
 

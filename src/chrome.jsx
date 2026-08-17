@@ -1,9 +1,28 @@
 import { Icon, Button, Tooltip } from './components';
 import { UserMenu } from './auth';
 import { getVisibleTabs } from './navigation';
+import { CREDITS_PER_PAGE, isInsufficientCredits } from './quota';
 
-export const WPChrome = ({ children, activeTab, onTab, plan, onUpgrade, user, connected, isAdmin, onSignOut, onHelp, onConnect, onSignIn }) => {
+export const WPChrome = ({
+    children, activeTab, onTab, plan, onUpgrade, user, connected, isAdmin,
+    onSignOut, onHelp, onConnect, onSignIn,
+    creditsUsed = null, creditsLimit = null, creditsRemaining = null, creditsPerPage = CREDITS_PER_PAGE,
+}) => {
     const tabs = getVisibleTabs( connected, { isAdmin } );
+    const hasWallet = connected && creditsLimit != null && Number( creditsLimit ) > 0;
+    const used = Math.max( 0, Number( creditsUsed ) || 0 );
+    const limit = Math.max( 0, Number( creditsLimit ) || 0 );
+    const remaining = Number.isFinite( Number( creditsRemaining ) )
+        ? Math.max( 0, Number( creditsRemaining ) )
+        : Math.max( 0, limit - used );
+    const pageCost = Number( creditsPerPage ) > 0 ? Number( creditsPerPage ) : CREDITS_PER_PAGE;
+    const insufficient = isInsufficientCredits( remaining, pageCost );
+    const walletWarn = remaining <= 0 || insufficient;
+    const walletTitle = insufficient
+        ? `Shared wallet: ${ remaining } left, but each Titles page needs ${ pageCost } (title + meta)`
+        : remaining <= 0
+            ? 'Shared OpptiAI credit wallet — no credits remaining'
+            : 'Shared OpptiAI credit wallet';
 
     return (
         <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
@@ -52,20 +71,54 @@ export const WPChrome = ({ children, activeTab, onTab, plan, onUpgrade, user, co
                     } )}
                 </nav>
                 <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                    <Tooltip content="OpptiAI Titles is monitoring your site in the background" placement="bottom">
-                        <span style={{
-                            display: 'inline-flex', alignItems: 'center', gap: 6,
-                            padding: '3px 9px',
-                            background: 'var(--bg-sunken)',
-                            border: '1px solid var(--border)',
-                            borderRadius: 999,
-                            fontSize: 11, color: 'var(--text-3)', fontWeight: 500,
-                            whiteSpace: 'nowrap',
-                        }}>
-                            <span className="pulse-dot" style={{ width: 6, height: 6 }}/>
-                            Active
-                        </span>
-                    </Tooltip>
+                    {hasWallet ? (
+                        <button
+                            type="button"
+                            onClick={ onUpgrade || ( () => onTab( 'settings' ) ) }
+                            title={walletTitle}
+                            style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 6,
+                                padding: '3px 10px',
+                                background: walletWarn ? 'var(--warn-soft, #fffbeb)' : 'var(--bg-sunken)',
+                                border: `1px solid ${ walletWarn ? 'var(--warn-border, #fde68a)' : 'var(--border)' }`,
+                                borderRadius: 999,
+                                fontSize: 11,
+                                color: walletWarn ? 'var(--warn-ink, #b45309)' : 'var(--text-2)',
+                                fontWeight: 600,
+                                whiteSpace: 'nowrap',
+                                cursor: 'pointer',
+                                fontFamily: 'inherit',
+                            }}
+                        >
+                            <Icon name="zap" size={12} />
+                            {insufficient ? (
+                                <>
+                                    <span className="mono tnum">{remaining}</span>
+                                    <span style={{ fontWeight: 500 }}>left · need {pageCost}/page</span>
+                                </>
+                            ) : (
+                                <>
+                                    <span className="mono tnum">{used} / {limit}</span>
+                                    <span style={{ fontWeight: 500, color: 'var(--text-3)' }}>used</span>
+                                </>
+                            )}
+                        </button>
+                    ) : (
+                        <Tooltip content="OpptiAI Titles is monitoring your site in the background" placement="bottom">
+                            <span style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 6,
+                                padding: '3px 9px',
+                                background: 'var(--bg-sunken)',
+                                border: '1px solid var(--border)',
+                                borderRadius: 999,
+                                fontSize: 11, color: 'var(--text-3)', fontWeight: 500,
+                                whiteSpace: 'nowrap',
+                            }}>
+                                <span className="pulse-dot" style={{ width: 6, height: 6 }}/>
+                                Active
+                            </span>
+                        </Tooltip>
+                    )}
                     {plan === 'free' ? (
                         <Button variant="pro" size="sm" icon={connected ? 'crown' : 'arrow-right'} onClick={connected ? onUpgrade : onConnect}>
                             {connected ? 'Get more credits' : 'Create Account'}

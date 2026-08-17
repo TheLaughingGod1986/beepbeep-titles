@@ -16,6 +16,8 @@ use BeepBeep_Titles\Api\Client;
 use BeepBeep_Titles\Seo\MetaWriter;
 use OptiAI\Core\Module_Registry;
 use OptiAI\Core\Module_Report;
+use OptiAI\Core\Scan\History_Repository;
+use OptiAI\Core\Scan\Scan_Repository;
 use OptiAI\Core\Scan\Schema;
 
 defined( 'ABSPATH' ) || exit;
@@ -25,6 +27,12 @@ class Plugin {
     public function init(): void {
         ( new Admin( $this ) )->init();
         ( new RestApi( $this ) )->init();
+
+        // PostHog: flush lifecycle queue + detect version bumps on admin load.
+        add_action( 'admin_init', static function (): void {
+            Telemetry::maybe_record_update();
+            Telemetry::flush_lifecycle_queue();
+        }, 5 );
 
         // Let sibling OptiAI plugins (and, later, a shared Hub) detect this
         // module the same way this plugin already detects Alt Text.
@@ -106,13 +114,20 @@ class Plugin {
         ( new Scoring\Metadata_Scoring_Engine() )->run();
 
         $settings = get_option( 'beepti_settings', [] );
-        if ( empty( $settings['notify_new_pages'] ) ) {
-            return;
-        }
 
         $after_summary = ( new \OptiAI\Core\Scan\Scan_Repository( 'titles' ) )->get_summary();
         $new_issues    = max( 0, ( $after_summary['total'] - $after_summary['by_status']['excellent'] )
             - ( $before_summary['total'] - $before_summary['by_status']['excellent'] ) );
+
+        Telemetry::capture( 'scheduled_scan_completed', [
+            'new_issues'   => $new_issues,
+            'items_before' => (int) ( $before_summary['total'] ?? 0 ),
+            'items_after'  => (int) ( $after_summary['total'] ?? 0 ),
+        ] );
+
+        if ( empty( $settings['notify_new_pages'] ) ) {
+            return;
+        }
 
         if ( $new_issues > 0 ) {
             $this->queue_admin_notice(
@@ -149,11 +164,13 @@ class Plugin {
         $client->install_hash();
         $client->fingerprint();
         MetaWriter::refresh();
+        Telemetry::on_activate();
 
         flush_rewrite_rules();
     }
 
     public static function deactivate(): void {
+        Telemetry::on_deactivate();
         delete_transient( 'beepti_scan_lock' );
         delete_transient( 'beepti_stats' );
         $next = wp_next_scheduled( 'beepti_scheduled_scan' );
@@ -237,11 +254,37 @@ class Plugin {
                 ),
                 'warning'
             );
+            Telemetry::capture( 'autopilot_failed', [
+                'error_code'         => sanitize_key( (string) $result->get_error_code() ),
+                'generation_surface' => 'autopilot',
+            ] );
             return;
         }
 
         MetaWriter::write( $post_id, (string) ( $result['title'] ?? '' ), (string) ( $result['meta'] ?? '' ) );
         ActivityLog::record( $post_id, 'auto' );
+        Telemetry::capture( 'autopilot_generated', [
+            'generation_surface' => 'autopilot',
+            'generation_mode'    => 'auto',
+            'page_count'         => 1,
+        ] );
+        Telemetry::capture( 'title_meta_generated', [
+            'generation_surface' => 'autopilot',
+            'generation_mode'    => 'auto',
+            'page_count'         => 1,
+        ] );
+        ( new Scan_Repository( 'titles' ) )->mark_optimised( (string) $post_id, $post->post_type );
+        ( new History_Repository( 'titles' ) )->record(
+            (string) $post_id,
+            wp_json_encode( [ 'title' => $current['title'], 'meta' => $current['meta'] ] ),
+            wp_json_encode( [
+                'title' => (string) ( $result['title'] ?? '' ),
+                'meta'  => (string) ( $result['meta'] ?? '' ),
+            ] ),
+            null,
+            null,
+            1
+        );
         delete_transient( 'beepti_stats' );
     }
 

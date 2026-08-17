@@ -20,14 +20,16 @@ class Routes {
     private readonly PagesController $pages;
     private readonly SupportController $support;
     private readonly HealthController $health;
+    private readonly TelemetryController $telemetry;
 
     public function __construct() {
         $client = new Client();
-        $this->generate = new GenerateController( $client );
-        $this->billing  = new BillingController( $client );
-        $this->pages    = new PagesController( $client );
-        $this->support  = new SupportController( $client );
-        $this->health   = new HealthController( $client );
+        $this->generate  = new GenerateController( $client );
+        $this->billing   = new BillingController( $client );
+        $this->pages     = new PagesController( $client );
+        $this->support   = new SupportController( $client );
+        $this->health    = new HealthController( $client );
+        $this->telemetry = new TelemetryController();
     }
 
     public function register(): void {
@@ -41,6 +43,14 @@ class Routes {
         $p  = $this->pages;
         $s  = $this->support;
         $h  = $this->health;
+        $t  = $this->telemetry;
+
+        // ── Telemetry (PostHog bridge) ──────────────────────────────
+        register_rest_route( $ns, '/telemetry', [
+            'methods'             => 'POST',
+            'callback'            => [ $t, 'ingest' ],
+            'permission_callback' => [ $this, 'require_editor' ],
+        ] );
 
         // ── Health (dashboard-first score, priorities, item drill-down) ──
         register_rest_route( $ns, '/health', [
@@ -65,6 +75,8 @@ class Routes {
             'args'                => [
                 'status'   => [ 'type' => 'string', 'default' => '', 'sanitize_callback' => 'sanitize_text_field' ],
                 'issue'    => [ 'type' => 'string', 'default' => '', 'sanitize_callback' => 'sanitize_text_field' ],
+                'filter'   => [ 'type' => 'string', 'default' => '', 'sanitize_callback' => 'sanitize_text_field' ],
+                'search'   => [ 'type' => 'string', 'default' => '', 'sanitize_callback' => 'sanitize_text_field' ],
                 'sort'     => [ 'type' => 'string', 'default' => 'lowest-score', 'sanitize_callback' => 'sanitize_text_field' ],
                 'page'     => [ 'type' => 'integer', 'default' => 1, 'minimum' => 1 ],
                 'per_page' => [ 'type' => 'integer', 'default' => 20, 'maximum' => 200 ],
@@ -307,27 +319,69 @@ class Routes {
         return current_user_can( 'edit_posts' );
     }
 
-    public function can_edit_requested_post( \WP_REST_Request $request ): bool {
-        return current_user_can( 'edit_post', absint( $request->get_param( 'post_id' ) ) );
+    /**
+     * @return bool|\WP_Error
+     */
+    public function can_edit_requested_post( \WP_REST_Request $request ) {
+        return $this->can_edit_post_id( absint( $request->get_param( 'post_id' ) ) );
     }
 
-    public function can_edit_requested_posts( \WP_REST_Request $request ): bool {
+    /**
+     * @return bool|\WP_Error
+     */
+    public function can_edit_requested_posts( \WP_REST_Request $request ) {
         $post_ids = array_values( array_filter( array_map( 'absint', (array) $request->get_param( 'post_ids' ) ) ) );
         if ( empty( $post_ids ) || ! current_user_can( 'edit_posts' ) ) {
             return false;
         }
 
         foreach ( $post_ids as $post_id ) {
-            if ( ! current_user_can( 'edit_post', $post_id ) ) {
-                return false;
+            $allowed = $this->can_edit_post_id( $post_id );
+            if ( true !== $allowed ) {
+                return $allowed;
             }
         }
 
         return true;
     }
 
-    public function can_edit_route_post( \WP_REST_Request $request ): bool {
-        return current_user_can( 'edit_post', absint( $request['id'] ) );
+    /**
+     * @return bool|\WP_Error
+     */
+    public function can_edit_route_post( \WP_REST_Request $request ) {
+        return $this->can_edit_post_id( absint( $request['id'] ) );
+    }
+
+    /**
+     * Distinguish missing/invalid posts (404) from a real capability denial
+     * (403 rest_forbidden). current_user_can( 'edit_post', $id ) returns
+     * false for deleted posts — which previously surfaced as an opaque
+     * rest_forbidden even for administrators.
+     *
+     * @return bool|\WP_Error
+     */
+    private function can_edit_post_id( int $post_id ) {
+        if ( $post_id <= 0 ) {
+            return new \WP_Error(
+                'rest_post_invalid_id',
+                __( 'Invalid page.', 'beepbeep-titles' ),
+                [ 'status' => 400 ]
+            );
+        }
+
+        if ( ! get_post( $post_id ) ) {
+            return new \WP_Error(
+                'rest_post_invalid_id',
+                __( 'Page not found. It may have been deleted — run Quick Scan to refresh.', 'beepbeep-titles' ),
+                [ 'status' => 404 ]
+            );
+        }
+
+        if ( ! current_user_can( 'edit_post', $post_id ) ) {
+            return false;
+        }
+
+        return true;
     }
 
     public function can_poll_job( \WP_REST_Request $request ): bool {

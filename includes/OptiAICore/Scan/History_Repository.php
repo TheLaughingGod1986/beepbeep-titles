@@ -94,6 +94,16 @@ class History_Repository {
 	}
 
 	/**
+	 * MySQL cutoff for "this week" windows. Matches created_at / last_optimised_at
+	 * writes that use current_time( 'mysql' ) (site-local wall clock).
+	 *
+	 * @return string Y-m-d H:i:s in site timezone
+	 */
+	private static function week_ago_mysql() {
+		return gmdate( 'Y-m-d H:i:s', current_time( 'timestamp' ) - WEEK_IN_SECONDS );
+	}
+
+	/**
 	 * Total credits spent via optimisation for this module, this week — the
 	 * "Credits used" figure on the Recent Progress card.
 	 *
@@ -109,7 +119,26 @@ class History_Repository {
 		return (int) $wpdb->get_var( $wpdb->prepare(
 			"SELECT COALESCE(SUM(credits_used), 0) FROM {$table} WHERE module = %s AND created_at >= %s",
 			$this->module,
-			gmdate( 'Y-m-d H:i:s', strtotime( '-7 days' ) )
+			self::week_ago_mysql()
+		) );
+	}
+
+	/**
+	 * Distinct items with a history row this week (successful optimisations).
+	 *
+	 * @return int
+	 */
+	public function items_optimised_this_week() {
+		global $wpdb;
+		if ( ! Schema::items_table_exists() ) {
+			return 0;
+		}
+		$table = Schema::history_table();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared -- values bound via prepare().
+		return (int) $wpdb->get_var( $wpdb->prepare(
+			"SELECT COUNT(DISTINCT site_item_id) FROM {$table} WHERE module = %s AND created_at >= %s",
+			$this->module,
+			self::week_ago_mysql()
 		) );
 	}
 

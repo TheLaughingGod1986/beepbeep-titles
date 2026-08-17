@@ -3,6 +3,7 @@ import { Modal } from './Modal';
 import { Icon, Button } from '../components';
 import { Row } from '../ui';
 import { loginWithPassword, registerAccount } from '../api';
+import { track } from '../telemetry';
 
 const inputStyle = ( error, mono = false ) => ( {
     display: 'block', width: '100%', boxSizing: 'border-box',
@@ -150,11 +151,23 @@ export const ConnectModal = ({ open, onClose, onSuccess, initialMode = 'register
 
         setConnecting( true );
         try {
+            track( mode === 'register' ? 'signup_started' : 'login_started', {
+                feature_name: mode === 'register' ? 'signup' : 'login',
+            } );
             const res = mode === 'register'
                 ? await registerAccount( email.trim(), password )
                 : await loginWithPassword( email.trim(), password );
+            track( mode === 'register' ? 'signup_succeeded' : 'login_succeeded', {
+                feature_name: mode === 'register' ? 'signup' : 'login',
+                plan: res?.plan || null,
+            } );
+            track( 'license_connected', { source: mode } );
             finish( res );
         } catch ( err ) {
+            track( 'login_failed', {
+                feature_name: mode === 'register' ? 'signup' : 'login',
+                error_code: String( err?.code || 'unknown' ),
+            } );
             const fallback = mode === 'register'
                 ? 'Couldn\'t create that account. Check the details and try again.'
                 : 'Couldn\'t sign in with those details. Check them and try again.';

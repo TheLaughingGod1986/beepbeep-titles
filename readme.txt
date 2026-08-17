@@ -4,7 +4,7 @@ Tags: seo, ai seo, meta description, title tag, site audit
 Requires at least: 6.3
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.0.20
+Stable tag: 1.0.21
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -246,6 +246,9 @@ WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, R
 
 == Changelog ==
 
+= 1.0.21 - 2026-08-17 =
+* Replace WordPress.org directory icons and banners with original OpptiAI Titles artwork (SEO title / health-check / text-lines). Icons are no longer byte-identical copies of OpptiAI Alt Text chart assets. Paid plans and slugs unchanged.
+
 = 1.0.20 - 2026-08-17 =
 * Correct user-facing branding from “OptiAI” to “OpptiAI” (including the health-score disclaimer). Internal namespaces, text domain, REST slug, and option names are unchanged.
 * Prevent the signed-out Home / Audit screen from flashing a false “No published pages… / 0 scanned” state on first paint after a successful scan. Coverage stats are seeded from PHP and the empty copy only shows once loaded totals are known.
@@ -325,6 +328,9 @@ WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, R
 * Plugin Check and WordPress.org packaging readiness.
 
 == Upgrade Notice ==
+
+= 1.0.21 =
+WordPress.org directory icons and banners now use original OpptiAI Titles artwork (distinct from OpptiAI Alt Text). No functional or plan changes.
 
 = 1.0.20 =
 Fixes OpptiAI branding in user-facing copy and stops the Home audit from flashing a false empty/0-scanned state on first paint. Free monthly allowance remains 25; signed-out scans stay account-free.

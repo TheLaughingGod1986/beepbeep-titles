@@ -13,6 +13,7 @@ use BeepBeep_Titles\Scanner;
 use BeepBeep_Titles\Scoring\Metadata_Scoring_Engine;
 use BeepBeep_Titles\Seo\MetaWriter;
 use BeepBeep_Titles\SettingsSanitizer;
+use BeepBeep_Titles\Telemetry;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -61,6 +62,8 @@ class PagesController {
         if ( null !== $title || null !== $meta ) {
             MetaWriter::write( $post->ID, (string) $title, (string) $meta );
             ActivityLog::record( $post->ID, 'edited' );
+            Telemetry::capture( 'manual_meta_edit', [ 'post_id' => (int) $post->ID ] );
+            Telemetry::capture( 'title_meta_saved', [ 'source' => 'manual_edit' ] );
             $this->bust_stats();
         }
 
@@ -82,6 +85,9 @@ class PagesController {
                 return $post_id > 0 && current_user_can( 'edit_post', $post_id );
             }
         ) );
+        // One row per post (newest first) so historical double-writes and
+        // intentional regenerates don't spam Latest Improvements.
+        $events = ActivityLog::unique_by_post( $events );
         $events = array_slice( $events, 0, $limit > 0 ? $limit : 8 );
 
         $events = array_map(
@@ -105,10 +111,15 @@ class PagesController {
     }
 
     public function run_scan( \WP_REST_Request $req ): \WP_REST_Response {
+        Telemetry::capture( 'scan_started', [ 'scan_type' => 'full' ] );
         $stats  = ( new Scanner() )->scan_and_cache();
         // Free, local health scoring runs alongside the coverage scan — no
         // AI credits are used for this, only for the optimise step later.
         $health = ( new Metadata_Scoring_Engine() )->run();
+        Telemetry::capture( 'scan_completed', [
+            'scan_type'    => 'full',
+            'items_scanned'=> (int) ( $stats['total'] ?? 0 ),
+        ] );
         return new \WP_REST_Response( array_merge( $stats, [ 'health' => $health ] ) );
     }
 
@@ -147,6 +158,14 @@ class PagesController {
         // Immediately reconcile the scheduled-scan cron if scan_daily changed,
         // rather than waiting for the next request's init to notice the drift.
         \BeepBeep_Titles\Plugin::sync_scheduled_scan();
+        Telemetry::capture( 'settings_saved', [
+            'keys' => array_keys( SettingsSanitizer::sanitize_patch( $incoming ) ),
+        ] );
+        if ( array_key_exists( 'auto_generate', $incoming ) ) {
+            Telemetry::capture( 'autopilot_toggled', [
+                'enabled' => ! empty( $current['auto_generate'] ),
+            ] );
+        }
         return new \WP_REST_Response( $current );
     }
 

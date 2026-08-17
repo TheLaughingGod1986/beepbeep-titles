@@ -5,7 +5,7 @@ describe( 'creditUsageRows', () => {
 		const { rows, hasSplit, attributed } = creditUsageRows( { credits_used: 6 }, 6 );
 		expect( hasSplit ).toBe( false );
 		expect( attributed ).toBe( 0 );
-		expect( rows.map( r => r.id ) ).toEqual( [ 'title_meta', 'alt_text', 'schema' ] );
+		expect( rows.map( r => r.id ) ).toEqual( [ 'title_meta', 'alt_text', 'internal_linking', 'schema' ] );
 		expect( rows.every( r => r.used === null ) ).toBe( true );
 		expect( rows[0] ).toEqual( expect.objectContaining( { id: 'title_meta', current: true, installed: true } ) );
 	} );

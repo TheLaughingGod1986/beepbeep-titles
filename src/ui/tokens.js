@@ -34,8 +34,9 @@ export const COLOR = {
  * feature (Titles = blue, ALT Text = green, Schema = amber).
  */
 export const FEATURE_COLORS = {
-    title_meta: { color: '#2563eb', soft: '#eff6ff', border: '#bfdbfe' },
-    alt_text:   { color: '#059669', soft: '#ecfdf5', border: '#a7f3d0' },
-    schema:     { color: '#d97706', soft: '#fffbeb', border: '#fde68a' },
-    other:      { color: '#64748b', soft: '#f8fafc', border: '#e2e8f0' },
+    title_meta:       { color: '#2563eb', soft: '#eff6ff', border: '#bfdbfe' },
+    alt_text:         { color: '#059669', soft: '#ecfdf5', border: '#a7f3d0' },
+    internal_linking: { color: '#7c3aed', soft: '#f5f3ff', border: '#ddd6fe' },
+    schema:           { color: '#d97706', soft: '#fffbeb', border: '#fde68a' },
+    other:            { color: '#64748b', soft: '#f8fafc', border: '#e2e8f0' },
 };

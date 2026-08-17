@@ -14,13 +14,14 @@ describe( 'navigation gate', () => {
     } );
 
 	test( 'keeps local plugin screens available when signed out', () => {
-		expect( getVisibleTabs( false ).map( tab => tab.id ) ).toEqual( [ 'dashboard', 'library', 'automation', 'settings' ] );
+		// Autopilot + Settings require an account; signed-out users keep Home + Library (local scan/edit).
+		expect( getVisibleTabs( false ).map( tab => tab.id ) ).toEqual( [ 'dashboard', 'library' ] );
 	} );
 
 	test( 'allows local plugin tabs when signed out', () => {
 		expect( resolveAllowedTab( 'library', false ) ).toBe( 'library' );
-		expect( resolveAllowedTab( 'automation', false ) ).toBe( 'automation' );
-		expect( resolveAllowedTab( 'settings', false ) ).toBe( 'settings' );
+		expect( resolveAllowedTab( 'automation', false ) ).toBe( 'dashboard' );
+		expect( resolveAllowedTab( 'settings', false ) ).toBe( 'dashboard' );
     } );
 
     test( 'allows protected tabs when connected', () => {

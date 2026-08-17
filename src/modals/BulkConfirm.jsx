@@ -1,15 +1,18 @@
 import { Icon, Button } from '../components';
 import { Row } from '../ui';
 import { Modal } from './Modal';
+import { CREDITS_PER_PAGE } from '../quota';
 
 /**
  * Pre-flight confirmation for any bulk optimise action — Priority Action
  * Centre "Optimise All", Hero "Optimise Critical Issues", and the Advanced
  * Library's bulk action bar all route through this before spending credits.
  */
-export const BulkConfirm = ({ open, count, creditsRemaining, onCancel, onConfirm }) => {
+export const BulkConfirm = ({ open, count, creditsRemaining, costPerPage, onCancel, onConfirm }) => {
     if ( ! open ) return null;
-    const overBudget = creditsRemaining != null && count > creditsRemaining;
+    const perPage = costPerPage > 0 ? costPerPage : CREDITS_PER_PAGE;
+    const creditsNeeded = count * perPage;
+    const overBudget = creditsRemaining != null && creditsNeeded > creditsRemaining;
 
     return (
         <Modal open={open} onClose={onCancel} width={440}>
@@ -21,7 +24,7 @@ export const BulkConfirm = ({ open, count, creditsRemaining, onCancel, onConfirm
                     Optimise {count} item{count === 1 ? '' : 's'}?
                 </h2>
                 <p style={{ fontSize: 13.5, color: 'var(--text-2)', margin: '0 0 4px', lineHeight: 1.5 }}>
-                    You are about to optimise <strong style={{ color: 'var(--text)' }}>{count}</strong> item{count === 1 ? '' : 's'}. This will use up to <strong style={{ color: 'var(--text)' }}>{count}</strong> credit{count === 1 ? '' : 's'}.
+                    You are about to optimise <strong style={{ color: 'var(--text)' }}>{count}</strong> item{count === 1 ? '' : 's'}. This will use up to <strong style={{ color: 'var(--text)' }}>{creditsNeeded}</strong> credit{creditsNeeded === 1 ? '' : 's'} ({perPage} per page for title + meta).
                 </p>
                 {creditsRemaining != null && (
                     <p style={{ fontSize: 12.5, color: overBudget ? 'var(--danger-ink)' : 'var(--text-3)', margin: '4px 0 0' }}>

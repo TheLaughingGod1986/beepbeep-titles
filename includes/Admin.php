@@ -107,6 +107,7 @@ class Admin {
             'lastScan'   => (string) get_option( 'beepti_last_scan', '' ),
             'altTextCompanion' => $alt_text_companion,
             'internalLinkingCompanion' => $internal_linking_companion,
+            'telemetry'  => Telemetry::client_config(),
         ] );
     }
 

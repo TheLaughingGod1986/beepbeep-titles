@@ -326,15 +326,13 @@ class Client {
     }
 
     /**
-     * Site hash — the OpptiAI site identity, ideally SHARED with the
-     * alt-text plugin.
+     * Site hash — the OpptiAI site identity, SHARED across every OpptiAI
+     * plugin on this WordPress site.
      *
      * Credits are pooled per backend "canonical site", which is resolved from
-     * this hash. To share one wallet across both OpptiAI plugins we adopt
-     * (read-only) the id the alt-text plugin stores under its own
-     * `beepbeepai_site_id` option and cache it under our prefixed option.
-     * We never write to another plugin's option names; if no sibling id
-     * exists yet we create our own under `beepti_site_id`.
+     * this hash. We adopt (read-only) a sibling plugin's id before minting our
+     * own, so install order cannot silently create two wallets. We never write
+     * to another plugin's option names.
      */
     public function site_hash(): string {
         $shared = $this->shared_site_id();
@@ -347,16 +345,20 @@ class Client {
             return $own;
         }
 
-        // Adopt the alt-text plugin's site id when it already established one.
+        // Adopt any sibling OpptiAI plugin's canonical 32-char site id.
         $sibling_keys = [];
         if ( is_multisite() ) {
             $sibling_keys[] = 'beepbeepai_site_id_' . get_current_blog_id();
         }
-        $sibling_keys[] = 'beepbeepai_site_id';
+        $sibling_keys[] = 'beepbeepai_site_id';       // OpptiAI Alt Text
+        $sibling_keys[] = 'oppti_linking_site_id';    // OpptiAI Internal Linking
+        $sibling_keys[] = 'oppti_optimizer_site_id';  // OpptiAI Website Auditor
 
         foreach ( $sibling_keys as $key ) {
             $value = get_option( $key, '' );
-            if ( is_string( $value ) && strlen( $value ) === 32 ) {
+            // Only adopt the shared 32-char md5 shape — skip legacy Auditor
+            // `oppti_…` prefixes that would diverge from AltText/Titles.
+            if ( is_string( $value ) && strlen( $value ) === 32 && strpos( $value, 'oppti_' ) !== 0 ) {
                 update_option( self::OPT_SITE_ID, $value, true );
                 return $value;
             }

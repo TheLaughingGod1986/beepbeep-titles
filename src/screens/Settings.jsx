@@ -286,7 +286,7 @@ const PlanCard = ({ isPro, monthlyUsed, monthlyLimit, pct, resetDate, onUpgrade,
                 <Button variant="secondary" size="sm" icon="zap" onClick={onBuyCredits}>Buy credits</Button>
                 {isPro
                     ? <Button variant="secondary" size="sm" icon="external" onClick={onManageBilling}>Manage billing</Button>
-                    : <Button variant="pro" size="sm" icon="crown" onClick={onUpgrade}>View Growth service plan</Button>}
+                    : <Button variant="pro" size="sm" icon="crown" onClick={onUpgrade}>View Growth plan</Button>}
             </div>
         </div>
         <div style={{ borderTop: '1px solid var(--hairline)', padding: '12px 20px 14px', background: 'var(--surface-2)' }}>
@@ -306,13 +306,16 @@ const PlanCard = ({ isPro, monthlyUsed, monthlyLimit, pct, resetDate, onUpgrade,
 );
 
 const CreditUsageCard = ({ quota, used, limit, resetDate }) => {
-    const companion = window.beeptiAdminData?.altTextCompanion?.state;
-    const linkingCompanion = window.beeptiAdminData?.internalLinkingCompanion?.state;
+    const altTextCompanion = window.beeptiAdminData?.altTextCompanion;
+    const altTextState = altTextCompanion?.state;
+    const altTextInstalled = altTextState === 'active' || altTextState === 'installed';
+    const altTextOpenUrl = altTextInstalled ? ( altTextCompanion?.url || '' ) : '';
     const remaining = Math.max( 0, ( quota?.credits_remaining ?? ( limit - used ) ) );
     const usageLabel = usageCreditsLabel( used, limit, remaining );
+    // Keep usage_by_feature split. AltText can show Open when installed.
+    // Internal Linking + Schema stay roster-only (Not installed, no Get).
     const { rows, attributed } = creditUsageRows( quota, used, {
-        alt_text: companion === 'active' || companion === 'installed',
-        internal_linking: linkingCompanion === 'active' || linkingCompanion === 'installed',
+        alt_text: altTextInstalled,
     } );
 
     // Only show per-plugin numbers when the credits we could attribute actually
@@ -353,6 +356,7 @@ const CreditUsageCard = ({ quota, used, limit, resetDate }) => {
                 {rows.map( ( row, index ) => {
                     const hasNumber = showBreakdown && row.used !== null && row.used !== undefined;
                     const percentage = hasNumber && used > 0 ? Math.min( 100, Math.round( ( row.used / used ) * 100 ) ) : 0;
+                    const showAltTextOpen = row.id === 'alt_text' && row.installed && !! altTextOpenUrl;
                     return (
                         <div key={row.id} style={{ padding: '12px 20px', display: 'grid', gridTemplateColumns: '36px minmax(0, 1fr) auto', gap: 12, alignItems: 'center', borderBottom: index === rows.length - 1 ? 0 : '1px solid var(--hairline)', background: row.current ? row.soft : 'var(--surface)', opacity: row.installed ? 1 : 0.72 }}>
                             <div style={{ width: 32, height: 32, borderRadius: 9, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: row.color, background: row.soft, border: `1px solid ${row.border}` }}>
@@ -371,12 +375,22 @@ const CreditUsageCard = ({ quota, used, limit, resetDate }) => {
                                     </div>
                                 )}
                             </div>
-                            {hasNumber && (
-                                <div className="tnum" style={{ minWidth: 46, textAlign: 'right' }}>
-                                    <div style={{ fontSize: 13, color: 'var(--text)', fontWeight: 600 }}>{row.used}</div>
-                                    <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>{percentage}%</div>
-                                </div>
-                            )}
+                            <div style={{ minWidth: 46, textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                                {hasNumber && (
+                                    <div className="tnum">
+                                        <div style={{ fontSize: 13, color: 'var(--text)', fontWeight: 600 }}>{row.used}</div>
+                                        <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>{percentage}%</div>
+                                    </div>
+                                )}
+                                {showAltTextOpen && (
+                                    <a
+                                        href={altTextOpenUrl}
+                                        style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--primary-ink)', textDecoration: 'none', whiteSpace: 'nowrap' }}
+                                    >
+                                        Open
+                                    </a>
+                                )}
+                            </div>
                         </div>
                     );
                 } )}

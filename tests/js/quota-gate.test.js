@@ -13,6 +13,9 @@ const {
 	heroGenerationCap,
 	isGenerationUnavailable,
 	pagesAffordable,
+	canSeeAltTextCrossSell,
+	altTextCrossSell,
+	ALT_TEXT_WPORG_URL,
 } = require( '../../src/quota' );
 
 describe( 'QUOTA_DEFAULTS', () => {
@@ -66,5 +69,44 @@ describe( 'service credit gate helpers', () => {
 		expect( isGenerationUnavailable( true, 0 ) ).toBe( true );
 		expect( isGenerationUnavailable( true, 1 ) ).toBe( true );
 		expect( isGenerationUnavailable( true, 3 ) ).toBe( false );
+	} );
+} );
+
+describe( 'Home AltText cross-sell helpers', () => {
+	test( 'shows for Free, Starter, and Growth (billing id pro)', () => {
+		expect( canSeeAltTextCrossSell( 'free' ) ).toBe( true );
+		expect( canSeeAltTextCrossSell( 'starter' ) ).toBe( true );
+		expect( canSeeAltTextCrossSell( 'pro' ) ).toBe( true );
+		expect( canSeeAltTextCrossSell( 'growth' ) ).toBe( true );
+	} );
+
+	test( 'hides for Agency and unknown plans', () => {
+		expect( canSeeAltTextCrossSell( 'agency' ) ).toBe( false );
+		expect( canSeeAltTextCrossSell( 'enterprise' ) ).toBe( false );
+		expect( canSeeAltTextCrossSell( '' ) ).toBe( false );
+	} );
+
+	test( 'active sibling links to the AltText admin page with Open CTA', () => {
+		const out = altTextCrossSell( {
+			state: 'active',
+			url: 'https://example.test/wp-admin/admin.php?page=bbai',
+		} );
+		expect( out ).toEqual( {
+			active: true,
+			message: 'Your OpptiAI credits also write image alt text.',
+			cta: 'Open AltText',
+			url: 'https://example.test/wp-admin/admin.php?page=bbai',
+		} );
+	} );
+
+	test( 'inactive sibling uses WordPress.org listing with Get CTA', () => {
+		const out = altTextCrossSell( { state: 'missing', url: 'https://example.test/wp-admin/plugin-install.php' } );
+		expect( out.active ).toBe( false );
+		expect( out.message ).toBe(
+			'Your OpptiAI credits also write image alt text. Scan coverage for free, then review before anything saves.'
+		);
+		expect( out.cta ).toBe( 'Get OpptiAI AltText' );
+		expect( out.url ).toBe( ALT_TEXT_WPORG_URL );
+		expect( out.url ).toBe( 'https://wordpress.org/plugins/beepbeep-ai-alt-text-generator/' );
 	} );
 } );

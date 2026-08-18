@@ -4,7 +4,7 @@ Tags: seo, ai seo, meta description, title tag, site audit
 Requires at least: 6.3
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.0.22
+Stable tag: 1.0.23
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -246,6 +246,9 @@ WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, R
 
 == Changelog ==
 
+= 1.0.23 - 2026-08-18 =
+* Add a quiet Home AltText cross-sell for signed-in Free, Starter, and Growth accounts: one line under the health score / issues list linking to OpptiAI Alt Text when active, or the WordPress.org plugin listing when it is not installed. Hidden from guests and Agency. Usage card copy, plan grid, and Free allowance (25) are unchanged.
+
 = 1.0.22 - 2026-08-18 =
 * Rename user-facing paid plan name from Pro to Growth to match the live Free / Starter / Growth / Agency grid (oppti.dev and checkout). Billing plan id `pro` and Stripe checkout are unchanged.
 
@@ -332,8 +335,11 @@ WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, R
 
 == Upgrade Notice ==
 
+= 1.0.23 =
+Adds a quiet Home cross-sell to OpptiAI Alt Text for Free, Starter, and Growth accounts. No plan, slug, or Free allowance changes.
+
 = 1.0.21 =
-WordPress.org directory icons and banners now use original OpptiAI Titles artwork (distinct from OpptiAI Alt Text). No functional or plan changes.
+WordPress.org directory icons and banners now use original OpptiAI Titles artwork (distinct from OpptiAI AltText). No functional or plan changes.
 
 = 1.0.20 =
 Fixes OpptiAI branding in user-facing copy and stops the Home audit from flashing a false empty/0-scanned state on first paint. Free monthly allowance remains 25; signed-out scans stay account-free.

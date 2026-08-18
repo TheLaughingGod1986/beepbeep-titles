@@ -3,7 +3,7 @@
  * Plugin Name:       OpptiAI Titles
  * Plugin URI:        https://oppti.dev
  * Description:       AI-powered title tag and meta description generation for WordPress. Keeps your site's page SEO coverage climbing in the background.
- * Version:           1.0.22
+ * Version:           1.0.23
  * Author:            OpptiAI
  * License:           GPL-2.0-or-later
  * Text Domain:       beepbeep-titles
@@ -13,7 +13,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'BEEPTI_VERSION', '1.0.22' );
+define( 'BEEPTI_VERSION', '1.0.23' );
 define( 'BEEPTI_FILE',    __FILE__ );
 define( 'BEEPTI_DIR',     plugin_dir_path( __FILE__ ) );
 define( 'BEEPTI_URL',     plugin_dir_url( __FILE__ ) );

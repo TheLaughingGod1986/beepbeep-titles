@@ -35,6 +35,34 @@ export function planDisplayName( plan ) {
 }
 
 /**
+ * Home AltText cross-sell: signed-in Free / Starter / Growth only.
+ * Billing id `pro` is Growth. Guests never reach Dashboard; hide Agency and unknowns.
+ */
+export function canSeeAltTextCrossSell( plan ) {
+    const p = String( plan || '' ).toLowerCase();
+    return p === 'free' || p === 'starter' || p === 'pro' || p === 'growth';
+}
+
+/** WordPress.org listing when OpptiAI Alt Text is not active on this site. */
+export const ALT_TEXT_WPORG_URL = 'https://wordpress.org/plugins/beepbeep-ai-alt-text-generator/';
+
+/**
+ * Quiet Home cross-sell copy + link from Module_Registry companion state.
+ * Active → sibling admin page; otherwise → WordPress.org (not oppti.dev).
+ */
+export function altTextCrossSell( companion ) {
+    const active = companion?.state === 'active';
+    return {
+        active,
+        message: active
+            ? 'Your OpptiAI credits also write image alt text.'
+            : 'Your OpptiAI credits also write image alt text. Scan coverage for free, then review before anything saves.',
+        cta: active ? 'Open AltText' : 'Get OpptiAI AltText',
+        url: active ? ( companion?.url || '' ) : ALT_TEXT_WPORG_URL,
+    };
+}
+
+/**
  * Each Optimise generates a title (1) + meta description (1). Prefer a live
  * `credits_per_page` from entitlement/quota when present; otherwise this.
  */

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Icon, Card, Pill, Button, Progress, Ring, PageAvatar } from '../components';
-import { QUOTA_DEFAULTS, CREDITS_PER_PAGE, isInsufficientCredits, insufficientCreditsMessage, creditsPerPage } from '../quota';
+import { QUOTA_DEFAULTS, CREDITS_PER_PAGE, isInsufficientCredits, insufficientCreditsMessage, creditsPerPage, canSeeAltTextCrossSell, altTextCrossSell } from '../quota';
 import { PageShell } from '../ui';
 import { capPriorityEstimates } from '../priorityEstimates';
 
@@ -169,13 +169,6 @@ export const Dashboard = ({
             </div>
 
             <CompanionBanner
-                companion={altTextCompanion}
-                icon="image"
-                iconBg="#ECFDF5" iconColor="#059669" iconBorder="#A7F3D0"
-                title="Your credits also work on Image ALT Text"
-                body={<>The same shared credit pool powers <strong style={{ color: 'var(--text)', fontWeight: 600 }}>OpptiAI Alt Text</strong> — continuously health-check and improve your media library. No extra subscription.</>}
-            />
-            <CompanionBanner
                 companion={internalLinkingCompanion}
                 icon="link"
                 iconBg="#EFF6FF" iconColor="#2563EB" iconBorder="#BFDBFE"
@@ -193,7 +186,37 @@ export const Dashboard = ({
                 monthlyLimit={monthlyLimit}
                 autoOptimise={autoOptimise}
             />
+
+            {quotaReady && canSeeAltTextCrossSell( quota?.plan ) && (
+                <AltTextCrossSell companion={altTextCompanion}/>
+            )}
         </PageShell>
+    );
+};
+
+/** Quiet Home-only Alt Text cross-sell — Free / Starter / Growth (billing id `pro`). */
+const AltTextCrossSell = ({ companion }) => {
+    const { message, cta, url, active } = altTextCrossSell( companion );
+    if ( ! url ) return null;
+
+    return (
+        <p style={{
+            margin: '28px 0 0',
+            paddingTop: 18,
+            borderTop: '1px solid var(--hairline)',
+            fontSize: 13,
+            lineHeight: 1.55,
+            color: 'var(--text-3)',
+        }}>
+            {message}{' '}
+            <a
+                href={url}
+                {...( active ? {} : { target: '_blank', rel: 'noopener noreferrer' } )}
+                style={{ color: 'var(--primary-ink)', fontWeight: 600, textDecoration: 'none' }}
+            >
+                {cta}
+            </a>
+        </p>
     );
 };
 

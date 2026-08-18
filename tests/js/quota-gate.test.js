@@ -96,7 +96,7 @@ describe( 'Home AltText cross-sell helpers', () => {
 		expect( out ).toEqual( {
 			active: true,
 			message: 'Your OpptiAI credits also write image alt text.',
-			cta: 'Open AltText',
+			cta: 'Open Alt Text',
 			url: 'https://example.test/wp-admin/admin.php?page=bbai',
 		} );
 	} );
@@ -107,7 +107,7 @@ describe( 'Home AltText cross-sell helpers', () => {
 		expect( out.message ).toBe(
 			'Your OpptiAI credits also write image alt text. Scan coverage for free, then review before anything saves.'
 		);
-		expect( out.cta ).toBe( 'Get OpptiAI AltText' );
+		expect( out.cta ).toBe( 'Get OpptiAI Alt Text' );
 		expect( out.url ).toBe( ALT_TEXT_WPORG_URL );
 		expect( out.url ).toBe( 'https://wordpress.org/plugins/beepbeep-ai-alt-text-generator/' );
 	} );

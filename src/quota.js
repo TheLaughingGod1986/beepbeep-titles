@@ -57,7 +57,7 @@ export function altTextCrossSell( companion ) {
         message: active
             ? 'Your OpptiAI credits also write image alt text.'
             : 'Your OpptiAI credits also write image alt text. Scan coverage for free, then review before anything saves.',
-        cta: active ? 'Open AltText' : 'Get OpptiAI AltText',
+        cta: active ? 'Open Alt Text' : 'Get OpptiAI Alt Text',
         url: active ? ( companion?.url || '' ) : ALT_TEXT_WPORG_URL,
     };
 }

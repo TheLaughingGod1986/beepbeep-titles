@@ -13,6 +13,11 @@ const {
 	heroGenerationCap,
 	isGenerationUnavailable,
 	pagesAffordable,
+	canSeeAltTextCrossSell,
+	altTextCrossSell,
+	ALT_TEXT_WPORG_URL,
+	usageCreditsLabel,
+	USAGE_CREDITS_FOOTNOTE,
 } = require( '../../src/quota' );
 
 describe( 'QUOTA_DEFAULTS', () => {
@@ -66,5 +71,73 @@ describe( 'service credit gate helpers', () => {
 		expect( isGenerationUnavailable( true, 0 ) ).toBe( true );
 		expect( isGenerationUnavailable( true, 1 ) ).toBe( true );
 		expect( isGenerationUnavailable( true, 3 ) ).toBe( false );
+	} );
+} );
+
+describe( 'Home AltText cross-sell helpers', () => {
+	test( 'shows for Free, Starter, and Growth (billing id pro)', () => {
+		expect( canSeeAltTextCrossSell( 'free' ) ).toBe( true );
+		expect( canSeeAltTextCrossSell( 'starter' ) ).toBe( true );
+		expect( canSeeAltTextCrossSell( 'pro' ) ).toBe( true );
+		expect( canSeeAltTextCrossSell( 'growth' ) ).toBe( true );
+	} );
+
+	test( 'hides for Agency and unknown plans', () => {
+		expect( canSeeAltTextCrossSell( 'agency' ) ).toBe( false );
+		expect( canSeeAltTextCrossSell( 'enterprise' ) ).toBe( false );
+		expect( canSeeAltTextCrossSell( '' ) ).toBe( false );
+	} );
+
+	test( 'active sibling links to the AltText admin page with Open CTA', () => {
+		const out = altTextCrossSell( {
+			state: 'active',
+			url: 'https://example.test/wp-admin/admin.php?page=bbai',
+		} );
+		expect( out ).toEqual( {
+			active: true,
+			message: 'Your OpptiAI credits also write image alt text.',
+			cta: 'Open Alt Text',
+			url: 'https://example.test/wp-admin/admin.php?page=bbai',
+		} );
+	} );
+
+	test( 'inactive sibling uses WordPress.org listing with Get CTA', () => {
+		const out = altTextCrossSell( { state: 'missing', url: 'https://example.test/wp-admin/plugin-install.php' } );
+		expect( out.active ).toBe( false );
+		expect( out.message ).toBe(
+			'Your OpptiAI credits also write image alt text. Scan coverage for free, then review before anything saves.'
+		);
+		expect( out.cta ).toBe( 'Get OpptiAI Alt Text' );
+		expect( out.url ).toBe( ALT_TEXT_WPORG_URL );
+		expect( out.url ).toBe( 'https://wordpress.org/plugins/beepbeep-ai-alt-text-generator/' );
+	} );
+} );
+
+describe( 'usageCreditsLabel', () => {
+	test( 'shows Only-X for remaining 1–5 only (singular at 1)', () => {
+		expect( usageCreditsLabel( 20, 25 ) ).toBe( 'Only 5 credits left this month' );
+		expect( usageCreditsLabel( 21, 25 ) ).toBe( 'Only 4 credits left this month' );
+		expect( usageCreditsLabel( 24, 25 ) ).toBe( 'Only 1 credit left this month' );
+		expect( usageCreditsLabel( 0, 25, 3 ) ).toBe( 'Only 3 credits left this month' );
+	} );
+
+	test( 'shows exhausted copy when remaining is 0 (not Only-X, not used/limit)', () => {
+		expect( usageCreditsLabel( 25, 25 ) ).toBe( 'No credits left this month' );
+		expect( usageCreditsLabel( 25, 25, 0 ) ).toBe( 'No credits left this month' );
+		expect( usageCreditsLabel( 0, 25, 0 ) ).toBe( 'No credits left this month' );
+		expect( usageCreditsLabel( 25, 25, 0 ) ).not.toBe( 'Only 0 credits left this month' );
+		expect( usageCreditsLabel( 25, 25, 0 ) ).not.toBe( '25 / 25' );
+	} );
+
+	test( 'shows used / limit numbers when remaining is above 5', () => {
+		expect( usageCreditsLabel( 3, 25 ) ).toBe( '3 / 25' );
+		expect( usageCreditsLabel( 0, 25 ) ).toBe( '0 / 25' );
+		expect( usageCreditsLabel( 19, 25 ) ).toBe( '19 / 25' );
+	} );
+
+	test( 'exports the exact usage footnote', () => {
+		expect( USAGE_CREDITS_FOOTNOTE ).toBe(
+			'Credits count generations, including retries and alt text. Pages count what you applied.'
+		);
 	} );
 } );

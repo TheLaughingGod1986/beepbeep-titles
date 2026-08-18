@@ -4,7 +4,7 @@ import { Input, PageShell, Textarea, Row } from '../ui';
 import { Modal } from '../modals/Modal';
 import { saveSettings, setLicense, clearLicense, submitSupport } from '../api';
 import { creditUsageRows } from '../usage';
-import { QUOTA_DEFAULTS } from '../quota';
+import { QUOTA_DEFAULTS, usageCreditsLabel, USAGE_CREDITS_FOOTNOTE } from '../quota';
 
 const formatResetDate = value => {
     if ( ! value ) return 'Not available';
@@ -286,7 +286,7 @@ const PlanCard = ({ isPro, monthlyUsed, monthlyLimit, pct, resetDate, onUpgrade,
                 <Button variant="secondary" size="sm" icon="zap" onClick={onBuyCredits}>Buy credits</Button>
                 {isPro
                     ? <Button variant="secondary" size="sm" icon="external" onClick={onManageBilling}>Manage billing</Button>
-                    : <Button variant="pro" size="sm" icon="crown" onClick={onUpgrade}>View Growth service plan</Button>}
+                    : <Button variant="pro" size="sm" icon="crown" onClick={onUpgrade}>View Growth plan</Button>}
             </div>
         </div>
         <div style={{ borderTop: '1px solid var(--hairline)', padding: '12px 20px 14px', background: 'var(--surface-2)' }}>
@@ -306,11 +306,26 @@ const PlanCard = ({ isPro, monthlyUsed, monthlyLimit, pct, resetDate, onUpgrade,
 );
 
 const CreditUsageCard = ({ quota, used, limit, resetDate }) => {
-    const companion = window.beeptiAdminData?.altTextCompanion?.state;
-    const linkingCompanion = window.beeptiAdminData?.internalLinkingCompanion?.state;
-    const { rows, attributed } = creditUsageRows( quota, used, {
-        alt_text: companion === 'active' || companion === 'installed',
-        internal_linking: linkingCompanion === 'active' || linkingCompanion === 'installed',
+    const altTextCompanion = window.beeptiAdminData?.altTextCompanion;
+    const altTextState = altTextCompanion?.state;
+    const altTextInstalled = altTextState === 'active' || altTextState === 'installed';
+    const altTextOpenUrl = altTextInstalled ? ( altTextCompanion?.url || '' ) : '';
+    const remaining = Math.max( 0, ( quota?.credits_remaining ?? ( limit - used ) ) );
+    const usageLabel = usageCreditsLabel( used, limit, remaining );
+    // Keep the usage_by_feature split UI. Install badges/CTAs are separate:
+    // AltText → Open when installed; Internal Linking + Schema → Not installed
+    // only (no Get / Install / WP.org).
+    const { rows: rawRows, attributed } = creditUsageRows( quota, used, {
+        alt_text: altTextInstalled,
+    } );
+    const rows = rawRows.map( ( row ) => {
+        if ( row.id === 'alt_text' ) {
+            return { ...row, installed: altTextInstalled };
+        }
+        if ( row.id === 'internal_linking' || row.id === 'schema' ) {
+            return { ...row, installed: false };
+        }
+        return row;
     } );
 
     // Only show per-plugin numbers when the credits we could attribute actually
@@ -326,10 +341,8 @@ const CreditUsageCard = ({ quota, used, limit, resetDate }) => {
                     <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 2 }}>OpptiAI Credit Wallet</div>
                     <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Credit usage</div>
                 </div>
-                <div className="tnum" style={{ fontSize: 13, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
-                    <strong style={{ color: 'var(--text)', fontWeight: 600 }}>{used}</strong> / {limit} credits used
-                    <span style={{ margin: '0 6px', opacity: 0.5 }}>·</span>
-                    <span className="mono">{Math.max( 0, limit - used ).toLocaleString()} remaining</span>
+                <div className="mono tnum" style={{ fontSize: 13, color: remaining <= 5 ? 'var(--warn-ink)' : 'var(--text)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                    {usageLabel}
                 </div>
             </Row>
             <Row align="start" gap={9} style={{ padding: '11px 20px', background: 'var(--surface-2)', borderBottom: '1px solid var(--hairline)', fontSize: 12, color: 'var(--text-2)', lineHeight: 1.45 }}>
@@ -353,8 +366,10 @@ const CreditUsageCard = ({ quota, used, limit, resetDate }) => {
                 {rows.map( ( row, index ) => {
                     const hasNumber = showBreakdown && row.used !== null && row.used !== undefined;
                     const percentage = hasNumber && used > 0 ? Math.min( 100, Math.round( ( row.used / used ) * 100 ) ) : 0;
+                    // Only AltText may show an action, and only Open when installed.
+                    const showAltTextOpen = row.id === 'alt_text' && row.installed && !! altTextOpenUrl;
                     return (
-                        <div key={row.id} style={{ padding: '12px 20px', display: 'grid', gridTemplateColumns: '36px minmax(0, 1fr) auto', gap: 12, alignItems: 'center', borderBottom: index === rows.length - 1 ? 0 : '1px solid var(--hairline)', background: row.current ? row.soft : 'var(--surface)', opacity: row.installed ? 1 : 0.72 }}>
+                        <div key={row.id} style={{ padding: '12px 20px', display: 'grid', gridTemplateColumns: '36px minmax(0, 1fr) auto', gap: 12, alignItems: 'center', borderBottom: index === rows.length - 1 ? 0 : '1px solid var(--hairline)', background: row.current ? row.soft : 'var(--surface)', opacity: row.installed || row.current ? 1 : 0.72 }}>
                             <div style={{ width: 32, height: 32, borderRadius: 9, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: row.color, background: row.soft, border: `1px solid ${row.border}` }}>
                                 <Icon name={row.icon} size={16}/>
                             </div>
@@ -371,16 +386,36 @@ const CreditUsageCard = ({ quota, used, limit, resetDate }) => {
                                     </div>
                                 )}
                             </div>
-                            {hasNumber && (
-                                <div className="tnum" style={{ minWidth: 46, textAlign: 'right' }}>
-                                    <div style={{ fontSize: 13, color: 'var(--text)', fontWeight: 600 }}>{row.used}</div>
-                                    <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>{percentage}%</div>
-                                </div>
-                            )}
+                            <div style={{ minWidth: 46, textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                                {hasNumber && (
+                                    <div className="tnum">
+                                        <div style={{ fontSize: 13, color: 'var(--text)', fontWeight: 600 }}>{row.used}</div>
+                                        <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>{percentage}%</div>
+                                    </div>
+                                )}
+                                {showAltTextOpen && (
+                                    <a
+                                        href={altTextOpenUrl}
+                                        style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--primary-ink)', textDecoration: 'none', whiteSpace: 'nowrap' }}
+                                    >
+                                        Open
+                                    </a>
+                                )}
+                            </div>
                         </div>
                     );
                 } )}
             </div>
+            <p style={{
+                margin: 0,
+                padding: '12px 20px',
+                borderTop: '1px solid var(--hairline)',
+                fontSize: 12.5,
+                color: 'var(--text-3)',
+                lineHeight: 1.5,
+            }}>
+                {USAGE_CREDITS_FOOTNOTE}
+            </p>
         </Card>
     );
 };
@@ -445,15 +480,15 @@ const AccountSection = ({
             <SettingsRow
                 label="Plan & billing"
                 desc={isPro
-                    ? 'Upgrade, downgrade, or update payment details in the Stripe customer portal.'
-                    : 'Upgrade to a paid plan, or open Stripe to manage billing details.'}
+                    ? 'Change plan or update payment details in the Stripe customer portal.'
+                    : 'Open Stripe to manage billing, or view the Growth plan.'}
                 right={
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                         {isPro
                             ? <Button variant="secondary" size="sm" icon="external" onClick={onManageBilling}>Manage billing</Button>
                             : (
                                 <>
-                                    <Button variant="pro" size="sm" icon="crown" onClick={onUpgrade}>Upgrade</Button>
+                                    <Button variant="pro" size="sm" icon="crown" onClick={onUpgrade}>View Growth plan</Button>
                                     <Button variant="secondary" size="sm" icon="external" onClick={onManageBilling}>Manage billing</Button>
                                 </>
                             )}

@@ -35,6 +35,64 @@ export function planDisplayName( plan ) {
 }
 
 /**
+ * Home AltText cross-sell: signed-in Free / Starter / Growth only.
+ * Billing id `pro` is Growth. Guests never reach Dashboard; hide Agency and unknowns.
+ */
+export function canSeeAltTextCrossSell( plan ) {
+    const p = String( plan || '' ).toLowerCase();
+    return p === 'free' || p === 'starter' || p === 'pro' || p === 'growth';
+}
+
+/** WordPress.org listing when OpptiAI Alt Text is not active on this site. */
+export const ALT_TEXT_WPORG_URL = 'https://wordpress.org/plugins/beepbeep-ai-alt-text-generator/';
+
+/**
+ * Quiet Home cross-sell copy + link from Module_Registry companion state.
+ * Active → sibling admin page; otherwise → WordPress.org (not oppti.dev).
+ */
+export function altTextCrossSell( companion ) {
+    const active = companion?.state === 'active';
+    return {
+        active,
+        message: active
+            ? 'Your OpptiAI credits also write image alt text.'
+            : 'Your OpptiAI credits also write image alt text. Scan coverage for free, then review before anything saves.',
+        cta: active ? 'Open Alt Text' : 'Get OpptiAI Alt Text',
+        url: active ? ( companion?.url || '' ) : ALT_TEXT_WPORG_URL,
+    };
+}
+
+/**
+ * Settings / chrome usage label.
+ * - left 0 → “No credits left this month” (never Only-X, never used/limit)
+ * - left 1 → “Only 1 credit left this month”
+ * - left 2–5 → “Only {n} credits left this month”
+ * - left > 5 → “{used} / {limit}”
+ */
+export function usageCreditsLabel( used, limit, remaining = null ) {
+    const u = Math.max( 0, Number( used ) || 0 );
+    const lim = Math.max( 0, Number( limit ) || 0 );
+    const left = remaining != null && Number.isFinite( Number( remaining ) )
+        ? Math.max( 0, Number( remaining ) )
+        : Math.max( 0, lim - u );
+
+    if ( left <= 0 ) {
+        return 'No credits left this month';
+    }
+    if ( left === 1 ) {
+        return 'Only 1 credit left this month';
+    }
+    if ( left <= 5 ) {
+        return `Only ${ left } credits left this month`;
+    }
+    return `${ u } / ${ lim }`;
+}
+
+/** Quiet footnote under the Settings credit usage card. */
+export const USAGE_CREDITS_FOOTNOTE =
+    'Credits count generations, including retries and alt text. Pages count what you applied.';
+
+/**
  * Each Optimise generates a title (1) + meta description (1). Prefer a live
  * `credits_per_page` from entitlement/quota when present; otherwise this.
  */

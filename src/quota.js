@@ -80,7 +80,7 @@ export function usageCreditsLabel( used, limit, remaining = null ) {
 
 /** Quiet footnote under the Settings credit usage card. */
 export const USAGE_CREDITS_FOOTNOTE =
-    'Credits count generations, including retries and titles. Images count what you saved.';
+    'Credits count generations, including retries and alt text. Pages count what you applied.';
 
 /**
  * Each Optimise generates a title (1) + meta description (1). Prefer a live

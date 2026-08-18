@@ -129,7 +129,7 @@ describe( 'usageCreditsLabel', () => {
 
 	test( 'exports the exact usage footnote', () => {
 		expect( USAGE_CREDITS_FOOTNOTE ).toBe(
-			'Credits count generations, including retries and titles. Images count what you saved.'
+			'Credits count generations, including retries and alt text. Pages count what you applied.'
 		);
 	} );
 } );

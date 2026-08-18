@@ -1,7 +1,7 @@
 import { Icon, Button, Tooltip } from './components';
 import { UserMenu } from './auth';
 import { getVisibleTabs } from './navigation';
-import { CREDITS_PER_PAGE, isInsufficientCredits } from './quota';
+import { CREDITS_PER_PAGE, isInsufficientCredits, planDisplayName } from './quota';
 
 export const WPChrome = ({
     children, activeTab, onTab, plan, onUpgrade, user, connected, isAdmin,
@@ -135,7 +135,7 @@ export const WPChrome = ({
                             whiteSpace: 'nowrap',
                         }}>
                             <Icon name="crown" size={12} strokeWidth={2.2}/>
-                            Pro
+                            {planDisplayName( plan )}
                         </span>
                     )}
                     {connected && user ? (

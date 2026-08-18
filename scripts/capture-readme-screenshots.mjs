@@ -141,7 +141,7 @@ async function main() {
 
 	// 6 — Upgrade / paywall modal
 	await clickTab( page, 'Home' );
-	await page.locator( '#beepti-root button', { hasText: /Upgrade to Pro|Get more credits/ } ).first().click();
+	await page.locator( '#beepti-root button', { hasText: /Upgrade to Growth|Get more credits|Choose Growth/ } ).first().click();
 	await page.getByText( /Fix missing SEO metadata|We found SEO issues/i ).first().waitFor( { timeout: 10000 } );
 	await page.waitForTimeout( 800 );
 	await page.screenshot( { path: join( OUT, 'screenshot-6.png' ), animations: 'disabled' } );

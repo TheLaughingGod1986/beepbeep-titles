@@ -4,7 +4,7 @@ Tags: seo, ai seo, meta description, title tag, site audit
 Requires at least: 6.3
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.0.21
+Stable tag: 1.0.22
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -55,7 +55,7 @@ Automatically identify pages with:
 
 Optimise many pages in just a few clicks.
 
-Instead of editing each page individually, generate AI suggestions in bulk and review them before applying changes. Free includes a monthly generation allowance (25 credits); Starter and Pro unlock higher limits and Autopilot workflows.
+Instead of editing each page individually, generate AI suggestions in bulk and review them before applying changes. Free includes a monthly generation allowance (25 credits); Starter and Growth unlock higher limits and Autopilot workflows.
 
 **Smart Recommendations**
 
@@ -105,7 +105,7 @@ Instead of manually reviewing hundreds of pages, your SEO improvements become a 
 2. Run a local scan to find missing titles, missing meta descriptions, and pages needing review — no account required to audit.
 3. Connect your OpptiAI account when you want AI generation (no credit card required to start on Free).
 4. Generate metadata from the Dashboard or Advanced Library.
-5. Optionally upgrade to enable **Autopilot** (Starter or Pro) or **Continuous Optimisation** (Pro) for newly published content.
+5. Optionally upgrade to enable **Autopilot** (Starter or Growth) or **Continuous Optimisation** (Growth) for newly published content.
 
 = SEO plugin compatibility =
 
@@ -120,8 +120,8 @@ OpptiAI Titles detects which SEO plugin is active and writes metadata through it
 
 * **Included locally (no paid plan required):** scanning, reporting, manual metadata editing, settings, and reviewing opportunities.
 * **AI generation:** performed by the external OpptiAI service; requires a connected account and available service credits. **Free includes 25 monthly credits.**
-* **Autopilot** (auto-generate on publish + writing preferences): requires a **Starter or Pro** subscription.
-* **Continuous Optimisation** for newly published pages: requires **Pro**.
+* **Autopilot** (auto-generate on publish + writing preferences): requires a **Starter or Growth** subscription.
+* **Continuous Optimisation** for newly published pages: requires **Growth**.
 
 = Future SEO Health Checks =
 
@@ -147,14 +147,14 @@ Only the content required to generate suggestions is processed. Page titles and 
 
 No personal visitor information is collected. See the External Services section for details.
 
-= Upgrade to Starter or Pro =
+= Upgrade to Starter or Growth =
 
 Unlock more of OpptiAI Titles:
 
 * Higher monthly AI generation allowances (Free includes 25 credits)
 * Bulk optimisation workflows at scale
-* **Autopilot** on Starter or Pro
-* **Continuous Optimisation** on Pro
+* **Autopilot** on Starter or Growth
+* **Continuous Optimisation** on Growth
 * Priority AI models where available on paid plans
 * Access to future OpptiAI optimisation modules as they ship
 * Agency-oriented features on higher plans
@@ -212,11 +212,11 @@ Yes. You can request AI-generated SEO titles and meta descriptions from the Dash
 
 = Can it generate meta descriptions automatically? =
 
-Yes, with Autopilot on a **Starter or Pro** plan. Autopilot can request titles and descriptions from the external service when new content is published. Free users can still scan, edit manually, and use their monthly AI generation allowance on demand.
+Yes, with Autopilot on a **Starter or Growth** plan. Autopilot can request titles and descriptions from the external service when new content is published. Free users can still scan, edit manually, and use their monthly AI generation allowance on demand.
 
 = Do I need a paid plan to use the plugin? =
 
-No paid plan is required for scanning, full reports, manual metadata editing, or settings. External AI generation requires a connected OpptiAI account and available service credits. Autopilot requires Starter or Pro; Continuous Optimisation requires Pro.
+No paid plan is required for scanning, full reports, manual metadata editing, or settings. External AI generation requires a connected OpptiAI account and available service credits. Autopilot requires Starter or Growth; Continuous Optimisation requires Growth.
 
 = Will this guarantee better Google rankings? =
 
@@ -235,7 +235,7 @@ Requires **WordPress 6.3+**, **PHP 8.1+**, and was tested up to **WordPress 7.0*
 1. OpptiAI Titles signed-out audit — scan your WordPress site for missing SEO titles and meta descriptions before connecting an account.
 2. OpptiAI Titles Home — metadata health score, today's priorities, coverage stats, and continuous optimisation controls.
 3. OpptiAI Titles Advanced Library — filter pages needing attention and generate SEO titles or meta descriptions in bulk.
-4. OpptiAI Titles Autopilot — configure tone, title length, and auto-generate on publish (Starter or Pro).
+4. OpptiAI Titles Autopilot — configure tone, title length, and auto-generate on publish (Starter or Growth).
 5. OpptiAI Titles Settings — account connection, shared OpptiAI credit wallet, notifications, and support.
 
 == Development Notes ==
@@ -245,6 +245,9 @@ Non-minified React source files and the npm build configuration are included in 
 WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, REST namespace, and internal admin slug remain `beepbeep-titles` for backwards compatibility with existing installs, options, and translations.
 
 == Changelog ==
+
+= 1.0.22 - 2026-08-18 =
+* Rename user-facing paid plan name from Pro to Growth to match the live Free / Starter / Growth / Agency grid (oppti.dev and checkout). Billing plan id `pro` and Stripe checkout are unchanged.
 
 = 1.0.21 - 2026-08-17 =
 * Replace WordPress.org directory icons and banners with original OpptiAI Titles artwork (SEO title / health-check / text-lines). Icons are no longer byte-identical copies of OpptiAI Alt Text chart assets. Paid plans and slugs unchanged.

@@ -275,8 +275,8 @@ const PlanCard = ({ isPro, monthlyUsed, monthlyLimit, pct, resetDate, onUpgrade,
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-                    <span style={{ fontSize: 14, fontWeight: 600 }}>{isPro ? 'OpptiAI Pro service' : 'OpptiAI Free service'}</span>
-                    <Pill tone={isPro ? 'primary' : 'neutral'}>{isPro ? 'Pro' : 'Free'}</Pill>
+                    <span style={{ fontSize: 14, fontWeight: 600 }}>{isPro ? 'OpptiAI Growth service' : 'OpptiAI Free service'}</span>
+                    <Pill tone={isPro ? 'primary' : 'neutral'}>{isPro ? 'Growth' : 'Free'}</Pill>
                 </div>
                 <div style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.45 }}>
                     {monthlyLimit} AI service credits per cycle · shared across your OpptiAI plugins · usable manually, in bulk, or with Autopilot.
@@ -286,7 +286,7 @@ const PlanCard = ({ isPro, monthlyUsed, monthlyLimit, pct, resetDate, onUpgrade,
                 <Button variant="secondary" size="sm" icon="zap" onClick={onBuyCredits}>Buy credits</Button>
                 {isPro
                     ? <Button variant="secondary" size="sm" icon="external" onClick={onManageBilling}>Manage billing</Button>
-                    : <Button variant="pro" size="sm" icon="crown" onClick={onUpgrade}>View Pro service plan</Button>}
+                    : <Button variant="pro" size="sm" icon="crown" onClick={onUpgrade}>View Growth service plan</Button>}
             </div>
         </div>
         <div style={{ borderTop: '1px solid var(--hairline)', padding: '12px 20px 14px', background: 'var(--surface-2)' }}>

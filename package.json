@@ -1,6 +1,6 @@
 {
   "name": "beepbeep-titles",
-  "version": "1.0.21",
+  "version": "1.0.22",
   "description": "AI title and meta description generator for WordPress",
   "private": true,
   "scripts": {

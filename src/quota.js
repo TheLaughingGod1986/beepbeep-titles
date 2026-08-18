@@ -64,9 +64,10 @@ export function altTextCrossSell( companion ) {
 
 /**
  * Settings / chrome usage label.
- * Remaining 1 → “Only 1 credit left this month”;
+ * Remaining 0 → “No credits left this month” (exhausted; never Only-X, never used/limit);
+ * remaining 1 → “Only 1 credit left this month”;
  * remaining 2–5 → “Only {n} credits left this month”;
- * remaining 0 or > 5 → plain “used / limit” (no Only-X at zero — exhausted UI stays separate).
+ * remaining > 5 → plain “used / limit”.
  */
 export function usageCreditsLabel( used, limit, remaining = null ) {
     const u = Math.max( 0, Number( used ) || 0 );
@@ -74,6 +75,9 @@ export function usageCreditsLabel( used, limit, remaining = null ) {
     const left = remaining != null && Number.isFinite( Number( remaining ) )
         ? Math.max( 0, Number( remaining ) )
         : Math.max( 0, lim - u );
+    if ( left === 0 ) {
+        return 'No credits left this month';
+    }
     if ( left >= 1 && left <= 5 ) {
         return left === 1
             ? 'Only 1 credit left this month'

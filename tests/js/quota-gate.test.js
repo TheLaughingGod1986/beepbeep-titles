@@ -121,10 +121,10 @@ describe( 'usageCreditsLabel', () => {
 		expect( usageCreditsLabel( 0, 25, 3 ) ).toBe( 'Only 3 credits left this month' );
 	} );
 
-	test( 'does not use Only-X when remaining is 0 (plain used / limit)', () => {
-		expect( usageCreditsLabel( 25, 25 ) ).toBe( '25 / 25' );
-		expect( usageCreditsLabel( 25, 25, 0 ) ).toBe( '25 / 25' );
-		expect( usageCreditsLabel( 0, 25, 0 ) ).toBe( '0 / 25' );
+	test( 'shows exhausted copy when remaining is 0 (not Only-X, not used/limit)', () => {
+		expect( usageCreditsLabel( 25, 25 ) ).toBe( 'No credits left this month' );
+		expect( usageCreditsLabel( 25, 25, 0 ) ).toBe( 'No credits left this month' );
+		expect( usageCreditsLabel( 0, 25, 0 ) ).toBe( 'No credits left this month' );
 	} );
 
 	test( 'shows used / limit numbers when remaining is above 5', () => {

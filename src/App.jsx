@@ -169,13 +169,14 @@ export default function App() {
         }
     }, [] );
 
-    // First-time connected users see the onboarding wizard once.
+    // First-open users see the free health-check wizard once (signed-in or guest).
+    // Missing onboarding_complete is treated as complete so existing installs are not interrupted.
     useEffect( () => {
-        if ( connected && ! ( settings?.onboarding_complete ?? true ) ) {
+        if ( ! ( settings?.onboarding_complete ?? true ) ) {
             setOnboardingOpen( true );
             track( 'onboarding_opened' );
         }
-    }, [connected, settings?.onboarding_complete] );
+    }, [settings?.onboarding_complete] );
 
     // Keep admin-only navigation protected when connection state changes.
     useEffect( () => {

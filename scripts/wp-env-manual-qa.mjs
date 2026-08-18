@@ -165,10 +165,12 @@ async function main() {
 		} ), '--format=json' );
 		await page.goto( PLUGIN, { waitUntil: 'networkidle' } );
 		await page.waitForTimeout( 2000 );
-		const surprise = await page.getByText( 'Welcome to BeepBeep Titles', { exact: false } ).count();
+		const surprise = await page.getByText( 'Improve your website continuously with OpptiAI', { exact: false } ).count();
 		record( '4', surprise === 0, surprise ? 'Wizard opened without onboarding_complete key' : 'Wizard stayed closed when flag absent (treated as complete)' );
 
-		// ── 3. Fresh install shows onboarding (connected + onboarding_complete false) ──
+		// ── 3. Signed-out first-open shows onboarding when onboarding_complete is false ──
+		wp( 'option', 'delete', 'beepti_license_key' );
+		wp( 'option', 'update', 'beepti_license_disconnected', '1' );
 		wp( 'option', 'update', 'beepti_settings', settingsJson( {
 			tone: 'direct',
 			title_length: 'standard',
@@ -182,9 +184,9 @@ async function main() {
 			connected: window.beeptiAdminData?.connected,
 			onboarding_complete: window.beeptiAdminData?.settings?.onboarding_complete,
 		} ) );
-		const onboardingVisible = await page.getByText( 'Welcome to BeepBeep Titles', { exact: false } ).count() > 0;
-		record( '3', onboardingVisible, onboardingVisible
-			? 'Onboarding wizard visible for fresh connected install'
+		const onboardingVisible = await page.getByText( 'Improve your website continuously with OpptiAI', { exact: false } ).count() > 0;
+		record( '3', onboardingVisible && boot.connected === false, onboardingVisible
+			? `Onboarding wizard visible for signed-out first-open (connected=${boot.connected})`
 			: `Wizard not shown (beeptiAdminData connected=${boot.connected}, onboarding_complete=${boot.onboarding_complete})` );
 
 		// Dismiss onboarding for remaining checks.

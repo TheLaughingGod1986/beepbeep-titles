@@ -4,7 +4,7 @@ Tags: seo, ai seo, meta description, title tag, site audit
 Requires at least: 6.3
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.0.23
+Stable tag: 1.0.24
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -246,6 +246,9 @@ WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, R
 
 == Changelog ==
 
+= 1.0.24 - 2026-08-18 =
+* Signed-out first open shows the free health-check onboarding wizard when `onboarding_complete` is false (no longer gated on a connected account). Quotas, billing id `pro`, and Guest Library behaviour are unchanged.
+
 = 1.0.23 - 2026-08-18 =
 * Add a quiet Home Alt Text cross-sell for signed-in Free, Starter, and Growth: locked copy with CTA “Open Alt Text” when installed or “Get OpptiAI Alt Text” when not; links to the sibling admin page or WordPress.org. Hidden from guests and Agency. Plan grid and Free allowance (25) are unchanged.
 * Credit usage card: remaining 0 → “No credits left this month”; remaining 1 → “Only 1 credit left this month”; remaining 2–5 → “Only X credits left this month”; above 5 → used/limit. Quiet footnote: “Credits count generations, including retries and alt text. Pages count what you applied.”
@@ -336,6 +339,9 @@ WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, R
 * Plugin Check and WordPress.org packaging readiness.
 
 == Upgrade Notice ==
+
+= 1.0.24 =
+Signed-out first open now shows the free health-check wizard when onboarding is incomplete. Free allowance (25) and plan ids unchanged.
 
 = 1.0.23 =
 Adds a quiet Home cross-sell to OpptiAI Alt Text for Free, Starter, and Growth (CTAs “Open Alt Text” / “Get OpptiAI Alt Text”); clearer low-balance usage copy; and Settings Growth plan / wallet alignment. No plan ids, slug, or Free allowance changes.

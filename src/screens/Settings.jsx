@@ -480,15 +480,15 @@ const AccountSection = ({
             <SettingsRow
                 label="Plan & billing"
                 desc={isPro
-                    ? 'Upgrade, downgrade, or update payment details in the Stripe customer portal.'
-                    : 'Upgrade to a paid plan, or open Stripe to manage billing details.'}
+                    ? 'Change plan or update payment details in the Stripe customer portal.'
+                    : 'Open Stripe to manage billing, or view the Growth plan.'}
                 right={
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                         {isPro
                             ? <Button variant="secondary" size="sm" icon="external" onClick={onManageBilling}>Manage billing</Button>
                             : (
                                 <>
-                                    <Button variant="pro" size="sm" icon="crown" onClick={onUpgrade}>Upgrade</Button>
+                                    <Button variant="pro" size="sm" icon="crown" onClick={onUpgrade}>View Growth plan</Button>
                                     <Button variant="secondary" size="sm" icon="external" onClick={onManageBilling}>Manage billing</Button>
                                 </>
                             )}

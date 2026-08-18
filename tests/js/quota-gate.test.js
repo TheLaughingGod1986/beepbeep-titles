@@ -116,7 +116,7 @@ describe( 'Home AltText cross-sell helpers', () => {
 describe( 'usageCreditsLabel', () => {
 	test( 'shows Only X credits left this month when remaining ≤ 5', () => {
 		expect( usageCreditsLabel( 20, 25 ) ).toBe( 'Only 5 credits left this month' );
-		expect( usageCreditsLabel( 24, 25 ) ).toBe( 'Only 1 credits left this month' );
+		expect( usageCreditsLabel( 24, 25 ) ).toBe( 'Only 1 credit left this month' );
 		expect( usageCreditsLabel( 25, 25 ) ).toBe( 'Only 0 credits left this month' );
 		expect( usageCreditsLabel( 0, 25, 3 ) ).toBe( 'Only 3 credits left this month' );
 	} );

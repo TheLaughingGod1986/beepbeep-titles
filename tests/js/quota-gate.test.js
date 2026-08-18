@@ -114,11 +114,17 @@ describe( 'Home AltText cross-sell helpers', () => {
 } );
 
 describe( 'usageCreditsLabel', () => {
-	test( 'shows Only X credits left this month when remaining ≤ 5', () => {
+	test( 'shows Only-X for remaining 1–5 only (singular at 1)', () => {
 		expect( usageCreditsLabel( 20, 25 ) ).toBe( 'Only 5 credits left this month' );
+		expect( usageCreditsLabel( 21, 25 ) ).toBe( 'Only 4 credits left this month' );
 		expect( usageCreditsLabel( 24, 25 ) ).toBe( 'Only 1 credit left this month' );
-		expect( usageCreditsLabel( 25, 25 ) ).toBe( 'Only 0 credits left this month' );
 		expect( usageCreditsLabel( 0, 25, 3 ) ).toBe( 'Only 3 credits left this month' );
+	} );
+
+	test( 'does not use Only-X when remaining is 0 (plain used / limit)', () => {
+		expect( usageCreditsLabel( 25, 25 ) ).toBe( '25 / 25' );
+		expect( usageCreditsLabel( 25, 25, 0 ) ).toBe( '25 / 25' );
+		expect( usageCreditsLabel( 0, 25, 0 ) ).toBe( '0 / 25' );
 	} );
 
 	test( 'shows used / limit numbers when remaining is above 5', () => {

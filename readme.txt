@@ -249,7 +249,7 @@ WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, R
 = 1.0.23 - 2026-08-18 =
 * Add a quiet Home AltText cross-sell for signed-in Free, Starter, and Growth accounts: one line under the health score / issues list linking to OpptiAI AltText when active, or the WordPress.org plugin listing when it is not installed. Hidden from guests and Agency. Plan grid and Free allowance (25) are unchanged.
 * Credit usage card: show "Only X credits left this month" when remaining <= 5; otherwise show used/limit numbers only. Add a quiet footnote: credits count generations (including retries and titles); images count what you saved.
-* Settings plan CTA: “View Growth plan” (billing id `pro` unchanged). Credit Wallet keeps usage_by_feature split; AltText row shows Open when installed; Internal Linking and Schema stay Not installed with no Get.
+* Settings plan CTA: “View Growth plan” (billing id `pro` unchanged). Credit Wallet keeps usage_by_feature split; AltText row shows Open when installed; Internal Linking and Schema stay Not installed with no Get / Install / WP.org.
 
 = 1.0.22 - 2026-08-18 =
 * Rename user-facing paid plan name from Pro to Growth to match the live Free / Starter / Growth / Agency grid (oppti.dev and checkout). Billing plan id `pro` and Stripe checkout are unchanged.

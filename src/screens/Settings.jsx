@@ -312,10 +312,20 @@ const CreditUsageCard = ({ quota, used, limit, resetDate }) => {
     const altTextOpenUrl = altTextInstalled ? ( altTextCompanion?.url || '' ) : '';
     const remaining = Math.max( 0, ( quota?.credits_remaining ?? ( limit - used ) ) );
     const usageLabel = usageCreditsLabel( used, limit, remaining );
-    // Keep usage_by_feature split. AltText can show Open when installed.
-    // Internal Linking + Schema stay roster-only (Not installed, no Get).
-    const { rows, attributed } = creditUsageRows( quota, used, {
+    // Keep the usage_by_feature split UI. Install badges/CTAs are separate:
+    // AltText → Open when installed; Internal Linking + Schema → Not installed
+    // only (no Get / Install / WP.org).
+    const { rows: rawRows, attributed } = creditUsageRows( quota, used, {
         alt_text: altTextInstalled,
+    } );
+    const rows = rawRows.map( ( row ) => {
+        if ( row.id === 'alt_text' ) {
+            return { ...row, installed: altTextInstalled };
+        }
+        if ( row.id === 'internal_linking' || row.id === 'schema' ) {
+            return { ...row, installed: false };
+        }
+        return row;
     } );
 
     // Only show per-plugin numbers when the credits we could attribute actually
@@ -356,9 +366,10 @@ const CreditUsageCard = ({ quota, used, limit, resetDate }) => {
                 {rows.map( ( row, index ) => {
                     const hasNumber = showBreakdown && row.used !== null && row.used !== undefined;
                     const percentage = hasNumber && used > 0 ? Math.min( 100, Math.round( ( row.used / used ) * 100 ) ) : 0;
+                    // Only AltText may show an action, and only Open when installed.
                     const showAltTextOpen = row.id === 'alt_text' && row.installed && !! altTextOpenUrl;
                     return (
-                        <div key={row.id} style={{ padding: '12px 20px', display: 'grid', gridTemplateColumns: '36px minmax(0, 1fr) auto', gap: 12, alignItems: 'center', borderBottom: index === rows.length - 1 ? 0 : '1px solid var(--hairline)', background: row.current ? row.soft : 'var(--surface)', opacity: row.installed ? 1 : 0.72 }}>
+                        <div key={row.id} style={{ padding: '12px 20px', display: 'grid', gridTemplateColumns: '36px minmax(0, 1fr) auto', gap: 12, alignItems: 'center', borderBottom: index === rows.length - 1 ? 0 : '1px solid var(--hairline)', background: row.current ? row.soft : 'var(--surface)', opacity: row.installed || row.current ? 1 : 0.72 }}>
                             <div style={{ width: 32, height: 32, borderRadius: 9, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: row.color, background: row.soft, border: `1px solid ${row.border}` }}>
                                 <Icon name={row.icon} size={16}/>
                             </div>

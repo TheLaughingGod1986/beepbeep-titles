@@ -4,7 +4,7 @@ import { Input, PageShell, Textarea, Row } from '../ui';
 import { Modal } from '../modals/Modal';
 import { saveSettings, setLicense, clearLicense, submitSupport } from '../api';
 import { creditUsageRows } from '../usage';
-import { QUOTA_DEFAULTS } from '../quota';
+import { QUOTA_DEFAULTS, usageCreditsLabel, USAGE_CREDITS_FOOTNOTE } from '../quota';
 
 const formatResetDate = value => {
     if ( ! value ) return 'Not available';
@@ -308,6 +308,8 @@ const PlanCard = ({ isPro, monthlyUsed, monthlyLimit, pct, resetDate, onUpgrade,
 const CreditUsageCard = ({ quota, used, limit, resetDate }) => {
     const companion = window.beeptiAdminData?.altTextCompanion?.state;
     const linkingCompanion = window.beeptiAdminData?.internalLinkingCompanion?.state;
+    const remaining = Math.max( 0, ( quota?.credits_remaining ?? ( limit - used ) ) );
+    const usageLabel = usageCreditsLabel( used, limit, remaining );
     const { rows, attributed } = creditUsageRows( quota, used, {
         alt_text: companion === 'active' || companion === 'installed',
         internal_linking: linkingCompanion === 'active' || linkingCompanion === 'installed',
@@ -326,10 +328,8 @@ const CreditUsageCard = ({ quota, used, limit, resetDate }) => {
                     <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 2 }}>OpptiAI Credit Wallet</div>
                     <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Credit usage</div>
                 </div>
-                <div className="tnum" style={{ fontSize: 13, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
-                    <strong style={{ color: 'var(--text)', fontWeight: 600 }}>{used}</strong> / {limit} credits used
-                    <span style={{ margin: '0 6px', opacity: 0.5 }}>·</span>
-                    <span className="mono">{Math.max( 0, limit - used ).toLocaleString()} remaining</span>
+                <div className="mono tnum" style={{ fontSize: 13, color: remaining <= 5 ? 'var(--warn-ink)' : 'var(--text)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                    {usageLabel}
                 </div>
             </Row>
             <Row align="start" gap={9} style={{ padding: '11px 20px', background: 'var(--surface-2)', borderBottom: '1px solid var(--hairline)', fontSize: 12, color: 'var(--text-2)', lineHeight: 1.45 }}>
@@ -381,6 +381,16 @@ const CreditUsageCard = ({ quota, used, limit, resetDate }) => {
                     );
                 } )}
             </div>
+            <p style={{
+                margin: 0,
+                padding: '12px 20px',
+                borderTop: '1px solid var(--hairline)',
+                fontSize: 12.5,
+                color: 'var(--text-3)',
+                lineHeight: 1.5,
+            }}>
+                {USAGE_CREDITS_FOOTNOTE}
+            </p>
         </Card>
     );
 };

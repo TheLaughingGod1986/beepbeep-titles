@@ -16,6 +16,8 @@ const {
 	canSeeAltTextCrossSell,
 	altTextCrossSell,
 	ALT_TEXT_WPORG_URL,
+	usageCreditsLabel,
+	USAGE_CREDITS_FOOTNOTE,
 } = require( '../../src/quota' );
 
 describe( 'QUOTA_DEFAULTS', () => {
@@ -108,5 +110,26 @@ describe( 'Home AltText cross-sell helpers', () => {
 		expect( out.cta ).toBe( 'Get OpptiAI AltText' );
 		expect( out.url ).toBe( ALT_TEXT_WPORG_URL );
 		expect( out.url ).toBe( 'https://wordpress.org/plugins/beepbeep-ai-alt-text-generator/' );
+	} );
+} );
+
+describe( 'usageCreditsLabel', () => {
+	test( 'shows Only X credits left this month when remaining ≤ 5', () => {
+		expect( usageCreditsLabel( 20, 25 ) ).toBe( 'Only 5 credits left this month' );
+		expect( usageCreditsLabel( 24, 25 ) ).toBe( 'Only 1 credits left this month' );
+		expect( usageCreditsLabel( 25, 25 ) ).toBe( 'Only 0 credits left this month' );
+		expect( usageCreditsLabel( 0, 25, 3 ) ).toBe( 'Only 3 credits left this month' );
+	} );
+
+	test( 'shows used / limit numbers when remaining is above 5', () => {
+		expect( usageCreditsLabel( 3, 25 ) ).toBe( '3 / 25' );
+		expect( usageCreditsLabel( 0, 25 ) ).toBe( '0 / 25' );
+		expect( usageCreditsLabel( 19, 25 ) ).toBe( '19 / 25' );
+	} );
+
+	test( 'exports the exact usage footnote', () => {
+		expect( USAGE_CREDITS_FOOTNOTE ).toBe(
+			'Credits count generations, including retries and titles. Images count what you saved.'
+		);
 	} );
 } );

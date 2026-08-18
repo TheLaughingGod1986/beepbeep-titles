@@ -63,6 +63,26 @@ export function altTextCrossSell( companion ) {
 }
 
 /**
+ * Settings / chrome usage label.
+ * Remaining ≤ 5 → exact “Only X credits left this month”; otherwise plain “used / limit”.
+ */
+export function usageCreditsLabel( used, limit, remaining = null ) {
+    const u = Math.max( 0, Number( used ) || 0 );
+    const lim = Math.max( 0, Number( limit ) || 0 );
+    const left = remaining != null && Number.isFinite( Number( remaining ) )
+        ? Math.max( 0, Number( remaining ) )
+        : Math.max( 0, lim - u );
+    if ( left <= 5 ) {
+        return `Only ${ left } credits left this month`;
+    }
+    return `${ u } / ${ lim }`;
+}
+
+/** Quiet footnote under the Settings credit usage card. */
+export const USAGE_CREDITS_FOOTNOTE =
+    'Credits count generations, including retries and titles. Images count what you saved.';
+
+/**
  * Each Optimise generates a title (1) + meta description (1). Prefer a live
  * `credits_per_page` from entitlement/quota when present; otherwise this.
  */

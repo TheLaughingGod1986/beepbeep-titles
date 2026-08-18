@@ -1,7 +1,7 @@
 import { Icon, Button, Tooltip } from './components';
 import { UserMenu } from './auth';
 import { getVisibleTabs } from './navigation';
-import { CREDITS_PER_PAGE, isInsufficientCredits, planDisplayName } from './quota';
+import { CREDITS_PER_PAGE, isInsufficientCredits, planDisplayName, usageCreditsLabel } from './quota';
 
 export const WPChrome = ({
     children, activeTab, onTab, plan, onUpgrade, user, connected, isAdmin,
@@ -17,7 +17,8 @@ export const WPChrome = ({
         : Math.max( 0, limit - used );
     const pageCost = Number( creditsPerPage ) > 0 ? Number( creditsPerPage ) : CREDITS_PER_PAGE;
     const insufficient = isInsufficientCredits( remaining, pageCost );
-    const walletWarn = remaining <= 0 || insufficient;
+    const walletWarn = remaining <= 5 || insufficient;
+    const usageLabel = usageCreditsLabel( used, limit, remaining );
     const walletTitle = insufficient
         ? `Shared wallet: ${ remaining } left, but each Titles page needs ${ pageCost } (title + meta)`
         : remaining <= 0
@@ -91,17 +92,7 @@ export const WPChrome = ({
                             }}
                         >
                             <Icon name="zap" size={12} />
-                            {insufficient ? (
-                                <>
-                                    <span className="mono tnum">{remaining}</span>
-                                    <span style={{ fontWeight: 500 }}>left · need {pageCost}/page</span>
-                                </>
-                            ) : (
-                                <>
-                                    <span className="mono tnum">{used} / {limit}</span>
-                                    <span style={{ fontWeight: 500, color: 'var(--text-3)' }}>used</span>
-                                </>
-                            )}
+                            <span className="mono tnum">{usageLabel}</span>
                         </button>
                     ) : (
                         <Tooltip content="OpptiAI Titles is monitoring your site in the background" placement="bottom">

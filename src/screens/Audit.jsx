@@ -382,7 +382,7 @@ const PLAN_COPY = {
             'Priority processing',
             'Agency-friendly usage limits',
         ],
-        cta: 'Choose Pro',
+        cta: 'Choose Growth',
         badge: 'Best Value',
     },
 };
@@ -423,7 +423,7 @@ const PricingTeaserCard = ({ onPlanSelect }) => {
                     />
                     <PlanTeaser
                         planId="pro"
-                        name="Pro"
+                        name="Growth"
                         allowance={`${ proQuota } generations/month`}
                         price={`${ proPrice }/month`}
                         badge={PLAN_COPY.pro.badge}

@@ -154,7 +154,7 @@ export const BillingScreen = ({ quota, initial, onRefreshQuota, onToast }) => {
                 <Row gap={8} wrap align="stretch" style={{ marginTop: 10 }}>
                     <HealthPill label="Stripe" ok={health?.stripe} unknown={! healthOk}/>
                     <HealthPill label="Starter" ok={health?.starter} unknown={! healthOk}/>
-                    <HealthPill label="Pro" ok={health?.pro} unknown={! healthOk}/>
+                    <HealthPill label="Growth" ok={health?.pro} unknown={! healthOk}/>
                     <HealthPill label="Entitlements" ok={health?.entitlements} unknown={! healthOk}/>
                     <HealthPill label="Checkout available" ok={checkoutAvailable} unknown={checkoutAvailable === null}/>
                 </Row>

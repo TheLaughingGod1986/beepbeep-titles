@@ -149,14 +149,14 @@ export const Paywall = ({ open, onClose, trigger = 'default', entitlement, stats
             'Continuously optimise newly published pages',
             'Generate SEO titles and descriptions automatically',
             'Save hours of manual editing',
-            'Priority processing on Pro',
+            'Priority processing on Growth',
         ]
         : autopilotGate
             ? [
                 'Configure tone, length, and custom instructions',
                 'Auto-generate titles and meta on publish',
                 'Hands-off SEO for every new page',
-                'Available on Starter and Pro',
+                'Available on Starter and Growth',
             ]
             : [
                 'Generate SEO titles and descriptions in seconds',
@@ -183,7 +183,7 @@ export const Paywall = ({ open, onClose, trigger = 'default', entitlement, stats
                 <div className="beepti-pw__section" style={{ padding: '36px 40px 4px' }}>
                     <h2 style={{ fontSize: 25, fontWeight: 600, letterSpacing: '-0.025em', lineHeight: 1.15, margin: '0 0 8px', maxWidth: 560 }}>
                         {continuousOptGate
-                            ? 'Continuous Optimisation needs Pro'
+                            ? 'Continuous Optimisation needs Growth'
                             : autopilotGate
                                 ? 'Autopilot / hands-off SEO needs a paid subscription'
                                 : showInsufficient
@@ -194,9 +194,9 @@ export const Paywall = ({ open, onClose, trigger = 'default', entitlement, stats
                     </h2>
                     <p style={{ fontSize: 14.5, color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 16px', maxWidth: 580 }}>
                         {continuousOptGate
-                            ? <>A paid Pro subscription unlocks automatic optimisation for newly published pages. Upgrade to Pro to enable Continuous Optimisation.</>
+                            ? <>A paid Growth subscription unlocks automatic optimisation for newly published pages. Upgrade to Growth to enable Continuous Optimisation.</>
                             : autopilotGate
-                                ? <>Hands-off page SEO — tone, length, custom instructions, and auto-generate on publish — requires a Starter or Pro subscription.</>
+                                ? <>Hands-off page SEO — tone, length, custom instructions, and auto-generate on publish — requires a Starter or Growth subscription.</>
                                 : showInsufficient
                                     ? insufficientCreditsMessage( remainingCredits, pageCost )
                                     : showScanGaps
@@ -236,20 +236,20 @@ export const Paywall = ({ open, onClose, trigger = 'default', entitlement, stats
                     {/* ── Primary action — problem-framed dynamic CTA, kept above the fold ── */}
                     <Button variant="pro" size="lg" full icon={needsSignIn ? 'user' : 'zap'} onClick={onPro} disabled={(!proAvailable && !needsSignIn) || !!checkoutBusy || plansLoading} style={{ paddingTop: 15, paddingBottom: 15, fontSize: 16 }}>
                         {!proAvailable && !needsSignIn
-                            ? 'Pro temporarily unavailable'
+                            ? 'Growth temporarily unavailable'
                             : needsSignIn
                                 ? 'Sign in to upgrade'
                                 : checkoutBusy === 'pro'
                                     ? 'Opening Stripe Checkout…'
                                     : plansLoading
-                                        ? 'Loading Pro pricing…'
-                                        : `Choose Pro Service Capacity · ${proPrice}/month` }
+                                        ? 'Loading Growth pricing…'
+                                        : `Choose Growth Service Capacity · ${proPrice}/month` }
                     </Button>
                     <p style={{ textAlign: 'center', fontSize: 12.5, color: 'var(--text-3)', margin: '8px 0 0', lineHeight: 1.5 }}>
                         {!proAvailable && !needsSignIn
                             ? 'This plan is being updated. Please try again shortly or contact support.'
                             : needsSignIn
-                                ? 'Create a free account or sign in, then choose Starter or Pro at checkout.'
+                                ? 'Create a free account or sign in, then choose Starter or Growth at checkout.'
                                 : 'Adds remote AI generation credits. All local plugin features remain available on every service plan.' }
                     </p>
 
@@ -332,7 +332,7 @@ export const Paywall = ({ open, onClose, trigger = 'default', entitlement, stats
                             style={{ border: '2.5px solid var(--primary)', background: 'var(--surface)', boxShadow: '0 14px 36px rgba(37,99,235,0.18)', position: 'relative', cursor: ( proAvailable || needsSignIn ) && !checkoutBusy ? 'pointer' : 'default' }}
                         >
                             <div style={{ position: 'absolute', top: -12, left: 18, background: 'var(--primary)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 999, letterSpacing: '0.05em' }}>⭐ MOST POPULAR</div>
-                            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--primary-ink)', marginBottom: 8 }}>Pro</div>
+                            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--primary-ink)', marginBottom: 8 }}>Growth</div>
                             <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em' }}>{proPrice}<span style={{ fontSize: 13, color: 'var(--text-3)', fontWeight: 400 }}> /mo</span></div>
                             <div style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start', background: 'var(--primary)', color: '#fff', borderRadius: 8, padding: '5px 10px', fontSize: 11.5, fontWeight: 700, lineHeight: 1.25 }}>
                                 <Icon name="trend" size={12} strokeWidth={2.4}/>
@@ -359,7 +359,7 @@ export const Paywall = ({ open, onClose, trigger = 'default', entitlement, stats
                         </div>
                         <Icon name="arrow-right" size={26} strokeWidth={2.4} style={{ color: 'var(--primary)' }}/>
                         <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: 10.5, color: 'var(--primary-ink)', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Pro</div>
+                            <div style={{ fontSize: 10.5, color: 'var(--primary-ink)', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Growth</div>
                             <div className="mono tnum" style={{ fontSize: 34, color: 'var(--primary-ink)', fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.1 }}>{fmtCount( proQuota )}</div>
                             <div style={{ fontSize: 11.5, color: 'var(--primary-ink)', fontWeight: 500 }}>generations · {proPrice}/mo</div>
                         </div>

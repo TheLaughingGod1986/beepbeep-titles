@@ -3,6 +3,7 @@ import { Icon, Pill, Button } from './components';
 import { Field, Input } from './ui';
 import { Modal } from './modals/Modal';
 import { loginWithPassword, registerAccount, setLicense } from './api';
+import { planDisplayName } from './quota';
 
 const isValidEmail = ( value ) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test( value );
 
@@ -82,8 +83,8 @@ export const UserMenu = ({ user, plan, onSignOut, onAccount, onHelp }) => {
 
                     <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--hairline)' }}>
                         <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Plan</span>
-                        {plan === 'pro'
-                            ? <Pill tone="primary" icon="crown">Pro</Pill>
+                        {plan && plan !== 'free'
+                            ? <Pill tone="primary" icon="crown">{planDisplayName( plan )}</Pill>
                             : <span style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>Free</span>}
                     </div>
 

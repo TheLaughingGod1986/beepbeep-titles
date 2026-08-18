@@ -6,7 +6,7 @@ export const QUOTA_DEFAULTS = {
 };
 
 /**
- * Continuous Optimisation enable is Pro-only.
+ * Continuous Optimisation enable is Growth-plan-only (billing id `pro`).
  * Matches Settings billing UI (`plan === 'pro'`); Free and Starter are gated.
  */
 export function isProPlan( plan ) {
@@ -15,11 +15,23 @@ export function isProPlan( plan ) {
 
 /**
  * Autopilot screen (preferences + auto-generate UI) requires any paid plan.
- * Free / unpaid users are gated; Starter and Pro get full access to the page.
+ * Free / unpaid users are gated; Starter and Growth get full access to the page.
  */
 export function isPaidPlan( plan ) {
     const p = String( plan || '' ).toLowerCase();
     return p === 'starter' || p === 'pro' || p === 'agency' || p === 'growth';
+}
+
+/**
+ * User-facing plan label. Billing id `pro` is the Growth plan; do not rename ids.
+ */
+export function planDisplayName( plan ) {
+    const p = String( plan || '' ).toLowerCase();
+    if ( p === 'pro' || p === 'growth' ) return 'Growth';
+    if ( p === 'starter' ) return 'Starter';
+    if ( p === 'agency' ) return 'Agency';
+    if ( p === 'free' || ! p ) return 'Free';
+    return p.charAt( 0 ).toUpperCase() + p.slice( 1 );
 }
 
 /**

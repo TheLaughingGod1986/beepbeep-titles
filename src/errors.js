@@ -78,7 +78,7 @@ export function checkoutErrorToast( err ) {
     }
     if ( err?.code === 'SITE_LIMIT_EXCEEDED' || err?.code === 'ACTIVE_SUBSCRIPTION_EXISTS' ) {
         return {
-            message: 'Couldn\'t start Pro checkout',
+            message: 'Couldn\'t start Growth checkout',
             sub: 'This account already has an active subscription record. Open Billing to manage it, or try Starter.',
             icon: 'alert',
             tone: 'warn',

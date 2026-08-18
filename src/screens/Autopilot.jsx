@@ -136,7 +136,7 @@ export const AutopilotScreen = ({ settings, autoOptimise, onAutoToggle, onToast,
                     <div
                         role="button"
                         tabIndex={0}
-                        aria-label="Autopilot requires a Starter or Pro subscription. Activate to upgrade."
+                        aria-label="Autopilot requires a Starter or Growth subscription. Activate to upgrade."
                         onClick={openUpgrade}
                         onKeyDown={ ( e ) => {
                             if ( e.key === 'Enter' || e.key === ' ' ) {

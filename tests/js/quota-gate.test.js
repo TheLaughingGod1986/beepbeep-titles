@@ -125,6 +125,8 @@ describe( 'usageCreditsLabel', () => {
 		expect( usageCreditsLabel( 25, 25 ) ).toBe( 'No credits left this month' );
 		expect( usageCreditsLabel( 25, 25, 0 ) ).toBe( 'No credits left this month' );
 		expect( usageCreditsLabel( 0, 25, 0 ) ).toBe( 'No credits left this month' );
+		expect( usageCreditsLabel( 25, 25, 0 ) ).not.toBe( 'Only 0 credits left this month' );
+		expect( usageCreditsLabel( 25, 25, 0 ) ).not.toBe( '25 / 25' );
 	} );
 
 	test( 'shows used / limit numbers when remaining is above 5', () => {

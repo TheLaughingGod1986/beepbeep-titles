@@ -5,6 +5,7 @@
  * Description:       AI-powered title tag and meta description generation for WordPress. Keeps your site's page SEO coverage climbing in the background.
  * Version:           1.0.24
  * Author:            OpptiAI
+ * Author URI:        https://oppti.dev
  * License:           GPL-2.0-or-later
  * Text Domain:       beepbeep-titles
  * Requires at least: 6.3

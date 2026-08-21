@@ -4,7 +4,7 @@ Tags: seo, ai seo, meta description, title tag, site audit
 Requires at least: 6.3
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.0.24
+Stable tag: 1.0.25
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -245,6 +245,9 @@ Non-minified React source files and the npm build configuration are included in 
 WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, REST namespace, and internal admin slug remain `beepbeep-titles` for backwards compatibility with existing installs, options, and translations.
 
 == Changelog ==
+
+= 1.0.25 - 2026-08-21 =
+* In-plugin By line is now OpptiAI linked to https://oppti.dev.
 
 = 1.0.24 - 2026-08-18 =
 * Signed-out first open shows the free health-check onboarding wizard when `onboarding_complete` is false (no longer gated on a connected account). Quotas, billing id `pro`, and Guest Library behaviour are unchanged.

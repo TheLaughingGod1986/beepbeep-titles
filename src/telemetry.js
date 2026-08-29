@@ -12,6 +12,9 @@ const cfg = data.telemetry ?? {};
 
 const SESSION_KEY = 'beepti_telemetry_session';
 const OPENED_KEY = 'beepti_plugin_opened';
+const LAST_SEEN_KEY = 'beepti_telemetry_last_seen';
+const JOURNEY_KEY = 'beepti_telemetry_journey';
+const JOURNEY_TTL = 24 * 60 * 60 * 1000;
 
 const SCREEN_EVENTS = {
 	dashboard: 'dashboard_viewed',
@@ -33,11 +36,15 @@ let queue = [];
 let flushTimer = null;
 let lastScreen = '';
 
+function randomId( prefix ) {
+	return `${ prefix }_${ Date.now().toString( 36 ) }_${ Math.random().toString( 36 ).slice( 2, 10 ) }`;
+}
+
 function sessionId() {
 	try {
 		let id = sessionStorage.getItem( SESSION_KEY );
 		if ( ! id ) {
-			id = `s_${ Date.now().toString( 36 ) }_${ Math.random().toString( 36 ).slice( 2, 10 ) }`;
+			id = randomId( 's' );
 			sessionStorage.setItem( SESSION_KEY, id );
 		}
 		return id;
@@ -46,13 +53,50 @@ function sessionId() {
 	}
 }
 
+function resolveLifecycle() {
+	const now = Date.now();
+	let previousSeen = 0;
+	let journeyId = cfg.journeyId || '';
+
+	try {
+		previousSeen = Number( localStorage.getItem( LAST_SEEN_KEY ) || 0 );
+		const rawJourney = localStorage.getItem( JOURNEY_KEY );
+		if ( ! journeyId && rawJourney ) {
+			const stored = JSON.parse( rawJourney );
+			if ( stored?.id && stored?.ts && ( now - Number( stored.ts ) ) < JOURNEY_TTL ) {
+				journeyId = String( stored.id );
+			}
+		}
+		if ( ! journeyId ) {
+			journeyId = randomId( 'j' );
+		}
+		localStorage.setItem( JOURNEY_KEY, JSON.stringify( { id: journeyId, ts: now } ) );
+		localStorage.setItem( LAST_SEEN_KEY, String( now ) );
+	} catch ( e ) {
+		if ( ! journeyId ) journeyId = randomId( 'j' );
+	}
+
+	const hasPriorVisit = previousSeen > 0 && previousSeen < now;
+	const inactivityMs = hasPriorVisit ? Math.max( 0, now - previousSeen ) : null;
+
+	return {
+		journeyId,
+		hasPriorVisit,
+		inactivityMs,
+		isReturningUser: typeof cfg.isReturningUser === 'boolean' ? cfg.isReturningUser : hasPriorVisit,
+	};
+}
+
+const lifecycle = resolveLifecycle();
+
 function enabled() {
 	return cfg.enabled !== false;
 }
 
 function baseProps() {
-	return {
+	const props = {
 		session_id: sessionId(),
+		journey_id: lifecycle.journeyId,
 		plugin_slug: cfg.pluginSlug || 'opptiai-titles',
 		plugin_id: cfg.pluginId || 'titles',
 		product: cfg.product || 'title_meta',
@@ -61,7 +105,16 @@ function baseProps() {
 		environment: cfg.environment || 'production',
 		user_state: cfg.connected ? 'connected' : 'guest',
 		is_logged_in: !! cfg.connected,
+		is_returning_user: lifecycle.isReturningUser,
 	};
+
+	if ( lifecycle.inactivityMs !== null ) {
+		props.inactivity_hours = Math.round( lifecycle.inactivityMs / ( 60 * 60 * 1000 ) );
+	}
+	if ( cfg.accountId ) props.account_id = cfg.accountId;
+	if ( cfg.userId ) props.user_id = cfg.userId;
+
+	return props;
 }
 
 async function flush() {
@@ -115,7 +168,10 @@ export function trackPluginOpened() {
 		if ( sessionStorage.getItem( OPENED_KEY ) ) return;
 		sessionStorage.setItem( OPENED_KEY, '1' );
 	} catch ( e ) { /* ignore */ }
-	track( 'plugin_opened', { is_first_open: ! cfg.connected } );
+	track( 'plugin_opened', {
+		is_first_open: ! lifecycle.hasPriorVisit,
+		lifecycle_state: lifecycle.hasPriorVisit ? 'returning' : 'new',
+	} );
 }
 
 /** Screen / tab view + feature_used. */

@@ -114,8 +114,8 @@ class Admin {
             'altTextCompanion' => $alt_text_companion,
             'internalLinkingCompanion' => $internal_linking_companion,
             'telemetry'  => Telemetry::client_config(),
-            // US Titles paywall: Cloudflare CF-IPCountry === US → USD price IDs.
-            // Missing/unknown country → GBP. Not WordPress locale / en_US / browser lang.
+            // US Titles paywall: visitor country === US (same CDN header list as AltText) → USD.
+            // Missing/unknown (XX/T1/ZZ/empty) → GBP. Not WordPress locale / browser lang.
             'billing'    => $this->get_billing_client_config(),
             // Same shape App.normalizeStats() / loadStats() consume.
             'stats'      => [
@@ -136,9 +136,9 @@ class Admin {
     // ----------------------------------------------------------------
 
     /**
-     * US client = visitor country is US (Cloudflare CF-IPCountry on the
-     * wp-admin request). Not WordPress locale, en_US, or browser language.
-     * Missing/unknown country → GBP (non-US). No geo API fallback.
+     * US client = visitor country is US (CDN country headers on the wp-admin
+     * request; same list/order as AltText). Not WordPress locale or browser language.
+     * Missing/unknown (XX/T1/ZZ/empty) → GBP (non-US). No geo API fallback.
      *
      * @return array{isUs: bool, usdPriceIds: array<string, string>, usdAmounts: array<string, float>}
      */
@@ -164,32 +164,38 @@ class Admin {
     }
 
     /**
-     * Two-letter country for the current wp-admin request via Cloudflare.
-     * Prefers CF-IPCountry / HTTP_CF_IPCOUNTRY. Empty when absent/unknown —
-     * callers must treat that as non-US (GBP). Does not call a geo API.
+     * Two-letter country for the current wp-admin request.
+     * Same header list/order as AltText so the two plugins cannot disagree.
+     * First valid A–Z{2} wins. XX / T1 / ZZ / empty → unknown (GBP).
+     * Does not call a geo API.
      */
     private function get_request_country(): string {
-        $candidates = [];
-        if ( isset( $_SERVER['HTTP_CF_IPCOUNTRY'] ) ) {
-            $candidates[] = wp_unslash( (string) $_SERVER['HTTP_CF_IPCOUNTRY'] );
-        }
-        if ( isset( $_SERVER['CF-IPCountry'] ) ) {
-            $candidates[] = wp_unslash( (string) $_SERVER['CF-IPCountry'] );
-        }
-        // Some stacks expose the header with a different normalization.
-        if ( function_exists( 'getallheaders' ) ) {
-            foreach ( (array) getallheaders() as $name => $value ) {
-                if ( strtolower( (string) $name ) === 'cf-ipcountry' ) {
-                    $candidates[] = (string) $value;
-                }
+        // Keep in lockstep with AltText (same keys, same order).
+        $header_keys = [
+            'HTTP_CF_IPCOUNTRY',              // Cloudflare
+            'CF-IPCountry',
+            'HTTP_CLOUDFRONT_VIEWER_COUNTRY', // CloudFront
+            'HTTP_X_COUNTRY_CODE',
+            'HTTP_X_APPENGINE_COUNTRY',       // App Engine
+            'HTTP_X_VERCEL_IP_COUNTRY',       // Vercel
+        ];
+
+        foreach ( $header_keys as $key ) {
+            if ( empty( $_SERVER[ $key ] ) ) {
+                continue;
             }
-        }
-        foreach ( $candidates as $raw ) {
-            $code = strtoupper( preg_replace( '/[^A-Za-z]/', '', (string) $raw ) );
-            if ( strlen( $code ) === 2 && $code !== 'XX' && $code !== 'T1' ) {
-                return $code;
+            $raw  = wp_unslash( (string) $_SERVER[ $key ] );
+            $code = strtoupper( preg_replace( '/[^A-Za-z]/', '', $raw ) );
+            if ( strlen( $code ) !== 2 ) {
+                continue;
             }
+            // CDN placeholders for unknown / Tor / other — treat as missing.
+            if ( in_array( $code, [ 'XX', 'T1', 'ZZ' ], true ) ) {
+                continue;
+            }
+            return $code;
         }
+
         return '';
     }
 

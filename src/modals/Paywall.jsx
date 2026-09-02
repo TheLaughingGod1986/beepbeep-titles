@@ -67,7 +67,7 @@ export const Paywall = ({ open, onClose, trigger = 'default', entitlement, stats
     const starterPlan  = ( plans || [] ).find( p => p.id === 'starter' );
     const proPlan      = ( plans || [] ).find( p => p.id === 'pro' || p.id === 'growth' );
     const creditsPlan  = ( plans || [] ).find( p => p.id === 'credits' );
-    // US clients (CF-IPCountry=US from PHP): show USD amounts and checkout with USD price IDs.
+    // US clients (visitor country=US from PHP CDN headers): show USD amounts and checkout with USD price IDs.
     // Non-US keeps live /billing/plans (GBP) + hardcoded £ fallbacks.
     const billingCfg   = getInitialData()?.billing || {};
     const isUsClient   = billingCfg.isUs === true;

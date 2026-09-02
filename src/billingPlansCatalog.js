@@ -2,7 +2,7 @@
  * Titles paywall billing catalog.
  *
  * Non-US clients keep live /billing/plans (GBP) with the hardcoded £ fallbacks
- * in Paywall.jsx. US clients (Cloudflare CF-IPCountry=US) use the USD Stripe price IDs and amounts
+ * in Paywall.jsx. US clients (visitor country=US via shared CDN headers) use the USD Stripe price IDs and amounts
  * below for display + checkout.session — display currency must match charge.
  *
  * Do not replace existing GBP Stripe IDs. GBP Growth stays on whatever the

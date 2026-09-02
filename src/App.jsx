@@ -619,7 +619,7 @@ export default function App() {
     // ── Billing: open Stripe checkout / portal in a new tab (shared account) ──
     const goToCheckout = ( checkout = 'pro' ) => {
         const args = typeof checkout === 'string' ? { plan: checkout } : { ...checkout };
-        // US (CF-IPCountry=US): always send the USD Stripe price id so checkout.session
+        // US (visitor country=US): always send the USD Stripe price id so checkout.session
         // charges dollars. Non-US keeps plan-key resolution (GBP) on the backend.
         if ( ! args.priceId && initial?.billing?.isUs ) {
             const usdId = initial.billing.usdPriceIds?.[ args.plan === 'growth' ? 'pro' : args.plan ]

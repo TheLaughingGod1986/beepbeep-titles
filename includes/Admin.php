@@ -114,6 +114,9 @@ class Admin {
             'altTextCompanion' => $alt_text_companion,
             'internalLinkingCompanion' => $internal_linking_companion,
             'telemetry'  => Telemetry::client_config(),
+            // US Titles paywall: visitor country === US (same CDN header list as AltText) → USD.
+            // Missing/unknown (XX/T1/ZZ/empty) → GBP. Not WordPress locale / browser lang.
+            'billing'    => $this->get_billing_client_config(),
             // Same shape App.normalizeStats() / loadStats() consume.
             'stats'      => [
                 'total'               => $total,
@@ -131,6 +134,71 @@ class Admin {
     // ----------------------------------------------------------------
     // Helpers
     // ----------------------------------------------------------------
+
+    /**
+     * US client = visitor country is US (CDN country headers on the wp-admin
+     * request; same list/order as AltText). Not WordPress locale or browser language.
+     * Missing/unknown (XX/T1/ZZ/empty) → GBP (non-US). No geo API fallback.
+     *
+     * @return array{isUs: bool, usdPriceIds: array<string, string>, usdAmounts: array<string, float>}
+     */
+    private function get_billing_client_config(): array {
+        $is_us = ( $this->get_request_country() === 'US' );
+
+        return [
+            'isUs' => $is_us,
+            // Mirrored in src/billingPlansCatalog.js — keep IDs in sync.
+            'usdPriceIds' => [
+                'starter' => 'price_1UBBZlJl9Rm418cMyqCUYrxp',
+                'pro'     => 'price_1UBBOuJl9Rm418cMz5HG1Lnu', // Growth (billing id `pro`)
+                'agency'  => 'price_1UBBSDJl9Rm418cMvzW2OxG9',
+                'credits' => 'price_1UBBVeJl9Rm418cM1k7PC7wO',
+            ],
+            'usdAmounts' => [
+                'starter' => 6.99,
+                'pro'     => 17.99,
+                'agency'  => 67.99,
+                'credits' => 13.99,
+            ],
+        ];
+    }
+
+    /**
+     * Two-letter country for the current wp-admin request.
+     * Same header list/order as AltText so the two plugins cannot disagree.
+     * First valid A–Z{2} wins. XX / T1 / ZZ / empty → unknown (GBP).
+     * Does not call a geo API.
+     */
+    private function get_request_country(): string {
+        // Keep in lockstep with AltText (same keys, same order).
+        $header_keys = [
+            'HTTP_CF_IPCOUNTRY',              // Cloudflare
+            'CF-IPCountry',
+            'HTTP_CLOUDFRONT_VIEWER_COUNTRY', // CloudFront
+            'HTTP_X_COUNTRY_CODE',
+            'HTTP_X_APPENGINE_COUNTRY',       // App Engine
+            'HTTP_X_VERCEL_IP_COUNTRY',       // Vercel
+        ];
+
+        foreach ( $header_keys as $key ) {
+            if ( empty( $_SERVER[ $key ] ) ) {
+                continue;
+            }
+            $raw  = wp_unslash( (string) $_SERVER[ $key ] );
+            $code = strtoupper( preg_replace( '/[^A-Za-z]/', '', $raw ) );
+            if ( strlen( $code ) !== 2 ) {
+                continue;
+            }
+            // CDN placeholders for unknown / Tor / other — treat as missing.
+            if ( in_array( $code, [ 'XX', 'T1', 'ZZ' ], true ) ) {
+                continue;
+            }
+            return $code;
+        }
+
+        return '';
+    }
+
 
     /**
      * Both companion detections below delegate to OptiAI Core's

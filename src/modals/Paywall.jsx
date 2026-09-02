@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Icon, Button } from '../components';
 import { Modal } from './Modal';
-import { fetchPlans } from '../api';
+import { fetchPlans, getInitialData } from '../api';
+import { getUsdPlan, getUsdPriceId } from '../billingPlansCatalog';
 import {
     CREDITS_PER_PAGE,
     creditsPerPage,
@@ -66,17 +67,31 @@ export const Paywall = ({ open, onClose, trigger = 'default', entitlement, stats
     const starterPlan  = ( plans || [] ).find( p => p.id === 'starter' );
     const proPlan      = ( plans || [] ).find( p => p.id === 'pro' || p.id === 'growth' );
     const creditsPlan  = ( plans || [] ).find( p => p.id === 'credits' );
+    // US clients (visitor country=US from PHP CDN headers): show USD amounts and checkout with USD price IDs.
+    // Non-US keeps live /billing/plans (GBP) + hardcoded £ fallbacks.
+    const billingCfg   = getInitialData()?.billing || {};
+    const isUsClient   = billingCfg.isUs === true;
+    const usdStarter   = getUsdPlan( 'starter' );
+    const usdPro       = getUsdPlan( 'pro' );
+    const usdCredits   = getUsdPlan( 'credits' );
     // Prefer live catalog prices; only fall back once the fetch finished empty
     // so we never flash a stale hardcoded amount over a different Stripe price.
-    const starterPrice = starterPlan
-        ? fmtPrice( starterPlan.price, starterPlan.currency )
-        : ( plansLoading ? '…' : '£4.99' );
+    // US overrides live GBP amounts so display currency matches Stripe charge.
+    const starterPrice = isUsClient && usdStarter
+        ? fmtPrice( usdStarter.amount, usdStarter.currency )
+        : ( starterPlan
+            ? fmtPrice( starterPlan.price, starterPlan.currency )
+            : ( plansLoading ? '…' : '£4.99' ) );
     const starterQuota = starterPlan?.quota || 100;
-    const proPrice     = proPlan
-        ? fmtPrice( proPlan.price, proPlan.currency )
-        : ( plansLoading ? '…' : '£12.99' );
+    const proPrice     = isUsClient && usdPro
+        ? fmtPrice( usdPro.amount, usdPro.currency )
+        : ( proPlan
+            ? fmtPrice( proPlan.price, proPlan.currency )
+            : ( plansLoading ? '…' : '£12.99' ) );
     const proQuota     = proPlan?.quota || 1000;
-    const creditsPrice = creditsPlan ? fmtPrice( creditsPlan.price, creditsPlan.currency ) : '£9.99';
+    const creditsPrice = isUsClient && usdCredits
+        ? fmtPrice( usdCredits.amount, usdCredits.currency )
+        : ( creditsPlan ? fmtPrice( creditsPlan.price, creditsPlan.currency ) : '£9.99' );
     const creditsQuota = creditsPlan?.quota || 100;
     // The backend flags a plan `available:false` (and drops its priceId) when its
     // Stripe price can't be retrieved — don't offer a CTA that would dead-end at
@@ -105,9 +120,11 @@ export const Paywall = ({ open, onClose, trigger = 'default', entitlement, stats
         && isInsufficientCredits( remainingCredits, pageCost );
 
     // Pro-vs-Starter value framing, derived from live prices/quotas.
-    const monthlyExtra = ( proPlan && starterPlan && proPlan.price > starterPlan.price )
-        ? fmtPrice( Math.round( ( proPlan.price - starterPlan.price ) * 100 ) / 100, proPlan.currency )
-        : ( plansLoading ? '…' : '£8' );
+    const monthlyExtra = ( isUsClient && usdPro && usdStarter )
+        ? fmtPrice( Math.round( ( usdPro.amount - usdStarter.amount ) * 100 ) / 100, usdPro.currency )
+        : ( ( proPlan && starterPlan && proPlan.price > starterPlan.price )
+            ? fmtPrice( Math.round( ( proPlan.price - starterPlan.price ) * 100 ) / 100, proPlan.currency )
+            : ( plansLoading ? '…' : '£8' ) );
     const capacityMult = ( proQuota && starterQuota ) ? Math.max( 2, Math.round( proQuota / starterQuota ) ) : 10;
 
     const checkout = ( planId ) => {
@@ -117,9 +134,12 @@ export const Paywall = ({ open, onClose, trigger = 'default', entitlement, stats
             return;
         }
         const plan = ( plans || [] ).find( p => p.id === planId || ( planId === 'pro' && p.id === 'growth' ) );
-        const checkoutArgs = plan?.priceId
-            ? { plan: planId, priceId: plan.priceId }
-            : { plan: planId };
+        const usdPriceId = isUsClient ? ( billingCfg.usdPriceIds?.[ planId === 'growth' ? 'pro' : planId ] || getUsdPriceId( planId ) ) : null;
+        const checkoutArgs = usdPriceId
+            ? { plan: planId, priceId: usdPriceId }
+            : ( plan?.priceId
+                ? { plan: planId, priceId: plan.priceId }
+                : { plan: planId } );
         setCheckoutBusy( planId );
         // Clear the busy flag if the opener stays on this screen (failure toast /
         // portal). Success navigates away via Stripe so unmount covers it.

@@ -320,6 +320,8 @@ export function getInitialData() {
         siteUrl:    data.siteUrl    ?? ( typeof window !== 'undefined' ? window.location?.origin : '' ),
         altTextCompanion: data.altTextCompanion ?? { state: 'missing', label: 'Install ALT Text', icon: 'upload', url: '' },
         internalLinkingCompanion: data.internalLinkingCompanion ?? { state: 'missing', label: 'Install Internal Linking', icon: 'upload', url: '' },
+        // US paywall (visitor country=US from PHP CDN headers): USD amounts + Stripe price IDs.
+        billing:   data.billing ?? { isUs: false, usdPriceIds: {}, usdAmounts: {} },
         // Seeded from PHP so Home/Audit first paint has real coverage numbers.
         stats:     normalizeStats( data.stats ),
         // Quota is fetched on mount; this is just a neutral placeholder so the

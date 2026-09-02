@@ -114,6 +114,9 @@ class Admin {
             'altTextCompanion' => $alt_text_companion,
             'internalLinkingCompanion' => $internal_linking_companion,
             'telemetry'  => Telemetry::client_config(),
+            // US Titles paywall: Cloudflare CF-IPCountry === US → USD price IDs.
+            // Missing/unknown country → GBP. Not WordPress locale / en_US / browser lang.
+            'billing'    => $this->get_billing_client_config(),
             // Same shape App.normalizeStats() / loadStats() consume.
             'stats'      => [
                 'total'               => $total,
@@ -131,6 +134,65 @@ class Admin {
     // ----------------------------------------------------------------
     // Helpers
     // ----------------------------------------------------------------
+
+    /**
+     * US client = visitor country is US (Cloudflare CF-IPCountry on the
+     * wp-admin request). Not WordPress locale, en_US, or browser language.
+     * Missing/unknown country → GBP (non-US). No geo API fallback.
+     *
+     * @return array{isUs: bool, usdPriceIds: array<string, string>, usdAmounts: array<string, float>}
+     */
+    private function get_billing_client_config(): array {
+        $is_us = ( $this->get_request_country() === 'US' );
+
+        return [
+            'isUs' => $is_us,
+            // Mirrored in src/billingPlansCatalog.js — keep IDs in sync.
+            'usdPriceIds' => [
+                'starter' => 'price_1UBBZlJl9Rm418cMyqCUYrxp',
+                'pro'     => 'price_1UBBOuJl9Rm418cMz5HG1Lnu', // Growth (billing id `pro`)
+                'agency'  => 'price_1UBBSDJl9Rm418cMvzW2OxG9',
+                'credits' => 'price_1UBBVeJl9Rm418cM1k7PC7wO',
+            ],
+            'usdAmounts' => [
+                'starter' => 6.99,
+                'pro'     => 17.99,
+                'agency'  => 67.99,
+                'credits' => 13.99,
+            ],
+        ];
+    }
+
+    /**
+     * Two-letter country for the current wp-admin request via Cloudflare.
+     * Prefers CF-IPCountry / HTTP_CF_IPCOUNTRY. Empty when absent/unknown —
+     * callers must treat that as non-US (GBP). Does not call a geo API.
+     */
+    private function get_request_country(): string {
+        $candidates = [];
+        if ( isset( $_SERVER['HTTP_CF_IPCOUNTRY'] ) ) {
+            $candidates[] = wp_unslash( (string) $_SERVER['HTTP_CF_IPCOUNTRY'] );
+        }
+        if ( isset( $_SERVER['CF-IPCountry'] ) ) {
+            $candidates[] = wp_unslash( (string) $_SERVER['CF-IPCountry'] );
+        }
+        // Some stacks expose the header with a different normalization.
+        if ( function_exists( 'getallheaders' ) ) {
+            foreach ( (array) getallheaders() as $name => $value ) {
+                if ( strtolower( (string) $name ) === 'cf-ipcountry' ) {
+                    $candidates[] = (string) $value;
+                }
+            }
+        }
+        foreach ( $candidates as $raw ) {
+            $code = strtoupper( preg_replace( '/[^A-Za-z]/', '', (string) $raw ) );
+            if ( strlen( $code ) === 2 && $code !== 'XX' && $code !== 'T1' ) {
+                return $code;
+            }
+        }
+        return '';
+    }
+
 
     /**
      * Both companion detections below delegate to OptiAI Core's

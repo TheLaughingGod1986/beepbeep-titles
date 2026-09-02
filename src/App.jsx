@@ -8,6 +8,7 @@ import { BillingScreen } from './screens/Billing';
 import { SettingsScreen } from './screens/Settings';
 import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal, ConnectModal, BulkConfirm } from './modals/index';
 import { SignOutConfirm } from './auth';
+import { getUsdPriceId } from './billingPlansCatalog';
 import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, normalizeStats, createCheckout, createBillingPortal, clearLicense, saveSettings, fetchSettings, fetchHealth, fetchPriorities, fetchHealthItems, runHealthScan, undoPage, fetchAeo, resetGenerated } from './api';
 import { paywallTrigger, errorToast, checkoutErrorToast } from './errors';
 import { hasDailyCap } from './quota';
@@ -617,7 +618,16 @@ export default function App() {
 
     // ── Billing: open Stripe checkout / portal in a new tab (shared account) ──
     const goToCheckout = ( checkout = 'pro' ) => {
-        const args = typeof checkout === 'string' ? { plan: checkout } : checkout;
+        const args = typeof checkout === 'string' ? { plan: checkout } : { ...checkout };
+        // US (CF-IPCountry=US): always send the USD Stripe price id so checkout.session
+        // charges dollars. Non-US keeps plan-key resolution (GBP) on the backend.
+        if ( ! args.priceId && initial?.billing?.isUs ) {
+            const usdId = initial.billing.usdPriceIds?.[ args.plan === 'growth' ? 'pro' : args.plan ]
+                || getUsdPriceId( args.plan );
+            if ( usdId ) {
+                args.priceId = usdId;
+            }
+        }
         if ( ! connected ) {
             setPaywall( { open: false, trigger: 'default', entitlement: null } );
             openConnect( 'password' );

@@ -2,8 +2,12 @@
  * OpptiAI Titles — client telemetry helper.
  *
  * Batches allowlisted activity events to POST /telemetry, which the PHP
- * Telemetry class forwards to PostHog. Never sends titles, emails, or keys.
+ * Telemetry class forwards to PostHog. When consent is granted, also inits
+ * posthog-js for session replay + exception autocapture (self-driving signals).
+ * Never sends titles, emails, or keys in custom events.
  */
+
+import posthog from 'posthog-js';
 
 const data = window.beeptiAdminData ?? {};
 const BASE = data.apiBase ?? '/wp-json/beepbeep-titles/v1';
@@ -35,6 +39,7 @@ const FEATURE_NAMES = {
 let queue = [];
 let flushTimer = null;
 let lastScreen = '';
+let sdkReady = false;
 
 function randomId( prefix ) {
 	return `${ prefix }_${ Date.now().toString( 36 ) }_${ Math.random().toString( 36 ).slice( 2, 10 ) }`;
@@ -115,6 +120,55 @@ function baseProps() {
 	if ( cfg.userId ) props.user_id = cfg.userId;
 
 	return props;
+}
+
+/**
+ * Init PostHog JS SDK (session replay + exception autocapture) when consent
+ * and project credentials are present. Safe to call once at app boot.
+ */
+export function initBrowserTelemetry() {
+	if ( sdkReady || ! enabled() || ! cfg.apiKey || ! cfg.apiHost ) {
+		return;
+	}
+
+	try {
+		posthog.init( cfg.apiKey, {
+			api_host: cfg.apiHost,
+			defaults: '2025-05-24',
+			autocapture: false,
+			capture_pageview: false,
+			capture_pageleave: true,
+			persistence: 'localStorage+cookie',
+			person_profiles: 'identified_only',
+			disable_session_recording: cfg.sessionRecordingEnabled === false,
+			capture_exceptions: cfg.captureExceptions !== false,
+			session_recording: {
+				maskAllInputs: true,
+				maskTextSelector: '[data-beepti-mask], .beepti-mask',
+			},
+			loaded: ( client ) => {
+				const distinctId = cfg.distinctId || '';
+				if ( distinctId ) {
+					client.identify( distinctId, {
+						plugin_slug: cfg.pluginSlug || 'opptiai-titles',
+						plugin_id: cfg.pluginId || 'titles',
+						product: cfg.product || 'title_meta',
+						plugin_version: cfg.pluginVersion || data.version || '',
+						site_install_id: cfg.siteInstallId || '',
+						environment: cfg.environment || 'production',
+						user_state: cfg.connected ? 'connected' : 'guest',
+					} );
+				}
+				client.register( baseProps() );
+				if ( cfg.sessionRecordingEnabled !== false && typeof client.startSessionRecording === 'function' ) {
+					client.startSessionRecording();
+				}
+			},
+		} );
+		sdkReady = true;
+	} catch ( e ) {
+		// Analytics must never break the admin UI.
+	}
 }
 
 async function flush() {

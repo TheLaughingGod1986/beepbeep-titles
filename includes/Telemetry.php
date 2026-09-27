@@ -277,20 +277,40 @@ class Telemetry {
 	/**
 	 * Config blob localised into the React app.
 	 *
+	 * When consent is granted, includes the project API key so the admin SPA can
+	 * init posthog-js (session replay + exception autocapture) for self-driving.
+	 * The key is write-only (same pattern as Alt Text); never localise when consent
+	 * is off.
+	 *
 	 * @return array<string,mixed>
 	 */
 	public static function client_config(): array {
-		$client = new Client();
-		return [
-			'enabled'        => self::has_consent(),
-			'pluginSlug'     => self::PLUGIN_SLUG,
-			'pluginId'       => defined( 'BEEPTI_PLUGIN_ID' ) ? BEEPTI_PLUGIN_ID : 'titles',
-			'product'        => self::PRODUCT,
-			'pluginVersion'  => BEEPTI_VERSION,
-			'siteInstallId'  => $client->install_hash(),
-			'connected'      => $client->has_license(),
-			'environment'    => defined( 'BEEPTI_PLUGIN_ENV' ) ? BEEPTI_PLUGIN_ENV : 'production',
+		$client  = new Client();
+		$consent = self::has_consent();
+		$config  = [
+			'enabled'                 => $consent,
+			'pluginSlug'              => self::PLUGIN_SLUG,
+			'pluginId'                => defined( 'BEEPTI_PLUGIN_ID' ) ? BEEPTI_PLUGIN_ID : 'titles',
+			'product'                 => self::PRODUCT,
+			'pluginVersion'           => BEEPTI_VERSION,
+			'siteInstallId'           => $client->install_hash(),
+			'connected'               => $client->has_license(),
+			'environment'             => defined( 'BEEPTI_PLUGIN_ENV' ) ? BEEPTI_PLUGIN_ENV : 'production',
+			'distinctId'              => self::distinct_id(),
+			'apiKey'                  => '',
+			'apiHost'                 => '',
+			'sessionRecordingEnabled' => false,
+			'captureExceptions'       => false,
 		];
+
+		if ( $consent ) {
+			$config['apiKey']                  = self::get_api_key();
+			$config['apiHost']                 = self::get_api_host();
+			$config['sessionRecordingEnabled'] = (bool) apply_filters( 'beepti_posthog_session_recording_enabled', true );
+			$config['captureExceptions']       = (bool) apply_filters( 'beepti_posthog_capture_exceptions_enabled', true );
+		}
+
+		return $config;
 	}
 
 	/**

@@ -7,6 +7,9 @@
 import './index.css';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import { initBrowserTelemetry } from './telemetry';
+
+initBrowserTelemetry();
 
 const root = document.getElementById( 'beepti-root' );
 if ( root ) {

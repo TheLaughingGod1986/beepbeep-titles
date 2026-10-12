@@ -335,7 +335,7 @@ class Telemetry {
 		];
 
 		// Caller props can never reintroduce identifying keys.
-		foreach ( [ 'site_host', 'host', 'site_hash', 'site_id', 'site_install_id', 'site_url', 'email_hash', 'account_id', 'user_id' ] as $k ) {
+		foreach ( [ 'site_host', 'host', 'hostname', 'site_hash', 'site_id', 'site_install_id', 'site_url', 'email_hash', 'account_id', 'user_id', 'post_id', 'post_ids', 'url', 'page_url', '$current_url', '$pathname', '$host', 'referrer', '$referrer', '$referring_domain', 'current_url', 'pathname', 'referring_domain', 'search', 'search_term', 'query', 'error_message', 'error' ] as $k ) {
 			unset( $props[ $k ] );
 		}
 		$merged = array_merge( $base, $props );

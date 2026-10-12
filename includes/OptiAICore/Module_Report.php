@@ -46,18 +46,19 @@ class Module_Report {
 	public static function build( $module, $name ) {
 		$repo    = new Scan_Repository( $module );
 		$summary = $repo->get_summary();
-		$prev    = $repo->get_previous_score();
+		$scanned = (int) ( $summary['total'] ?? 0 ) > 0;
+		$prev    = $scanned ? $repo->get_previous_score() : null;
 
 		return array(
 			'module'          => $module,
 			'name'            => $name,
-			'score'           => $summary['score'],
-			'status'          => $summary['status'],
+			'score'           => $scanned ? $summary['score'] : 0,
+			'status'          => $scanned ? $summary['status'] : 'unknown',
 			'critical_issues' => $summary['critical'],
 			'items_improved'  => $summary['optimised_this_week'],
 			'items_remaining' => max( 0, $summary['total'] - array_sum( array( $summary['by_status']['excellent'] ) ) ),
 			'last_scan'       => $summary['last_scanned_at'],
-			'trend'           => Health_Score::trend( $summary['score'], $prev ),
+			'trend'           => $scanned ? Health_Score::trend( $summary['score'], $prev ) : null,
 		);
 	}
 }

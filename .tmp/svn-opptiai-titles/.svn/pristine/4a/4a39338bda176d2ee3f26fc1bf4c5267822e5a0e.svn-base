@@ -1,0 +1,273 @@
+import { useState } from 'react';
+import { Icon, Card, Pill, Button, Divider, Toggle, SerpPreview } from '../components';
+import { PageShell, Row, Stack } from '../ui';
+import { saveSettings } from '../api';
+
+// Sample copy is deliberately longer than the largest length tier (65 chars
+// for title, 170 for meta) for every preset. Shorter samples never get
+// trimmed by trimToChars() regardless of which length option is selected, so
+// switching Compact/Standard/Rich (or Brief/Standard/Detailed) would look
+// like it does nothing in the preview below.
+const PRESETS = [
+    { id: 'direct',        label: 'Direct',        desc: 'Plain, factual phrasing. Best for utility pages, docs, support.',                     sampleTitle: 'Cappuccino, Latte & Macchiato Brewing Techniques and Tutorials | My Site',                                  sampleMeta: 'Learn cappuccino, latte, and macchiato brewing techniques with our free step-by-step tutorials, high-resolution photos, and short videos for any home espresso machine or milk frother setup.' },
+    { id: 'benefit',       label: 'Benefit-led',   desc: 'Leads with the outcome. Higher click-through on commercial pages.',                    sampleTitle: 'Make Cafe-Quality Cappuccino, Latte and Macchiato At Home in Minutes',                           sampleMeta: 'Stop paying $6 a cup for coffee. Our barista-tested method gets you silky microfoam and perfectly balanced espresso shots every single morning, using gear you probably already own at home.' },
+    { id: 'authoritative', label: 'Authoritative', desc: 'Credibility signals. Good for guides, cornerstone content, longform.',                sampleTitle: 'The Complete Guide to Cappuccino, Latte and Macchiato Art (2026 Edition)',                            sampleMeta: 'From milk temperature to free pours — this is the definitive cappuccino and latte art guide trusted by thousands of home baristas, written and fact-checked by expert coffee trainers.' },
+    { id: 'conversational',label: 'Conversational',desc: 'Friendly and human. Lowers click-friction on blog content.',                          sampleTitle: 'Cappuccino, Latte and Macchiato, But Actually Good — Right At Home',                                     sampleMeta: 'We\'ve spent years dialing in coffee for our own kitchen, and honestly made every mistake along the way. Here\'s everything we\'d tell a friend about getting started, no gatekeeping.' },
+];
+
+const TITLE_LENGTHS = [
+    { id: 'compact',  label: 'Compact',  range: '40–50 chars' },
+    { id: 'standard', label: 'Standard', range: '50–60 chars' },
+    { id: 'rich',     label: 'Rich',     range: '60–65 chars' },
+];
+const META_LENGTHS = [
+    { id: 'brief',    label: 'Brief',    range: '110–130 chars' },
+    { id: 'standard', label: 'Standard', range: '140–160 chars' },
+    { id: 'detailed', label: 'Detailed', range: '160–170 chars' },
+];
+
+const TITLE_MAX = { compact: 50, standard: 60, rich: 65 };
+const META_MAX  = { brief: 130, standard: 160, detailed: 170 };
+
+const trimToChars = ( text, max ) => {
+    if ( text.length <= max ) return text;
+    const slice = text.slice( 0, max );
+    const lastSpace = slice.lastIndexOf( ' ' );
+    return slice.slice( 0, lastSpace > max - 12 ? lastSpace : max ).replace( /[,.;:\s]$/, '' ) + '…';
+};
+
+export const AutopilotScreen = ({ settings, autoOptimise, onAutoToggle, onToast, locked = false, onUpgrade }) => {
+    const [style, setStyle]           = useState( settings?.tone || 'direct' );
+    const [titleLen, setTitleLen]     = useState( settings?.title_length || 'standard' );
+    const [metaLen, setMetaLen]       = useState( settings?.meta_length  || 'standard' );
+    const [instructions, setInstructions] = useState( settings?.custom_instructions || '' );
+    const [saving, setSaving]         = useState( false );
+    const preset = PRESETS.find( p => p.id === style );
+    const previewTitle = trimToChars( preset.sampleTitle, TITLE_MAX[titleLen] );
+    const previewMeta  = trimToChars( preset.sampleMeta,  META_MAX[metaLen] );
+
+    const openUpgrade = ( e ) => {
+        e?.preventDefault?.();
+        e?.stopPropagation?.();
+        onUpgrade?.();
+    };
+
+    const handleSave = async () => {
+        if ( locked ) { openUpgrade(); return; }
+        setSaving( true );
+        try {
+            await saveSettings( { tone: style, title_length: titleLen, meta_length: metaLen, custom_instructions: instructions } );
+            if ( onToast ) onToast( { message: 'Settings saved', icon: 'check', tone: 'ok' } );
+        } catch ( e ) {
+            if ( onToast ) onToast( { message: 'Failed to save settings', icon: 'alert', tone: 'warn' } );
+        } finally {
+            setSaving( false );
+        }
+    };
+
+    const handleReset = () => {
+        if ( locked ) { openUpgrade(); return; }
+        setStyle( 'direct' );
+        setTitleLen( 'standard' );
+        setMetaLen( 'standard' );
+        setInstructions( '' );
+    };
+
+    return (
+        <PageShell style={{ paddingTop: 24, paddingBottom: 56 }}>
+            <div style={{ position: 'relative' }}>
+                <div
+                    style={locked ? { pointerEvents: 'none', userSelect: 'none' } : undefined}
+                    aria-hidden={locked || undefined}
+                >
+                    <div style={{ marginBottom: 18 }}>
+                        <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 5 }}>Autopilot</div>
+                        <h1 style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em', margin: 0, lineHeight: 1.2 }}>Hands-off page SEO</h1>
+                        <p style={{ fontSize: 13, color: 'var(--text-2)', margin: '4px 0 0', maxWidth: 580, lineHeight: 1.5 }}>
+                            Decide how OpptiAI Titles writes page titles and meta descriptions — and let it run quietly in the background every time you publish.
+                        </p>
+                    </div>
+
+                    <AutopilotHero on={autoOptimise} onToggle={() => onAutoToggle( !autoOptimise )}/>
+
+                    <SectionTitle eyebrow="Generation" title="How OpptiAI Titles writes" subtitle="These preferences apply to every page — manual and automated."/>
+
+                    <>
+                        <Card padding={0} style={{ marginBottom: 12 }}>
+                            <div style={{ padding: '16px 20px' }}>
+                                <Label>Tone</Label>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginTop: 8 }}>
+                                    {PRESETS.map( p => <PresetCard key={p.id} preset={p} active={style === p.id} onClick={() => setStyle( p.id )}/>)}
+                                </div>
+                            </div>
+                            <Divider/>
+                            <LengthRow label="Title length"            options={TITLE_LENGTHS} value={titleLen}  onChange={setTitleLen}/>
+                            <Divider/>
+                            <LengthRow label="Meta description length" options={META_LENGTHS}  value={metaLen}   onChange={setMetaLen}/>
+                            <Divider/>
+                            <div style={{ padding: '16px 20px' }}>
+                                <Row align="baseline" justify="between">
+                                    <Label>Custom instructions <span style={{ color: 'var(--text-3)', fontWeight: 400, marginLeft: 6 }}>Optional</span></Label>
+                                    <span className="mono" style={{ fontSize: 11, color: 'var(--text-3)' }}>{instructions.length}/280</span>
+                                </Row>
+                                <textarea
+                                    value={instructions}
+                                    onChange={e => setInstructions( e.target.value.slice( 0, 280 ) )}
+                                    placeholder='e.g. "Always include the city in the title for location pages."'
+                                    rows={3}
+                                    readOnly={locked}
+                                    tabIndex={locked ? -1 : undefined}
+                                    style={{ width: '100%', marginTop: 8, padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', fontSize: 13, fontFamily: 'var(--font-sans)', color: 'var(--text)', background: 'var(--surface)', resize: 'vertical', minHeight: 68, lineHeight: 1.5, outline: 0 }}/>
+                            </div>
+                        </Card>
+
+                        <SERPPreviewCard preset={preset} title={previewTitle} meta={previewMeta} instructions={instructions}/>
+
+                        <Row justify="end" style={{ marginTop: 18 }}>
+                            <Button variant="ghost" size="md" onClick={handleReset}>Reset defaults</Button>
+                            <Button variant="primary" size="md" icon="check" onClick={handleSave} disabled={saving}>
+                                {saving ? 'Saving…' : 'Save changes'}
+                            </Button>
+                        </Row>
+                    </>
+                </div>
+
+                {locked && (
+                    <div
+                        role="button"
+                        tabIndex={0}
+                        aria-label="Autopilot requires a Starter or Pro subscription. Activate to upgrade."
+                        onClick={openUpgrade}
+                        onKeyDown={ ( e ) => {
+                            if ( e.key === 'Enter' || e.key === ' ' ) {
+                                e.preventDefault();
+                                openUpgrade( e );
+                            }
+                        } }
+                        style={{
+                            position: 'absolute',
+                            inset: 0,
+                            zIndex: 5,
+                            cursor: 'pointer',
+                            background: 'transparent',
+                        }}
+                    />
+                )}
+            </div>
+        </PageShell>
+    );
+};
+
+const AutopilotHero = ({ on, onToggle }) => {
+    return (
+        <Card padding={0} style={{ marginBottom: 22, borderColor: on ? 'var(--ok-border)' : 'var(--border)' }}>
+            <Row gap={14} style={{ padding: '16px 20px' }}>
+                <div style={{ width: 36, height: 36, borderRadius: 9, background: on ? 'var(--ok-soft)' : 'var(--bg-sunken)', color: on ? 'var(--ok-ink)' : 'var(--text-3)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: `1px solid ${on ? 'var(--ok-border)' : 'var(--border)'}` }}>
+                    <Icon name="zap" size={18} strokeWidth={2}/>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <Row style={{ marginBottom: 2 }}>
+                        <span style={{ fontSize: 14, fontWeight: 600 }}>Auto-generate on publish</span>
+                        {on ? <Pill tone="ok"><span className="pulse-dot" style={{ width: 6, height: 6 }}/> Running</Pill> : <Pill tone="neutral">Paused</Pill>}
+                    </Row>
+                    <div style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.45 }}>
+                        {on ? 'OpptiAI Titles will write a title & meta description for every page the moment it goes live.' : 'Turn this on so you never have to think about title & meta again.'}
+                    </div>
+                </div>
+                <Toggle on={on} onChange={onToggle}/>
+            </Row>
+            {on && (
+                <Row className="fade-in" gap={24} style={{ borderTop: '1px solid var(--hairline)', padding: '10px 20px', background: 'var(--surface-2)', fontSize: 12 }}>
+                    <HeroStat label="Optimised, last 24h" value="—"/>
+                    <HeroStat label="Avg generation time" value="~2s"/>
+                    <HeroStat label="Last run" value="Just now"/>
+                </Row>
+            )}
+        </Card>
+    );
+};
+
+const HeroStat = ({ label, value }) => (
+    <Stack gap={2}>
+        <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 500 }}>{label}</span>
+        <span className="mono tnum" style={{ fontSize: 13, color: 'var(--text)', fontWeight: 600 }}>{value}</span>
+    </Stack>
+);
+
+const SectionTitle = ({ eyebrow, title, subtitle, pill }) => (
+    <div style={{ margin: '20px 0 10px' }}>
+        <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>{eyebrow}</div>
+        <Row>
+            <h2 style={{ fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em', margin: 0, lineHeight: 1.25 }}>{title}</h2>
+            {pill}
+        </Row>
+        {subtitle && <div style={{ fontSize: 12.5, color: 'var(--text-3)', marginTop: 2, lineHeight: 1.45 }}>{subtitle}</div>}
+    </div>
+);
+
+const Label = ({ children }) => (
+    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{children}</div>
+);
+
+const LengthRow = ({ label, options, value, onChange }) => (
+    <div style={{ padding: '16px 20px' }}>
+        <Label>{label}</Label>
+        <Row gap={3} align="stretch" style={{ marginTop: 8, background: 'var(--bg-sunken)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', padding: 3 }}>
+            {options.map( l => {
+                const isOn = value === l.id;
+                return (
+                    <button key={l.id} onClick={() => onChange( l.id )} style={{ flex: 1, padding: '7px 12px', background: isOn ? 'var(--surface)' : 'transparent', color: 'var(--text)', border: '1px solid', borderColor: isOn ? 'var(--border)' : 'transparent', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: 'pointer', textAlign: 'left', transition: 'all .15s cubic-bezier(0.16,1,0.3,1)', boxShadow: isOn ? '0 1px 2px rgba(15,23,42,0.06)' : 'none' }}>
+                        <div style={{ lineHeight: 1.2 }}>{l.label}</div>
+                        <div className="mono" style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-3)', marginTop: 2 }}>{l.range}</div>
+                    </button>
+                );
+            } )}
+        </Row>
+    </div>
+);
+
+const PresetCard = ({ preset, active, onClick }) => (
+    <button onClick={onClick} style={{ textAlign: 'left', padding: '12px 14px', background: active ? 'var(--primary-soft)' : 'var(--surface)', border: '1px solid', borderColor: active ? 'var(--primary-border)' : 'var(--border)', borderRadius: 'var(--r-md)', cursor: 'pointer', transition: 'all .15s cubic-bezier(0.16,1,0.3,1)' }}>
+        <Row style={{ marginBottom: 3 }}>
+            <span style={{ width: 14, height: 14, borderRadius: '50%', border: `1.5px solid ${active ? 'var(--primary)' : 'var(--border-strong)'}`, background: active ? 'var(--primary)' : 'transparent', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                {active && <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#fff' }}/>}
+            </span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: active ? 'var(--primary-ink)' : 'var(--text)', whiteSpace: 'nowrap', lineHeight: 1.2 }}>{preset.label}</span>
+        </Row>
+        <div style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.45, paddingLeft: 22 }}>{preset.desc}</div>
+    </button>
+);
+
+const SERPPreviewCard = ({ preset, title, meta, instructions }) => (
+    <Card padding={0} style={{ marginBottom: 22, background: 'var(--surface-2)' }}>
+        <Row justify="between" style={{ padding: '10px 20px', borderBottom: '1px solid var(--hairline)' }}>
+            <Row gap={7}>
+                <Icon name="eye" size={13} style={{ color: 'var(--text-3)' }}/>
+                <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Search result preview</span>
+            </Row>
+            <span className="mono" style={{ fontSize: 11, color: 'var(--text-3)' }}>{preset.label}</span>
+        </Row>
+        <div style={{ padding: '18px 22px' }}>
+            <SerpPreview
+                variant="large"
+                faviconLetter="M"
+                siteName="My Site"
+                displayUrl="https://mysite.com › page"
+                title={title}
+                titleKey={title}
+                meta={meta}
+                metaKey={meta}
+                metaPrefix="May 2026 —"/>
+            <Row justify="between" align="stretch" style={{ marginTop: 10, fontSize: 11, color: 'var(--text-3)' }}>
+                <span className="mono">Title <span style={{ color: title.length > 60 ? 'var(--warn-ink)' : 'var(--text-2)', fontWeight: 600 }}>{title.length}</span>/60 chars</span>
+                <span className="mono">Meta <span style={{ color: meta.length > 160 ? 'var(--warn-ink)' : 'var(--text-2)', fontWeight: 600 }}>{meta.length}</span>/160 chars</span>
+            </Row>
+            {instructions && (
+                <Row align="start" gap={6} style={{ marginTop: 10, fontSize: 12, color: 'var(--text-3)', lineHeight: 1.45 }}>
+                    <Icon name="info" size={12} style={{ marginTop: 2, flexShrink: 0 }}/>
+                    <span>Your instructions will be applied: <em style={{ color: 'var(--text-2)' }}>"{instructions}"</em></span>
+                </Row>
+            )}
+        </div>
+    </Card>
+);

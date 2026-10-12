@@ -22,18 +22,21 @@ export function isPaywall( err ) {
  * card. Unknown/absent codes fall through to 'unknown' — never suppressed.
  */
 const CHECKOUT_ERROR_CATEGORIES = {
-    INVALID_LICENSE:      'user_configuration',
-    QUOTA_EXCEEDED:       'quota',
-    DAILY_QUOTA_EXCEEDED: 'quota',
-    PLAN_UNAVAILABLE:     'plan_availability',
-    NETWORK_ERROR:        'network',
-    OFFLINE:              'network',
-    FETCH_FAILED:         'network',
-    STRIPE_ERROR:         'stripe',
-    INTERNAL_ERROR:       'system',
-    RATE_LIMIT_EXCEEDED:  'system',
-    API_ERROR:            'system',
-    UNKNOWN_ERROR:        'unknown',
+    INVALID_LICENSE:             'user_configuration',
+    QUOTA_EXCEEDED:              'quota',
+    DAILY_QUOTA_EXCEEDED:        'quota',
+    PLAN_UNAVAILABLE:            'plan_availability',
+    SITE_LIMIT_EXCEEDED:         'plan_availability',
+    ACTIVE_SUBSCRIPTION_EXISTS:  'plan_availability',
+    CHECKOUT_RATE_LIMIT_EXCEEDED:'system',
+    NETWORK_ERROR:               'network',
+    OFFLINE:                     'network',
+    FETCH_FAILED:                'network',
+    STRIPE_ERROR:                'stripe',
+    INTERNAL_ERROR:              'system',
+    RATE_LIMIT_EXCEEDED:         'system',
+    API_ERROR:                   'system',
+    UNKNOWN_ERROR:               'unknown',
 };
 
 /**
@@ -70,13 +73,26 @@ export function checkoutErrorToast( err ) {
     if ( err?.code === 'OFFLINE' ) {
         return { message: 'You appear to be offline', sub: 'Reconnect and try again.', icon: 'alert', tone: 'warn' };
     }
-    if ( err?.code === 'RATE_LIMIT_EXCEEDED' ) {
-        return { message: 'Slow down a moment', sub: 'Too many requests — pausing briefly before retrying.', icon: 'info', tone: 'warn' };
+    if ( err?.code === 'RATE_LIMIT_EXCEEDED' || err?.code === 'CHECKOUT_RATE_LIMIT_EXCEEDED' ) {
+        return { message: 'Slow down a moment', sub: 'Too many checkout attempts — wait a minute and try again.', icon: 'info', tone: 'warn' };
+    }
+    if ( err?.code === 'SITE_LIMIT_EXCEEDED' || err?.code === 'ACTIVE_SUBSCRIPTION_EXISTS' ) {
+        return {
+            message: 'Couldn\'t start Pro checkout',
+            sub: 'This account already has an active subscription record. Open Billing to manage it, or try Starter.',
+            icon: 'alert',
+            tone: 'warn',
+        };
     }
     const detail = typeof err?.message === 'string' ? err.message.trim() : '';
+    // Prefer a real Stripe/backend detail; skip the opaque catch-all the API
+    // used to return before it started forwarding Stripe's own message.
+    const useful = detail && detail !== 'Failed to create checkout session'
+        ? detail
+        : '';
     return {
         message: 'Couldn\'t start checkout',
-        sub: detail || 'We couldn\'t reach Stripe. Please try again in a moment.',
+        sub: useful || 'We couldn\'t reach Stripe. Please try again in a moment.',
         icon: 'alert',
         tone: 'warn',
     };
@@ -91,6 +107,20 @@ export function errorToast( err ) {
             return { message: 'Slow down a moment', sub: 'Too many requests — pausing briefly before retrying.', icon: 'info', tone: 'warn' };
         case 'OFFLINE':
             return { message: 'You appear to be offline', sub: 'Reconnect and try again.', icon: 'alert', tone: 'warn' };
+        case 'rest_post_invalid_id':
+            return {
+                message: 'Page not found',
+                sub: err?.message || 'It may have been deleted. Run Quick Scan to refresh, then try again.',
+                icon: 'alert',
+                tone: 'warn',
+            };
+        case 'rest_forbidden':
+            return {
+                message: 'Permission denied',
+                sub: 'You don\'t have permission to edit that page, or it no longer exists. Try Quick Scan and retry.',
+                icon: 'alert',
+                tone: 'warn',
+            };
         default:
             return { message: 'Couldn\'t reach the generator', sub: 'Please try again in a moment.', icon: 'alert', tone: 'warn' };
     }

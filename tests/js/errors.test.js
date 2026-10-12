@@ -2,7 +2,7 @@
  * Unit tests for the error-code → UI mapping helpers (src/errors.js).
  */
 
-const { paywallTrigger, isPaywall, errorToast } = require( '../../src/errors' );
+const { paywallTrigger, isPaywall, errorToast, checkoutErrorToast, classifyCheckoutError } = require( '../../src/errors' );
 
 describe( 'paywallTrigger', () => {
 	test( 'DAILY_QUOTA_EXCEEDED maps to the daily-limit paywall', () => {
@@ -51,9 +51,48 @@ describe( 'errorToast', () => {
 		expect( toast.message ).toBe( 'You appear to be offline' );
 	} );
 
+	test( 'rest_post_invalid_id asks to refresh the scan', () => {
+		const toast = errorToast( { code: 'rest_post_invalid_id', message: 'Page not found.' } );
+		expect( toast.message ).toBe( 'Page not found' );
+		expect( toast.tone ).toBe( 'warn' );
+	} );
+
+	test( 'rest_forbidden is not mislabelled as a network error', () => {
+		const toast = errorToast( { code: 'rest_forbidden' } );
+		expect( toast.message ).toBe( 'Permission denied' );
+		expect( toast.message ).not.toBe( "Couldn't reach the generator" );
+	} );
+
 	test( 'unknown codes fall back to a generic toast', () => {
 		const toast = errorToast( { code: 'WHO_KNOWS' } );
 		expect( toast.message ).toBe( "Couldn't reach the generator" );
 		expect( errorToast( null ).message ).toBe( "Couldn't reach the generator" );
+	} );
+} );
+
+describe( 'checkoutErrorToast', () => {
+	test( 'SITE_LIMIT_EXCEEDED explains the Pro dead-end clearly', () => {
+		const toast = checkoutErrorToast( { code: 'SITE_LIMIT_EXCEEDED' } );
+		expect( toast.message ).toBe( "Couldn't start Pro checkout" );
+		expect( toast.tone ).toBe( 'warn' );
+		expect( toast.sub ).toMatch( /subscription/i );
+	} );
+
+	test( 'surfaces backend Stripe messages for other failures', () => {
+		const toast = checkoutErrorToast( { code: 'STRIPE_ERROR', message: 'No such price: price_x' } );
+		expect( toast.message ).toBe( "Couldn't start checkout" );
+		expect( toast.sub ).toBe( 'No such price: price_x' );
+	} );
+
+	test( 'does not echo the opaque checkout catch-all as the toast detail', () => {
+		const toast = checkoutErrorToast( { code: 'STRIPE_ERROR', message: 'Failed to create checkout session' } );
+		expect( toast.message ).toBe( "Couldn't start checkout" );
+		expect( toast.sub ).toBe( "We couldn't reach Stripe. Please try again in a moment." );
+	} );
+} );
+
+describe( 'classifyCheckoutError', () => {
+	test( 'buckets SITE_LIMIT_EXCEEDED under plan_availability', () => {
+		expect( classifyCheckoutError( { code: 'SITE_LIMIT_EXCEEDED' } ).error_category ).toBe( 'plan_availability' );
 	} );
 } );

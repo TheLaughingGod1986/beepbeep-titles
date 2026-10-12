@@ -3,7 +3,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SLUG="beepbeep-titles"
+# WordPress.org directory / SVN slug (public URL: /plugins/opptiai-titles/).
+# Internal Text Domain, REST namespace, and BEEPTI_SLUG remain beepbeep-titles for BC.
+SLUG="opptiai-titles"
 VERSION="$(grep "define( 'BEEPTI_VERSION'" "$ROOT/beepbeep-titles.php" | sed -E "s/.*'([0-9.]+)'.*/\1/")"
 DIST="$ROOT/dist"
 STAGE="$DIST/$SLUG"

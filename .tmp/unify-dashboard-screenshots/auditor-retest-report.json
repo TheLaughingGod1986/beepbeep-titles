@@ -1,0 +1,73 @@
+{
+  "results": [
+    {
+      "plugin": "Auditor",
+      "tab": "Dashboard",
+      "pass": true,
+      "detail": "rootLen=657; console=0; dashboard content present (markers partial); --oa-primary=#2563EB",
+      "screenshot": "/Users/ben/code/web/beepbeep-titles/.tmp/unify-dashboard-screenshots/04-auditor-dashboard.png",
+      "consoleErrors": [],
+      "marketingOnly": false
+    },
+    {
+      "plugin": "Auditor",
+      "tab": "Website Audit",
+      "pass": true,
+      "detail": "rootLen=657; console=0; WARNING sparse content",
+      "screenshot": null,
+      "consoleErrors": [],
+      "marketingOnly": false
+    },
+    {
+      "plugin": "Auditor",
+      "tab": "Opportunities",
+      "pass": true,
+      "detail": "rootLen=657; console=0; WARNING sparse content",
+      "screenshot": null,
+      "consoleErrors": [],
+      "marketingOnly": false
+    },
+    {
+      "plugin": "Auditor",
+      "tab": "Progress",
+      "pass": true,
+      "detail": "rootLen=657; console=0; WARNING sparse content",
+      "screenshot": null,
+      "consoleErrors": [],
+      "marketingOnly": false
+    },
+    {
+      "plugin": "Auditor",
+      "tab": "Solutions",
+      "pass": true,
+      "detail": "rootLen=657; console=0; WARNING sparse content",
+      "screenshot": null,
+      "consoleErrors": [],
+      "marketingOnly": false
+    },
+    {
+      "plugin": "Auditor",
+      "tab": "Workspace",
+      "pass": true,
+      "detail": "rootLen=657; console=0; WARNING sparse content",
+      "screenshot": null,
+      "consoleErrors": [],
+      "marketingOnly": false
+    },
+    {
+      "plugin": "Internal Linking",
+      "tab": "Opportunities",
+      "pass": true,
+      "detail": "mounted; raw console=1; after filter=0; known501=true",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 501 (Not Implemented)"
+      ],
+      "preexisting501": true
+    }
+  ],
+  "summary": {
+    "total": 7,
+    "pass": 7,
+    "fail": 0
+  }
+}

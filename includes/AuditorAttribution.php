@@ -3,8 +3,8 @@
  * Website Auditor sign-up attribution.
  *
  * The OpptiAI Website Auditor's Fix buttons open Titles with
- * `source=auditor&finding=<check id>` (Auditor v1 also sends
- * `auditor_source=<check id>`). The page load remembers the check for the
+ * `source=auditor&finding=<check id>` (Auditor v1 may also send
+ * `auditor_source=<check id>`). Without `source=auditor` nothing is stored. The page load remembers the check for the
  * current user for a short window, and the sign-up request to the OpptiAI
  * backend (/auth/register) carries it as `auditor_source` + `finding`.
  *
@@ -103,16 +103,23 @@ class AuditorAttribution {
 
 	/**
 	 * Valid check id from the current request's `finding` or
-	 * `auditor_source` arg, or '' when neither holds one.
+	 * `auditor_source` arg, or '' when neither holds one. Requires the
+	 * Auditor tag `source=auditor`, exactly as Alt Text does; without it
+	 * nothing is read.
 	 */
 	public static function finding_from_request(): string {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only attribution tag from an admin link, no state change.
+		$source = isset( $_REQUEST['source'] ) && is_scalar( $_REQUEST['source'] ) ? sanitize_key( wp_unslash( (string) $_REQUEST['source'] ) ) : '';
+		if ( 'auditor' !== $source ) {
+			return '';
+		}
 		foreach ( [ 'finding', 'auditor_source' ] as $param ) {
 			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only attribution tag from an admin link, no state change.
-			if ( ! isset( $_GET[ $param ] ) || ! is_scalar( $_GET[ $param ] ) ) {
+			if ( ! isset( $_REQUEST[ $param ] ) || ! is_scalar( $_REQUEST[ $param ] ) ) {
 				continue;
 			}
 			// phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- normalize_finding() length-checks the raw value, runs sanitize_key() and an allow-list.
-			$finding = self::normalize_finding( wp_unslash( (string) $_GET[ $param ] ) );
+			$finding = self::normalize_finding( wp_unslash( (string) $_REQUEST[ $param ] ) );
 			if ( '' !== $finding ) {
 				return $finding;
 			}

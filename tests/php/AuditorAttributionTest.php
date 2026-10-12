@@ -80,6 +80,7 @@ namespace BeepBeep_Titles\Tests {
 			$GLOBALS['t_requests'] = [];
 			$GLOBALS['t_posthog'] = [];
 			$_GET = [];
+			$_REQUEST = [];
 		}
 
 		public function test_allow_list_matches_fixture_exactly(): void {
@@ -115,26 +116,42 @@ namespace BeepBeep_Titles\Tests {
 		}
 
 		public function test_landing_remembers_finding_or_auditor_source(): void {
-			$_GET = [ 'page' => 'beepbeep-titles', 'source' => 'auditor', 'finding' => 'duplicate_title' ];
+			$_GET = $_REQUEST = [ 'page' => 'beepbeep-titles', 'source' => 'auditor', 'finding' => 'duplicate_title' ];
 			A::remember();
 			$this->assertSame( 'duplicate_title', A::stored_finding() );
 
 			$this->setUp();
-			$_GET = [ 'page' => 'beepbeep-titles', 'auditor_source' => 'sitemap' ];
+			$_GET = $_REQUEST = [ 'page' => 'beepbeep-titles', 'source' => 'auditor', 'auditor_source' => 'sitemap' ];
 			A::remember();
 			$this->assertSame( 'sitemap_missing', A::stored_finding() );
 		}
 
 		public function test_landing_ignores_other_pages_junk_and_guests(): void {
-			$_GET = [ 'page' => 'other-plugin', 'finding' => 'missing_title' ];
+			$_GET = $_REQUEST = [ 'page' => 'other-plugin', 'source' => 'auditor', 'finding' => 'missing_title' ];
 			A::remember();
-			$_GET = [ 'page' => 'beepbeep-titles', 'finding' => 'nope' ];
+			$_GET = $_REQUEST = [ 'page' => 'beepbeep-titles', 'source' => 'auditor', 'finding' => 'nope' ];
 			A::remember();
 			$this->assertSame( [], $GLOBALS['t_meta'] );
 			$GLOBALS['t_user'] = 0;
-			$_GET = [ 'page' => 'beepbeep-titles', 'finding' => 'missing_title' ];
+			$_GET = $_REQUEST = [ 'page' => 'beepbeep-titles', 'source' => 'auditor', 'finding' => 'missing_title' ];
 			A::remember();
 			$this->assertSame( [], $GLOBALS['t_meta'] );
+		}
+
+		public function test_finding_without_auditor_tag_stores_nothing(): void {
+			foreach ( [
+				[ 'page' => 'beepbeep-titles', 'finding' => 'missing_title' ],
+				[ 'page' => 'beepbeep-titles', 'auditor_source' => 'missing_title' ],
+				[ 'page' => 'beepbeep-titles', 'auditor_source' => 'auditor', 'finding' => 'missing_title' ],
+				[ 'page' => 'beepbeep-titles', 'source' => 'wporg', 'finding' => 'missing_title' ],
+				[ 'page' => 'beepbeep-titles', 'source' => [ 'auditor' ], 'finding' => 'missing_title' ],
+			] as $get ) {
+				$_GET = $_REQUEST = $get;
+				A::remember();
+				$this->assertSame( [], $GLOBALS['t_meta'], json_encode( $get ) );
+			}
+			( new Client() )->register( 'a@example.test', 'password123' );
+			$this->assertArrayNotHasKey( 'finding', $GLOBALS['t_requests'][0]['body'] );
 		}
 
 		public function test_expired_entry_is_dropped(): void {
@@ -144,7 +161,7 @@ namespace BeepBeep_Titles\Tests {
 		}
 
 		private function register_body(): array {
-			$_GET = [ 'page' => 'beepbeep-titles', 'source' => 'auditor', 'finding' => 'title_too_long' ];
+			$_GET = $_REQUEST = [ 'page' => 'beepbeep-titles', 'source' => 'auditor', 'finding' => 'title_too_long' ];
 			A::remember();
 			( new Client() )->register( 'a@example.test', 'password123', [ 'signup_source' => 'wporg' ] );
 			$this->assertCount( 1, $GLOBALS['t_requests'] );

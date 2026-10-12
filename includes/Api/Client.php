@@ -283,13 +283,41 @@ class Client {
         return $this->store_account_license_from_auth_result( $result, $email, 'login' );
     }
 
+    /** Allowed values for the optional "How did you find us?" answer. */
+    public const SIGNUP_SOURCE_VALUES = [ 'wporg_search', 'google', 'ai_assistant', 'oppti_site', 'friend_colleague', 'social', 'other' ];
+
+    /**
+     * Sanitize the optional sign-up source fields. Blank or unknown values
+     * return an empty array so nothing is sent and sign-up never fails.
+     *
+     * @param mixed $source Raw source value.
+     * @param mixed $other  Raw free text (kept only for "other", max 200 chars).
+     * @return array<string,string>
+     */
+    public static function sanitize_signup_source( $source, $other = '' ): array {
+        $source = is_string( $source ) ? sanitize_key( $source ) : '';
+        if ( '' === $source || ! in_array( $source, self::SIGNUP_SOURCE_VALUES, true ) ) {
+            return [];
+        }
+        $fields = [ 'signup_source' => $source ];
+        if ( 'other' === $source && is_string( $other ) ) {
+            $other = trim( sanitize_text_field( wp_strip_all_tags( $other ) ) );
+            $other = mb_substr( $other, 0, 200 );
+            if ( '' !== $other ) {
+                $fields['signup_source_other'] = $other;
+            }
+        }
+        return $fields;
+    }
+
     /**
      * Create an OpptiAI account and store its returned license key.
      *
      * @return array|\WP_Error Backend user payload on success (license stored).
      */
-    public function register( string $email, string $password ): array|\WP_Error {
-        $result = $this->do_request( 'POST', '/auth/register', [
+    public function register( string $email, string $password, array $signup = [] ): array|\WP_Error {
+        $signup = self::sanitize_signup_source( $signup['signup_source'] ?? '', $signup['signup_source_other'] ?? '' );
+        $result = $this->do_request( 'POST', '/auth/register', $signup + [
             'email'             => $email,
             'password'          => $password,
             'site_id'           => $this->site_hash(),

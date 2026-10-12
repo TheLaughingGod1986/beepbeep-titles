@@ -69,6 +69,10 @@ class Admin {
             true
         );
 
+        if ( function_exists( 'wp_set_script_translations' ) ) {
+            wp_set_script_translations( 'beepti-admin', 'beepbeep-titles' );
+        }
+
         // Localize initial state so the React app can hydrate immediately.
         // Quota is backend-owned and fetched on mount via /quota — we only
         // seed identity, settings, coverage stats, and the license-connected

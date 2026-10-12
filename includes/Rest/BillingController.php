@@ -108,7 +108,11 @@ class BillingController {
             return $adopted;
         }
 
-        $user = $this->client->register( $email, $password );
+        $signup = Client::sanitize_signup_source(
+            $req->get_param( 'signup_source' ),
+            $req->get_param( 'signup_source_other' )
+        );
+        $user = $this->client->register( $email, $password, $signup );
         if ( is_wp_error( $user ) ) {
             return ErrorResponder::from_wp_error( $user );
         }

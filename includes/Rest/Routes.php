@@ -184,8 +184,11 @@ class Routes {
             'callback'            => [ $b, 'register' ],
             'permission_callback' => [ $this, 'require_admin' ],
             'args'                => [
-                'email'    => [ 'required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_email' ],
-                'password' => [ 'required' => true, 'type' => 'string' ],
+                'email'               => [ 'required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_email' ],
+                'password'            => [ 'required' => true, 'type' => 'string' ],
+                // Optional "How did you find us?" answer; validated in Client::sanitize_signup_source() (unknown = dropped, never an error).
+                'signup_source'       => [ 'required' => false, 'type' => 'string', 'sanitize_callback' => 'sanitize_key' ],
+                'signup_source_other' => [ 'required' => false, 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ],
             ],
         ] );
 

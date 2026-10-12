@@ -4,6 +4,7 @@ import { Icon, Button } from '../components';
 import { Row } from '../ui';
 import { loginWithPassword, registerAccount } from '../api';
 import { track } from '../telemetry';
+import { SignupSourceField, signupSourcePayload } from '../signupSource';
 
 const inputStyle = ( error, mono = false ) => ( {
     display: 'block', width: '100%', boxSizing: 'border-box',
@@ -104,6 +105,8 @@ export const ConnectModal = ({ open, onClose, onSuccess, initialMode = 'register
     const [connecting, setConnecting] = useState( false );
     const [error, setError]       = useState( null );
     const [done, setDone]         = useState( false );
+    const [signupSource, setSignupSource] = useState( '' );
+    const [signupOther, setSignupOther]   = useState( '' );
 
     // Open on the requested tab (e.g. "Sign in" vs "Create account") each time
     // the modal is shown, so the entry point controls which form appears.
@@ -119,6 +122,8 @@ export const ConnectModal = ({ open, onClose, onSuccess, initialMode = 'register
         setEmail( '' );
         setPassword( '' );
         setConfirmPassword( '' );
+        setSignupSource( '' );
+        setSignupOther( '' );
         setShowPw( false );
         setError( null );
         setDone( false );
@@ -154,12 +159,15 @@ export const ConnectModal = ({ open, onClose, onSuccess, initialMode = 'register
             track( mode === 'register' ? 'signup_started' : 'login_started', {
                 feature_name: mode === 'register' ? 'signup' : 'login',
             } );
+            const signup = mode === 'register' ? signupSourcePayload( signupSource, signupOther ) : {};
             const res = mode === 'register'
-                ? await registerAccount( email.trim(), password )
+                ? await registerAccount( email.trim(), password, signup )
                 : await loginWithPassword( email.trim(), password );
             track( mode === 'register' ? 'signup_succeeded' : 'login_succeeded', {
                 feature_name: mode === 'register' ? 'signup' : 'login',
                 plan: res?.plan || null,
+                // Enum value only; free text is not sent to analytics.
+                ...( signup.signup_source ? { signup_source: signup.signup_source } : {} ),
             } );
             track( 'license_connected', { source: mode } );
             finish( res );
@@ -336,6 +344,12 @@ export const ConnectModal = ({ open, onClose, onSuccess, initialMode = 'register
                                             {...focusHandlers( error )}
                                         />
                                     </label>
+                                )}
+
+                                {mode === 'register' && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
+                                        <SignupSourceField source={signupSource} other={signupOther} onSourceChange={setSignupSource} onOtherChange={setSignupOther} disabled={connecting}/>
+                                    </div>
                                 )}
 
                             {error && <FieldError>{error}</FieldError>}

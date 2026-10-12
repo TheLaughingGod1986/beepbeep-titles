@@ -4,6 +4,8 @@ import { Field, Input } from './ui';
 import { Modal } from './modals/Modal';
 import { loginWithPassword, registerAccount, setLicense } from './api';
 import { planDisplayName } from './quota';
+import { SignupSourceField, signupSourcePayload } from './signupSource';
+import { track } from './telemetry';
 
 const isValidEmail = ( value ) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test( value );
 
@@ -164,6 +166,8 @@ export const SignedOutScreen = ({ lastEmail, onConnected, onToast }) => {
     const [email, setEmail]       = useState( lastEmail || '' );
     const [password, setPassword] = useState( '' );
     const [name, setName]         = useState( '' );
+    const [signupSource, setSignupSource] = useState( '' );
+    const [signupOther, setSignupOther]   = useState( '' );
     const [license, setLicenseKey] = useState( '' );
     const [showPw, setShowPw]     = useState( false );
     const [mode, setMode]         = useState( 'password' ); // 'password' | 'license' | 'signup'
@@ -194,14 +198,31 @@ export const SignedOutScreen = ({ lastEmail, onConnected, onToast }) => {
         if ( ! license.trim() ) return;
         run( () => setLicense( license.trim() ), 'Check the key and try again.' );
     };
-    const submitSignup = ( e ) => {
+    const submitSignup = async ( e ) => {
         e?.preventDefault?.();
         const validation = signupValidationMessage( email, password );
         if ( validation ) {
             setError( validation );
             return;
         }
-        run( () => registerAccount( email.trim(), password ), 'Couldn\'t create that account. Try again.' );
+        const signup = signupSourcePayload( signupSource, signupOther );
+        setSubmitting( true );
+        setError( null );
+        try {
+            const res = await registerAccount( email.trim(), password, signup );
+            track( 'signup_succeeded', {
+                feature_name: 'signup',
+                plan: res?.plan || null,
+                // Enum value only; free text is not sent to analytics.
+                ...( signup.signup_source ? { signup_source: signup.signup_source } : {} ),
+            } );
+            onConnected?.( res );
+        } catch ( err ) {
+            const msg = err?.message || 'Couldn\'t create that account. Try again.';
+            setError( msg );
+            onToast?.( { message: "Couldn't connect", sub: msg, icon: 'alert', tone: 'warn' } );
+            setSubmitting( false );
+        }
     };
 
     return (
@@ -282,6 +303,7 @@ export const SignedOutScreen = ({ lastEmail, onConnected, onToast }) => {
                         <Field label="Password" right={<span style={{ fontSize: 11, color: 'var(--text-3)' }}>At least 8 characters</span>}>
                             <PasswordInput value={password} onChange={v => { setPassword( v ); setError( null ); }} show={showPw} onToggle={() => setShowPw( s => ! s )} placeholder="Create a password"/>
                         </Field>
+                        <SignupSourceField source={signupSource} other={signupOther} onSourceChange={setSignupSource} onOtherChange={setSignupOther} disabled={submitting}/>
                         {error && <AuthError>{error}</AuthError>}
                         <Button variant="primary" size="md" full type="submit" iconRight={submitting ? null : 'arrow-right'} disabled={! email.trim() || password.length < 8 || submitting} onClick={submitSignup}>
                             {submitting ? 'Creating account…' : 'Create account'}

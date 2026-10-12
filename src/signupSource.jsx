@@ -1,0 +1,62 @@
+import { __ } from '@wordpress/i18n';
+import { Field, Input } from './ui';
+
+/**
+ * Optional "How did you find us?" answer on sign-up.
+ * Values must match the backend (licenses.signup_source) and PostHog.
+ */
+export const SIGNUP_SOURCE_VALUES = [
+    'wporg_search', 'google', 'ai_assistant', 'oppti_site', 'friend_colleague', 'social', 'other',
+];
+
+export const signupSourceOptions = () => [
+    [ 'wporg_search', __( 'WordPress.org plugin search', 'beepbeep-titles' ) ],
+    [ 'google', __( 'Google or another search engine', 'beepbeep-titles' ) ],
+    [ 'ai_assistant', __( 'An AI assistant (ChatGPT, Claude, Gemini…)', 'beepbeep-titles' ) ],
+    [ 'oppti_site', __( 'The Oppti website or blog', 'beepbeep-titles' ) ],
+    [ 'friend_colleague', __( 'A friend or colleague', 'beepbeep-titles' ) ],
+    [ 'social', __( 'Social media', 'beepbeep-titles' ) ],
+    [ 'other', __( 'Other', 'beepbeep-titles' ) ],
+];
+
+/** Build the optional request fields. Blank / unknown = send nothing. */
+export const signupSourcePayload = ( source, other ) => {
+    if ( ! SIGNUP_SOURCE_VALUES.includes( source ) ) return {};
+    const payload = { signup_source: source };
+    if ( source === 'other' ) {
+        const text = String( other || '' ).replace( /<[^>]*>/g, ' ' ).replace( /\s+/g, ' ' ).trim().slice( 0, 200 );
+        if ( text ) payload.signup_source_other = text;
+    }
+    return payload;
+};
+
+export const SignupSourceField = ( { source, other, onSourceChange, onOtherChange, disabled } ) => (
+    <>
+        <Field label={ __( 'How did you find us? (optional)', 'beepbeep-titles' ) }>
+            <select
+                className="bbt-input"
+                value={ source }
+                disabled={ disabled }
+                onChange={ e => {
+                    onSourceChange( e.target.value );
+                    if ( e.target.value !== 'other' ) onOtherChange( '' );
+                } }
+            >
+                <option value="">{ __( 'Choose one (optional)', 'beepbeep-titles' ) }</option>
+                { signupSourceOptions().map( ( [ value, label ] ) => (
+                    <option key={ value } value={ value }>{ label }</option>
+                ) ) }
+            </select>
+        </Field>
+        { source === 'other' && (
+            <Field label={ __( 'Tell us where (optional)', 'beepbeep-titles' ) }>
+                <Input
+                    value={ other }
+                    maxLength={ 200 }
+                    disabled={ disabled }
+                    onChange={ e => onOtherChange( e.target.value ) }
+                />
+            </Field>
+        ) }
+    </>
+);

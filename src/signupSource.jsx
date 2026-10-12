@@ -49,7 +49,7 @@ export const SignupSourceField = ( { source, other, onSourceChange, onOtherChang
             </select>
         </Field>
         { source === 'other' && (
-            <Field label={ __( 'Where did you hear about us?', 'beepbeep-titles' ) }>
+            <Field label={ __( 'Tell us where (optional)', 'beepbeep-titles' ) }>
                 <Input
                     value={ other }
                     maxLength={ 200 }

@@ -35,3 +35,24 @@ describe( 'telemetry consent gate', () => {
 		expect( global.fetch ).toHaveBeenCalledTimes( 1 );
 	} );
 } );
+
+describe( 'opt-in without reload', () => {
+	beforeEach( () => jest.useFakeTimers() );
+	afterEach( () => jest.useRealTimers() );
+
+	test( 'setTelemetryEnabled(true) starts sending; false stops and drops queue', () => {
+		const t = load( { enabled: false, siteInstallId: 'old-id' } );
+		t.track( 'generation_started' );
+		t.setTelemetryEnabled( true );
+		t.track( 'generation_started' );
+		jest.runAllTimers();
+		expect( global.fetch ).toHaveBeenCalledTimes( 1 );
+		const body = JSON.parse( global.fetch.mock.calls[ 0 ][ 1 ].body );
+		expect( body.events ).toHaveLength( 1 );
+		expect( body.events[ 0 ].properties ).not.toHaveProperty( 'site_install_id' );
+		t.setTelemetryEnabled( false );
+		t.track( 'generation_started' );
+		jest.runAllTimers();
+		expect( global.fetch ).toHaveBeenCalledTimes( 1 );
+	} );
+} );

@@ -99,3 +99,4 @@ echo "OK: uninstall.php lists all required options\n";
 PHP
 
 php tests/php/telemetry-consent-test.php
+php tests/php/telemetry-optin-toggle-test.php

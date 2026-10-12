@@ -1,10 +1,15 @@
 import { useState } from 'react';
+import { __ } from '@wordpress/i18n';
+import { enabled as telemetryEnabled, setTelemetryEnabled } from '../telemetry';
 import { Icon, Card, Pill, Button, Progress, Toggle, Divider } from '../components';
 import { Input, PageShell, Textarea, Row } from '../ui';
 import { Modal } from '../modals/Modal';
 import { saveSettings, setLicense, clearLicense, submitSupport } from '../api';
 import { creditUsageRows } from '../usage';
 import { QUOTA_DEFAULTS, usageCreditsLabel, USAGE_CREDITS_FOOTNOTE } from '../quota';
+
+// Copy: swap here when Marketing sends new wording.
+const USAGE_STATS_LABEL = () => __( 'Share anonymous usage stats to help improve OpptiAI Titles', 'beepbeep-titles' );
 
 const formatResetDate = value => {
     if ( ! value ) return 'Not available';
@@ -36,6 +41,7 @@ export const SettingsScreen = ({
     const [notifDigest, setNotifDigest]   = useState( settings?.weekly_digest ?? false );
     const [notifLimit, setNotifLimit]     = useState( settings?.notify_quota_warning ?? true );
     const [uninstallData, setUninstallData] = useState( settings?.delete_on_uninstall ?? false );
+    const [usageStats, setUsageStats] = useState( () => settings?.usage_stats_opt_in === true || telemetryEnabled() );
     const [licenseInput, setLicenseInput] = useState( '' );
     const [connecting, setConnecting]     = useState( false );
     const [saving, setSaving]             = useState( false );
@@ -92,6 +98,20 @@ export const SettingsScreen = ({
     const monthlyLimit = quota?.monthly_limit || QUOTA_DEFAULTS.monthly_limit;
     const pct = monthlyLimit > 0 ? ( monthlyUsed / monthlyLimit ) * 100 : 0;
     const resetDate = formatResetDate( quota?.reset_date );
+
+    const handleUsageStats = async ( on ) => {
+        const prev = usageStats;
+        setUsageStats( on );
+        try {
+            const saved = await saveSettings( { usage_stats_opt_in: on } );
+            const stored = saved?.usage_stats_opt_in === true;
+            setUsageStats( stored );
+            setTelemetryEnabled( stored );
+        } catch ( e ) {
+            setUsageStats( prev );
+            if ( onToast ) onToast( { message: __( 'Failed to save preferences', 'beepbeep-titles' ), icon: 'alert', tone: 'warn' } );
+        }
+    };
 
     const handleSaveNotifs = async () => {
         setSaving( true );
@@ -227,6 +247,15 @@ export const SettingsScreen = ({
             </Card>
 
             <ContactSupport user={user} onToast={onToast}/>
+
+            <SettingsSection title={__( 'Privacy', 'beepbeep-titles' )} eyebrow={__( 'Usage stats', 'beepbeep-titles' )}>
+                <SettingsRow
+                    label={USAGE_STATS_LABEL()}
+                    desc={__( 'Off by default. Sends anonymous feature usage only, never content or personal data.', 'beepbeep-titles' )}
+                    right={<Toggle on={usageStats} onChange={handleUsageStats}/>}
+                    last
+                />
+            </SettingsSection>
 
             <SettingsSection title="Danger zone" eyebrow="Destructive">
                 <SettingsRow

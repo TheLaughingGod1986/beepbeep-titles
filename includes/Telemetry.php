@@ -23,6 +23,7 @@ class Telemetry {
 	public const ACTIVATION_MARKER       = 'beepti_telemetry_plugin_activated';
 	public const CURRENT_VERSION_OPTION  = 'beepti_telemetry_current_plugin_version';
 	public const PREVIOUS_VERSION_OPTION = 'beepti_telemetry_previous_plugin_version';
+	public const ANON_ID_OPTION          = 'beepti_telemetry_anon_id';
 
 	private const POSTHOG_API_KEY  = 'phc_6L7JzpjYRC8Gk4Br3YevTmjZnJsJPvoy9GK7RFdo72s';
 	private const POSTHOG_API_HOST = 'https://us.i.posthog.com';
@@ -291,23 +292,22 @@ class Telemetry {
 			'pluginId'       => defined( 'BEEPTI_PLUGIN_ID' ) ? BEEPTI_PLUGIN_ID : 'titles',
 			'product'        => self::PRODUCT,
 			'pluginVersion'  => BEEPTI_VERSION,
-			'siteInstallId'  => $client->install_hash(),
 			'connected'      => $client->has_license(),
 			'environment'    => defined( 'BEEPTI_PLUGIN_ENV' ) ? BEEPTI_PLUGIN_ENV : 'production',
 		];
 	}
 
 	/**
-	 * Stable PostHog distinct id — prefer account email hash when connected,
-	 * otherwise the install hash.
+	 * Anonymous PostHog distinct id: a random per-install UUID used only for
+	 * telemetry. Not the email, not host-derived, not the backend install id.
 	 */
 	public static function distinct_id(): string {
-		$client = new Client();
-		$email  = $client->get_account_email();
-		if ( is_string( $email ) && $email !== '' ) {
-			return 'acct_' . substr( hash( 'sha256', strtolower( trim( $email ) ) ), 0, 32 );
+		$id = get_option( self::ANON_ID_OPTION, '' );
+		if ( ! is_string( $id ) || ! preg_match( '/^[0-9a-f-]{36}$/', $id ) ) {
+			$id = wp_generate_uuid4();
+			update_option( self::ANON_ID_OPTION, $id, false );
 		}
-		return 'site_' . $client->install_hash();
+		return 'anon_' . $id;
 	}
 
 	/**
@@ -326,9 +326,6 @@ class Telemetry {
 			'wp_version'        => (string) $wp_version,
 			'wordpress_version' => (string) $wp_version,
 			'php_version'       => PHP_VERSION,
-			'site_install_id'   => $client->install_hash(),
-			'site_id'           => $client->install_hash(),
-			'site_hash'         => hash( 'sha256', $client->install_hash() ),
 			'is_logged_in'      => $client->has_license(),
 			'user_state'        => $client->has_license() ? 'connected' : 'guest',
 			'environment'       => defined( 'BEEPTI_PLUGIN_ENV' ) ? BEEPTI_PLUGIN_ENV : 'production',
@@ -337,16 +334,14 @@ class Telemetry {
 			'$lib_version'      => BEEPTI_VERSION,
 		];
 
-		$host = wp_parse_url( home_url(), PHP_URL_HOST );
-		if ( is_string( $host ) && $host !== '' ) {
-			$base['site_host'] = $host;
-			$base['host']      = $host;
+		// Caller props can never reintroduce identifying keys.
+		foreach ( [ 'site_host', 'host', 'site_hash', 'site_id', 'site_install_id', 'site_url', 'email_hash', 'account_id', 'user_id' ] as $k ) {
+			unset( $props[ $k ] );
 		}
-
 		$merged = array_merge( $base, $props );
 		if ( empty( $merged['$insert_id'] ) ) {
 			$merged['$insert_id'] = substr(
-				sanitize_key( $event_name ) . ':' . $client->install_hash() . ':' . wp_generate_uuid4(),
+				sanitize_key( $event_name ) . ':' . wp_generate_uuid4(),
 				0,
 				180
 			);

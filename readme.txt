@@ -2,9 +2,9 @@
 Contributors: beepbeepv2
 Tags: seo, ai seo, meta description, title tag, site audit
 Requires at least: 6.3
-Tested up to: 7.0
+Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.0.27
+Stable tag: 1.0.28
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -245,6 +245,9 @@ Non-minified React source files and the npm build configuration are included in 
 WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, REST namespace, and internal admin slug remain `beepbeep-titles` for backwards compatibility with existing installs, options, and translations.
 
 == Changelog ==
+
+= 1.0.28 - 2026-10-12 =
+* **Improved**: Sign-up question options.
 
 = 1.0.27 - 2026-10-12 =
 * **Added**: An optional "How did you find us?" question on the sign-up form. You can skip it.

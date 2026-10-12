@@ -12,6 +12,7 @@ use BeepBeep_Titles\Api\Client;
 use BeepBeep_Titles\PostPresenter;
 use BeepBeep_Titles\Scoring\Metadata_Scoring_Engine;
 use BeepBeep_Titles\Seo\MetaWriter;
+use BeepBeep_Titles\Telemetry;
 use OptiAI\Core\Scan\History_Repository;
 use OptiAI\Core\Scan\Scan_Repository;
 
@@ -37,6 +38,16 @@ class GenerateController {
         );
 
         if ( is_wp_error( $result ) ) {
+            $code = (string) $result->get_error_code();
+            $event = ( false !== stripos( $code, 'credit' ) || false !== stripos( $code, 'quota' ) )
+                ? 'generation_failed_no_credits'
+                : 'generation_failed';
+            Telemetry::capture( $event, [
+                'generation_surface' => 'dashboard',
+                'generation_mode'    => 'single',
+                'error_code'         => sanitize_key( $code ),
+                'post_id'            => (int) $post->ID,
+            ] );
             return ErrorResponder::from_wp_error( $result );
         }
 
@@ -49,6 +60,18 @@ class GenerateController {
         $meta  = (string) ( $result['meta'] ?? '' );
         MetaWriter::write( $post->ID, $title, $meta );
         ActivityLog::record( $post->ID, 'generated' );
+        Telemetry::capture( 'generation_completed', [
+            'generation_surface' => 'dashboard',
+            'generation_mode'    => 'single',
+            'page_count'         => 1,
+            'is_regenerate'      => ! empty( $previous ),
+        ] );
+        Telemetry::capture( 'title_meta_generated', [
+            'generation_surface' => 'dashboard',
+            'generation_mode'    => 'single',
+            'page_count'         => 1,
+        ] );
+        ( new Scan_Repository( 'titles' ) )->mark_optimised( (string) $post->ID, $post->post_type );
         $this->bust_stats();
         // Refresh the local health score so the dashboard shows the
         // improvement immediately — free, no credits used.
@@ -94,6 +117,11 @@ class GenerateController {
 
         $result = $this->client->submit_job( $pages, $this->generation_options(), $context );
         if ( is_wp_error( $result ) ) {
+            Telemetry::capture( 'batch_generation_failed', [
+                'generation_surface' => 'bulk_generation',
+                'page_count'         => count( $pages ),
+                'error_code'         => sanitize_key( (string) $result->get_error_code() ),
+            ] );
             return ErrorResponder::from_wp_error( $result );
         }
 
@@ -103,6 +131,13 @@ class GenerateController {
             // backend assigns its own item ids.
             set_transient( 'beepti_job_' . $job_id, $ordered, HOUR_IN_SECONDS );
         }
+
+        Telemetry::capture( 'batch_generation_started', [
+            'generation_surface' => 'bulk_generation',
+            'generation_mode'    => 'batch',
+            'page_count'         => count( $pages ),
+            'job_id'             => $job_id,
+        ] );
 
         return new \WP_REST_Response( $result, 200 );
     }
@@ -133,9 +168,29 @@ class GenerateController {
                 }
 
                 if ( ( $item['status'] ?? '' ) === 'completed' ) {
-                    MetaWriter::write( $post_id, (string) ( $item['title'] ?? '' ), (string) ( $item['meta'] ?? '' ) );
-                    ActivityLog::record( $post_id, 'generated' );
-                    $wrote = true;
+                    // Polls re-hit completed items — persist once per post per job.
+                    // claim_job_item_write() is atomic across overlapping polls so
+                    // we never double-write ActivityLog / history / meta.
+                    if ( $this->claim_job_item_write( $job_id, $post_id ) ) {
+                        $title_out    = (string) ( $item['title'] ?? '' );
+                        $meta_out     = (string) ( $item['meta'] ?? '' );
+                        $before       = MetaWriter::read( $post_id );
+                        $score_before = $this->current_item_score( $post_id );
+                        MetaWriter::write( $post_id, $title_out, $meta_out );
+                        ActivityLog::record( $post_id, 'generated' );
+                        if ( $post ) {
+                            ( new Scan_Repository( 'titles' ) )->mark_optimised( (string) $post_id, $post->post_type );
+                        }
+                        ( new History_Repository( 'titles' ) )->record(
+                            (string) $post_id,
+                            wp_json_encode( [ 'title' => $before['title'], 'meta' => $before['meta'] ] ),
+                            wp_json_encode( [ 'title' => $title_out, 'meta' => $meta_out ] ),
+                            $score_before,
+                            null,
+                            1
+                        );
+                        $wrote = true;
+                    }
                 }
             }
         }
@@ -147,13 +202,43 @@ class GenerateController {
             $this->bust_stats();
         }
 
-        // Clean up the mapping once the job is terminal, and refresh the
-        // local health score exactly once (not on every poll tick) so the
+        // Clean up the post-id mapping once the job is terminal, and refresh
+        // the local health score exactly once (not on every poll tick) so the
         // dashboard's "before / after" celebration reflects the new scores.
+        // Keep per-item write guards (option + transient) so a late / overlapping
+        // poll cannot re-persist activity + history for the same job items.
         if ( in_array( $result['status'] ?? '', [ 'completed', 'failed' ], true ) ) {
             delete_transient( 'beepti_job_' . $job_id );
+            $this->release_job_item_option_guards( $job_id, $ordered );
             if ( $wrote ) {
                 ( new Metadata_Scoring_Engine() )->run();
+            }
+            $telemetry_key = 'beepti_job_telemetry_' . $job_id;
+            if ( ! get_transient( $telemetry_key ) ) {
+                set_transient( $telemetry_key, 1, HOUR_IN_SECONDS );
+                $completed_count = 0;
+                foreach ( $items as $item ) {
+                    if ( ( $item['status'] ?? '' ) === 'completed' ) {
+                        ++$completed_count;
+                    }
+                }
+                $status_event = ( $result['status'] ?? '' ) === 'completed'
+                    ? 'batch_generation_completed'
+                    : 'batch_generation_failed';
+                Telemetry::capture( $status_event, [
+                    'generation_surface' => 'bulk_generation',
+                    'generation_mode'    => 'batch',
+                    'page_count'         => count( $ordered ),
+                    'completed_count'    => $completed_count,
+                    'job_id'             => $job_id,
+                ] );
+                if ( $completed_count > 0 ) {
+                    Telemetry::capture( 'title_meta_generated', [
+                        'generation_surface' => 'bulk_generation',
+                        'generation_mode'    => 'batch',
+                        'page_count'         => $completed_count,
+                    ] );
+                }
             }
         }
 
@@ -188,6 +273,7 @@ class GenerateController {
         // had no title/meta before OptiAI touched them.
         MetaWriter::restore( $post_id, (string) ( $old['title'] ?? '' ), (string) ( $old['meta'] ?? '' ) );
         ActivityLog::record( $post_id, 'edited' );
+        Telemetry::capture( 'page_undone', [ 'post_id' => $post_id ] );
         $this->bust_stats();
         ( new Metadata_Scoring_Engine() )->run();
 
@@ -226,6 +312,8 @@ class GenerateController {
             $this->bust_stats();
             ( new Metadata_Scoring_Engine() )->run();
         }
+
+        Telemetry::capture( 'generated_reset', [ 'reset_count' => $reset ] );
 
         return new \WP_REST_Response( [ 'success' => true, 'reset_count' => $reset ] );
     }
@@ -291,6 +379,56 @@ class GenerateController {
             return (int) $id;
         }
         return $ordered[ $index ] ?? 0;
+    }
+
+    /**
+     * Atomically claim the right to persist one completed job item.
+     * Overlapping polls both see status=completed; only the first writer wins.
+     *
+     * Uses add_option (atomic) plus a day-long transient so late polls after
+     * the option guard is released still skip.
+     */
+    private function claim_job_item_write( string $job_id, int $post_id ): bool {
+        if ( $job_id === '' || $post_id <= 0 ) {
+            return false;
+        }
+        $key = $this->job_item_guard_key( $job_id, $post_id );
+        if ( get_transient( $key ) ) {
+            return false;
+        }
+        // add_option returns false when the key already exists — safe under concurrency.
+        if ( ! add_option( $key, time(), '', false ) ) {
+            return false;
+        }
+        set_transient( $key, 1, DAY_IN_SECONDS );
+
+        $recorded_key         = 'beepti_job_hist_' . $job_id;
+        $recorded             = get_transient( $recorded_key );
+        $recorded             = is_array( $recorded ) ? $recorded : [];
+        $recorded[ $post_id ] = true;
+        set_transient( $recorded_key, $recorded, DAY_IN_SECONDS );
+
+        return true;
+    }
+
+    /**
+     * Drop the durable option locks once the job is terminal; the matching
+     * transients remain for a day so a late poll cannot re-claim.
+     *
+     * @param array<int,int> $ordered
+     */
+    private function release_job_item_option_guards( string $job_id, array $ordered ): void {
+        foreach ( $ordered as $post_id ) {
+            $post_id = (int) $post_id;
+            if ( $post_id <= 0 ) {
+                continue;
+            }
+            delete_option( $this->job_item_guard_key( $job_id, $post_id ) );
+        }
+    }
+
+    private function job_item_guard_key( string $job_id, int $post_id ): string {
+        return 'beepti_ji_' . md5( $job_id . ':' . $post_id );
     }
 
     private function bust_stats(): void {

@@ -36,7 +36,7 @@ const trimToChars = ( text, max ) => {
     return slice.slice( 0, lastSpace > max - 12 ? lastSpace : max ).replace( /[,.;:\s]$/, '' ) + '…';
 };
 
-export const AutopilotScreen = ({ settings, autoOptimise, onAutoToggle, onToast }) => {
+export const AutopilotScreen = ({ settings, autoOptimise, onAutoToggle, onToast, locked = false, onUpgrade }) => {
     const [style, setStyle]           = useState( settings?.tone || 'direct' );
     const [titleLen, setTitleLen]     = useState( settings?.title_length || 'standard' );
     const [metaLen, setMetaLen]       = useState( settings?.meta_length  || 'standard' );
@@ -46,7 +46,14 @@ export const AutopilotScreen = ({ settings, autoOptimise, onAutoToggle, onToast 
     const previewTitle = trimToChars( preset.sampleTitle, TITLE_MAX[titleLen] );
     const previewMeta  = trimToChars( preset.sampleMeta,  META_MAX[metaLen] );
 
+    const openUpgrade = ( e ) => {
+        e?.preventDefault?.();
+        e?.stopPropagation?.();
+        onUpgrade?.();
+    };
+
     const handleSave = async () => {
+        if ( locked ) { openUpgrade(); return; }
         setSaving( true );
         try {
             await saveSettings( { tone: style, title_length: titleLen, meta_length: metaLen, custom_instructions: instructions } );
@@ -59,6 +66,7 @@ export const AutopilotScreen = ({ settings, autoOptimise, onAutoToggle, onToast 
     };
 
     const handleReset = () => {
+        if ( locked ) { openUpgrade(); return; }
         setStyle( 'direct' );
         setTitleLen( 'standard' );
         setMetaLen( 'standard' );
@@ -67,54 +75,85 @@ export const AutopilotScreen = ({ settings, autoOptimise, onAutoToggle, onToast 
 
     return (
         <PageShell style={{ paddingTop: 24, paddingBottom: 56 }}>
-            <div style={{ marginBottom: 18 }}>
-                <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 5 }}>Autopilot</div>
-                <h1 style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em', margin: 0, lineHeight: 1.2 }}>Hands-off page SEO</h1>
-                <p style={{ fontSize: 13, color: 'var(--text-2)', margin: '4px 0 0', maxWidth: 580, lineHeight: 1.5 }}>
-                    Decide how OpptiAI Titles writes page titles and meta descriptions — and let it run quietly in the background every time you publish.
-                </p>
-            </div>
-
-            <AutopilotHero on={autoOptimise} onToggle={() => onAutoToggle( !autoOptimise )}/>
-
-            <SectionTitle eyebrow="Generation" title="How OpptiAI Titles writes" subtitle="These preferences apply to every page — manual and automated."/>
-
-            <>
-                <Card padding={0} style={{ marginBottom: 12 }}>
-                    <div style={{ padding: '16px 20px' }}>
-                        <Label>Tone</Label>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginTop: 8 }}>
-                            {PRESETS.map( p => <PresetCard key={p.id} preset={p} active={style === p.id} onClick={() => setStyle( p.id )}/>)}
-                        </div>
+            <div style={{ position: 'relative' }}>
+                <div
+                    style={locked ? { pointerEvents: 'none', userSelect: 'none' } : undefined}
+                    aria-hidden={locked || undefined}
+                >
+                    <div style={{ marginBottom: 18 }}>
+                        <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 5 }}>Autopilot</div>
+                        <h1 style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em', margin: 0, lineHeight: 1.2 }}>Hands-off page SEO</h1>
+                        <p style={{ fontSize: 13, color: 'var(--text-2)', margin: '4px 0 0', maxWidth: 580, lineHeight: 1.5 }}>
+                            Decide how OpptiAI Titles writes page titles and meta descriptions — and let it run quietly in the background every time you publish.
+                        </p>
                     </div>
-                    <Divider/>
-                    <LengthRow label="Title length"            options={TITLE_LENGTHS} value={titleLen}  onChange={setTitleLen}/>
-                    <Divider/>
-                    <LengthRow label="Meta description length" options={META_LENGTHS}  value={metaLen}   onChange={setMetaLen}/>
-                    <Divider/>
-                    <div style={{ padding: '16px 20px' }}>
-                        <Row align="baseline" justify="between">
-                            <Label>Custom instructions <span style={{ color: 'var(--text-3)', fontWeight: 400, marginLeft: 6 }}>Optional</span></Label>
-                            <span className="mono" style={{ fontSize: 11, color: 'var(--text-3)' }}>{instructions.length}/280</span>
+
+                    <AutopilotHero on={autoOptimise} onToggle={() => onAutoToggle( !autoOptimise )}/>
+
+                    <SectionTitle eyebrow="Generation" title="How OpptiAI Titles writes" subtitle="These preferences apply to every page — manual and automated."/>
+
+                    <>
+                        <Card padding={0} style={{ marginBottom: 12 }}>
+                            <div style={{ padding: '16px 20px' }}>
+                                <Label>Tone</Label>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginTop: 8 }}>
+                                    {PRESETS.map( p => <PresetCard key={p.id} preset={p} active={style === p.id} onClick={() => setStyle( p.id )}/>)}
+                                </div>
+                            </div>
+                            <Divider/>
+                            <LengthRow label="Title length"            options={TITLE_LENGTHS} value={titleLen}  onChange={setTitleLen}/>
+                            <Divider/>
+                            <LengthRow label="Meta description length" options={META_LENGTHS}  value={metaLen}   onChange={setMetaLen}/>
+                            <Divider/>
+                            <div style={{ padding: '16px 20px' }}>
+                                <Row align="baseline" justify="between">
+                                    <Label>Custom instructions <span style={{ color: 'var(--text-3)', fontWeight: 400, marginLeft: 6 }}>Optional</span></Label>
+                                    <span className="mono" style={{ fontSize: 11, color: 'var(--text-3)' }}>{instructions.length}/280</span>
+                                </Row>
+                                <textarea
+                                    value={instructions}
+                                    onChange={e => setInstructions( e.target.value.slice( 0, 280 ) )}
+                                    placeholder='e.g. "Always include the city in the title for location pages."'
+                                    rows={3}
+                                    readOnly={locked}
+                                    tabIndex={locked ? -1 : undefined}
+                                    style={{ width: '100%', marginTop: 8, padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', fontSize: 13, fontFamily: 'var(--font-sans)', color: 'var(--text)', background: 'var(--surface)', resize: 'vertical', minHeight: 68, lineHeight: 1.5, outline: 0 }}/>
+                            </div>
+                        </Card>
+
+                        <SERPPreviewCard preset={preset} title={previewTitle} meta={previewMeta} instructions={instructions}/>
+
+                        <Row justify="end" style={{ marginTop: 18 }}>
+                            <Button variant="ghost" size="md" onClick={handleReset}>Reset defaults</Button>
+                            <Button variant="primary" size="md" icon="check" onClick={handleSave} disabled={saving}>
+                                {saving ? 'Saving…' : 'Save changes'}
+                            </Button>
                         </Row>
-                        <textarea
-                            value={instructions}
-                            onChange={e => setInstructions( e.target.value.slice( 0, 280 ) )}
-                            placeholder='e.g. "Always include the city in the title for location pages."'
-                            rows={3}
-                            style={{ width: '100%', marginTop: 8, padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', fontSize: 13, fontFamily: 'var(--font-sans)', color: 'var(--text)', background: 'var(--surface)', resize: 'vertical', minHeight: 68, lineHeight: 1.5, outline: 0 }}/>
-                    </div>
-                </Card>
+                    </>
+                </div>
 
-                <SERPPreviewCard preset={preset} title={previewTitle} meta={previewMeta} instructions={instructions}/>
-
-                <Row justify="end" style={{ marginTop: 18 }}>
-                    <Button variant="ghost" size="md" onClick={handleReset}>Reset defaults</Button>
-                    <Button variant="primary" size="md" icon="check" onClick={handleSave} disabled={saving}>
-                        {saving ? 'Saving…' : 'Save changes'}
-                    </Button>
-                </Row>
-            </>
+                {locked && (
+                    <div
+                        role="button"
+                        tabIndex={0}
+                        aria-label="Autopilot requires a Starter or Pro subscription. Activate to upgrade."
+                        onClick={openUpgrade}
+                        onKeyDown={ ( e ) => {
+                            if ( e.key === 'Enter' || e.key === ' ' ) {
+                                e.preventDefault();
+                                openUpgrade( e );
+                            }
+                        } }
+                        style={{
+                            position: 'absolute',
+                            inset: 0,
+                            zIndex: 5,
+                            cursor: 'pointer',
+                            background: 'transparent',
+                        }}
+                    />
+                )}
+            </div>
         </PageShell>
     );
 };

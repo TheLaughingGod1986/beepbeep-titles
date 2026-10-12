@@ -49,16 +49,58 @@ const itemToResult = ( item, pageById ) => {
     };
 };
 
+/**
+ * Coalesce remounts (Strict Mode, pages-array identity churn) onto one in-flight
+ * request so we don't submit two bulk jobs / two single generates for the same
+ * pages and double-write Latest Improvements.
+ */
+const inflightSingles = new Map(); // postId → Promise
+const inflightBulks   = new Map(); // pagesKey → Promise
+
+const startSingle = ( postId ) => {
+    let p = inflightSingles.get( postId );
+    if ( ! p ) {
+        p = generateSingle( { postId } ).finally( () => {
+            if ( inflightSingles.get( postId ) === p ) inflightSingles.delete( postId );
+        } );
+        inflightSingles.set( postId, p );
+    }
+    return p;
+};
+
+const startBulkJob = ( key, postIds ) => {
+    let p = inflightBulks.get( key );
+    if ( ! p ) {
+        p = submitJob( postIds ).catch( ( err ) => {
+            // Allow a retry after a failed submit for the same pages.
+            if ( inflightBulks.get( key ) === p ) inflightBulks.delete( key );
+            throw err;
+        } );
+        inflightBulks.set( key, p );
+    }
+    return p;
+};
+
 export const GenerationDrawer = ({ open, pages, onClose, onComplete, onPaywall, onApiError, onEntitlement, onToast }) => {
     const [phase, setPhase]     = useState( 'idle' ); // idle | thinking | done
     const [results, setResults] = useState( [] );
+    const pagesKey = ( pages || [] ).map( ( p ) => p.id ).join( ',' );
 
     useEffect( () => {
-        if ( !open ) { setPhase( 'idle' ); setResults( [] ); return; }
+        if ( !open ) {
+            setPhase( 'idle' );
+            setResults( [] );
+            // Drop coalesced bulk jobs so a later open can submit fresh.
+            // Clear the whole map — only one drawer runs at a time, and
+            // pages may already be null (pagesKey '') when closing.
+            inflightBulks.clear();
+            return;
+        }
         if ( !pages || pages.length === 0 ) return;
 
         const controller = new AbortController();
         const pageById   = new Map( pages.map( p => [ p.id, p ] ) );
+        const pagesSnap  = pages; // stable for this run — ignore identity churn on `pages`
         const pushResult = ( r ) => setResults( prev => {
             if ( prev.some( x => x.key === r.key ) ) return prev;
             return [ ...prev, r ];
@@ -69,10 +111,10 @@ export const GenerationDrawer = ({ open, pages, onClose, onComplete, onPaywall, 
             setResults( [] );
 
             try {
-                if ( pages.length === 1 ) {
+                if ( pagesSnap.length === 1 ) {
                     // ── Single page → /generate ──
-                    const pg  = pages[0];
-                    const res = await generateSingle( { postId: pg.id } );
+                    const pg  = pagesSnap[0];
+                    const res = await startSingle( pg.id );
                     if ( controller.signal.aborted ) return;
                     pushResult( {
                         key: pg.id, postId: pg.id, url: pg.url, section: pg.section, type: pg.type,
@@ -82,19 +124,20 @@ export const GenerationDrawer = ({ open, pages, onClose, onComplete, onPaywall, 
                     onEntitlement?.( res.entitlement_state );
                 } else {
                     // ── Bulk → /jobs + poll ──
-                    const job = await submitJob( pages.map( p => p.id ) );
+                    const job = await startBulkJob( pagesKey, pagesSnap.map( p => p.id ) );
                     if ( controller.signal.aborted ) return;
                     const terminalJob = await pollUntilComplete( job.jobId, {
                         signal: controller.signal,
                         onItem: ( item ) => pushResult( itemToResult( item, pageById ) ),
                     } );
+                    if ( controller.signal.aborted ) return;
                     if ( terminalJob.status === 'failed' ) {
                         const resolvedIds = new Set(
                             ( terminalJob.items || [] )
                                 .map( item => item.wp_post_id ?? ( /^\d+$/.test( String( item.id ) ) ? Number( item.id ) : null ) )
                                 .filter( id => id != null )
                         );
-                        pages.filter( page => !resolvedIds.has( page.id ) ).forEach( page => {
+                        pagesSnap.filter( page => !resolvedIds.has( page.id ) ).forEach( page => {
                             pushResult( {
                                 key: page.id, postId: page.id, url: page.url, section: page.section, type: page.type,
                                 hue: page.hue ?? 220, status: 'failed',
@@ -108,14 +151,18 @@ export const GenerationDrawer = ({ open, pages, onClose, onComplete, onPaywall, 
                 if ( controller.signal.aborted || err?.name === 'AbortError' ) return;
                 if ( isPaywall( err ) ) {
                     onClose();
-                    onPaywall?.( err.code === 'DAILY_QUOTA_EXCEEDED' ? 'daily-limit' : 'monthly-limit', err.entitlement_state );
+                    onPaywall?.(
+                        err.code === 'DAILY_QUOTA_EXCEEDED' ? 'daily-limit' : 'monthly-limit',
+                        err.entitlement_state,
+                        err
+                    );
                     return;
                 }
                 // Non-paywall failure: surface a toast, and if it was a single
                 // page show a failed row the user can retry.
                 onToast?.( errorToast( err ) );
-                if ( pages.length === 1 ) {
-                    const pg = pages[0];
+                if ( pagesSnap.length === 1 ) {
+                    const pg = pagesSnap[0];
                     pushResult( {
                         key: pg.id, postId: pg.id, url: pg.url, section: pg.section, type: pg.type,
                         hue: pg.hue ?? 220, status: 'failed',
@@ -128,7 +175,10 @@ export const GenerationDrawer = ({ open, pages, onClose, onComplete, onPaywall, 
 
         run();
         return () => controller.abort();
-    }, [open, pages] );
+        // pagesKey (ids) — not `pages` — so a new array identity for the same
+        // ids does not restart generation and double-write activity rows.
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
+    }, [open, pagesKey] );
 
     useEffect( () => {
         if ( !open ) return;

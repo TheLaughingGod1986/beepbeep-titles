@@ -2,6 +2,8 @@
 /**
  * Capture WordPress.org readme screenshots from wp-env (port 8890).
  * Run: npm run build && node scripts/capture-readme-screenshots.mjs
+ *
+ * Writes to .wordpress-org/ (SVN assets folder sibling — copy into SVN `assets/`).
  */
 import { chromium } from 'playwright';
 import { execSync } from 'child_process';
@@ -17,10 +19,21 @@ const PLUGIN = `${ ADMIN }/admin.php?page=beepbeep-titles`;
 const USER = 'admin';
 const PASS = 'password';
 
+function findCliContainer() {
+	if ( process.env.WP_CLI_CONTAINER ) return process.env.WP_CLI_CONTAINER.trim();
+	const names = execSync( 'docker ps --format "{{.Names}}"', { encoding: 'utf8' } )
+		.split( '\n' )
+		.map( s => s.trim() )
+		.filter( Boolean );
+	const titles = names.find( n => /beepbeep-titles/i.test( n ) && /-cli-1$/.test( n ) && ! /tests/i.test( n ) );
+	if ( titles ) return titles;
+	const any = names.find( n => /wp-env/i.test( n ) && /-cli-1$/.test( n ) && ! /tests/i.test( n ) );
+	if ( any ) return any;
+	throw new Error( 'wp-env CLI container not found (expected beepbeep-titles *-cli-1)' );
+}
+
 function wp( ...args ) {
-	const cli = process.env.WP_CLI_CONTAINER
-		|| execSync( 'docker ps --format "{{.Names}}" | grep "wp-env.*-cli-1" | grep -v tests | head -1', { encoding: 'utf8' } ).trim();
-	if ( ! cli ) throw new Error( 'wp-env CLI container not found' );
+	const cli = findCliContainer();
 	const quoted = args.map( a => `'${ String( a ).replace( /'/g, "'\\''" ) }'` ).join( ' ' );
 	return execSync( `docker exec ${ cli } wp ${ quoted } --path=/var/www/html`, { encoding: 'utf8' } ).trim();
 }
@@ -33,27 +46,31 @@ async function login( page ) {
 	await page.waitForURL( /wp-admin/ );
 }
 
-async function mockQuota( page, connected = true ) {
+async function mockQuota( page, connected = true, plan = 'free' ) {
 	await page.route( '**/wp-json/beepbeep-titles/v1/quota**', route => {
+		const paid = plan === 'pro' || plan === 'starter';
 		route.fulfill( {
 			status: 200,
 			contentType: 'application/json',
 			body: JSON.stringify( connected ? {
 				connected: true,
-				plan: 'free',
-				daily_limit: 5,
-				daily_remaining: 3,
-				daily_used: 2,
-				monthly_limit: 15,
-				monthly_used: 7,
-				credits_remaining: 8,
-				reset_date: '2026-07-01T00:00:00Z',
+				plan,
+				daily_limit: paid ? 200 : 5,
+				daily_remaining: paid ? 180 : 3,
+				daily_used: paid ? 20 : 2,
+				monthly_limit: paid ? 2000 : 15,
+				monthly_used: paid ? 120 : 7,
+				credits_remaining: paid ? 1880 : 8,
+				reset_date: '2026-08-01T00:00:00Z',
 				usage_by_feature: { alt_text: 4, title_meta: 3 },
+				can_use_autopilot: paid,
+				can_use_continuous: plan === 'pro',
 			} : {
 				connected: false,
 				plan: 'free',
 				monthly_limit: 15,
 				monthly_used: 0,
+				credits_remaining: 0,
 			} ),
 		} );
 	} );
@@ -61,13 +78,13 @@ async function mockQuota( page, connected = true ) {
 
 async function openPlugin( page ) {
 	await page.goto( PLUGIN, { waitUntil: 'networkidle' } );
-	await page.waitForSelector( '#beepti-root', { timeout: 20000 } );
-	await page.waitForTimeout( 2000 );
+	await page.waitForSelector( '#beepti-root', { timeout: 30000 } );
+	await page.waitForTimeout( 2500 );
 }
 
 async function clickTab( page, label ) {
 	await page.locator( '#beepti-root nav button', { hasText: label } ).first().click();
-	await page.waitForTimeout( 1200 );
+	await page.waitForTimeout( 1500 );
 }
 
 async function shotApp( page, name ) {
@@ -86,17 +103,22 @@ function seedContent() {
 		auto_generate: false,
 		onboarding_complete: true,
 	} ), '--format=json' );
-	wp( 'option', 'update', 'beepti_last_scan', '2026-06-16 22:30:00' );
+	wp( 'option', 'update', 'beepti_last_scan', '2026-07-28 22:00:00' );
 	try {
 		wp( 'post', 'generate', '--count=12', '--post_type=page', '--post_status=publish' );
 	} catch ( e ) {
 		/* pages may already exist */
 	}
-	wp( 'eval', 'delete_transient("beepti_stats"); (new \\BeepBeep_Titles\\Scanner())->scan_and_cache();' );
+	try {
+		wp( 'eval', 'delete_transient("beepti_stats"); (new \\BeepBeep_Titles\\Scanner())->scan_and_cache();' );
+	} catch ( e ) {
+		console.warn( 'Scan seed warning:', e.message );
+	}
 }
 
 async function main() {
 	mkdirSync( OUT, { recursive: true } );
+	console.log( 'CLI container:', findCliContainer() );
 	seedContent();
 
 	const browser = await chromium.launch( { headless: true } );
@@ -106,8 +128,11 @@ async function main() {
 	} );
 	const page = await context.newPage();
 
-	// Hide WP admin notices for cleaner shots
-	await page.addStyleTag( { content: '#wpadminbar { opacity: 0.85; } .notice, .update-nag { display: none !important; }' } );
+	await page.addInitScript( () => {
+		const style = document.createElement( 'style' );
+		style.textContent = '.notice, .update-nag, #wpfooter { display: none !important; }';
+		document.documentElement.appendChild( style );
+	} );
 
 	await login( page );
 
@@ -118,34 +143,52 @@ async function main() {
 	await openPlugin( page );
 	await shotApp( page, 'screenshot-1.png' );
 
-	// Connected state for remaining screens
+	// Connected free plan for Home / Library / Settings / Billing / paywall
 	wp( 'option', 'update', 'beepti_license_key', 'readme-demo-license' );
 	wp( 'option', 'delete', 'beepti_license_disconnected' );
-	await mockQuota( page, true );
+	await mockQuota( page, true, 'free' );
 
 	// 2 — Home / Dashboard
 	await openPlugin( page );
 	await shotApp( page, 'screenshot-2.png' );
 
-	// 3 — Library
-	await clickTab( page, 'Library' );
+	// 3 — Advanced Library
+	await clickTab( page, 'Advanced Library' );
 	await shotApp( page, 'screenshot-3.png' );
 
-	// 4 — Autopilot
+	// 4 — Autopilot (locked on free — shows upgrade gate; switch to starter mock for usable UI)
+	await mockQuota( page, true, 'starter' );
+	await openPlugin( page );
 	await clickTab( page, 'Autopilot' );
 	await shotApp( page, 'screenshot-4.png' );
+
+	// Back to free for Settings + Billing + paywall realism
+	await mockQuota( page, true, 'free' );
+	await openPlugin( page );
 
 	// 5 — Settings
 	await clickTab( page, 'Settings' );
 	await shotApp( page, 'screenshot-5.png' );
 
-	// 6 — Upgrade / paywall modal
+	// 6 — Billing
+	await clickTab( page, 'Billing' );
+	await shotApp( page, 'screenshot-6.png' );
+
+	// 7 — Upgrade / paywall modal (bonus — optional 7th shot for docs)
 	await clickTab( page, 'Home' );
-	await page.locator( '#beepti-root button', { hasText: /Upgrade to Pro|Get more credits/ } ).first().click();
-	await page.getByText( /Fix missing SEO metadata|We found SEO issues/i ).first().waitFor( { timeout: 10000 } );
-	await page.waitForTimeout( 800 );
-	await page.screenshot( { path: join( OUT, 'screenshot-6.png' ), animations: 'disabled' } );
-	console.log( 'Saved screenshot-6.png' );
+	const upgrade = page.locator( '#beepti-root button', { hasText: /Upgrade to Pro|Get more credits|Upgrade/i } ).first();
+	if ( await upgrade.count() ) {
+		await upgrade.click();
+		await page.waitForTimeout( 1000 );
+		try {
+			await page.getByText( /Fix missing SEO metadata|We found SEO issues|Starter|Pro|credits/i ).first().waitFor( { timeout: 8000 } );
+		} catch ( e ) {
+			/* paywall copy may vary */
+		}
+		await page.waitForTimeout( 600 );
+		await page.screenshot( { path: join( OUT, 'screenshot-7.png' ), animations: 'disabled' } );
+		console.log( 'Saved screenshot-7.png' );
+	}
 
 	await browser.close();
 	console.log( '\nScreenshots written to .wordpress-org/' );

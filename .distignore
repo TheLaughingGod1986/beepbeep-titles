@@ -14,8 +14,10 @@ tests
 scripts
 dist
 .DS_Store
+.tmp
 .wordpress-org
 wporg-assets
+assets
 assets/screenshot-*.png
 screenshot-*.png
 project

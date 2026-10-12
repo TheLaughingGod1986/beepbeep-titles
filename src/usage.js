@@ -1,9 +1,10 @@
 import { FEATURE_COLORS } from './ui/tokens';
 
 const FEATURE_META = {
-    title_meta: { label: 'Titles & Meta Descriptions', icon: 'edit',  ...FEATURE_COLORS.title_meta },
-    alt_text:   { label: 'Image ALT Text',             icon: 'image', ...FEATURE_COLORS.alt_text },
-    schema:     { label: 'Schema & Rich Snippets',     icon: 'trend', ...FEATURE_COLORS.schema },
+    title_meta:        { label: 'Titles & Meta Descriptions', icon: 'edit',  ...FEATURE_COLORS.title_meta },
+    alt_text:          { label: 'Image ALT Text',             icon: 'image', ...FEATURE_COLORS.alt_text },
+    internal_linking:  { label: 'Internal Linking',           icon: 'link',  ...FEATURE_COLORS.internal_linking },
+    schema:            { label: 'Schema & Rich Snippets',     icon: 'trend', ...FEATURE_COLORS.schema },
 };
 
 /* The fixed catalog of OpptiAI plugins that draw from the shared pool,
@@ -12,6 +13,7 @@ const FEATURE_META = {
 const CATALOG = [
     { id: 'title_meta', current: true },
     { id: 'alt_text' },
+    { id: 'internal_linking' },
     { id: 'schema' },
 ];
 
@@ -24,6 +26,10 @@ const FEATURE_ALIASES = {
     title: 'title_meta',
     titles_meta: 'title_meta',
     titles_and_meta: 'title_meta',
+    linking: 'internal_linking',
+    internal_link: 'internal_linking',
+    internal_links: 'internal_linking',
+    oppti_linking: 'internal_linking',
     schema_markup: 'schema',
     rich_snippets: 'schema',
 };

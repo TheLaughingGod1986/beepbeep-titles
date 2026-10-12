@@ -1,0 +1,169 @@
+{
+  "generatedAt": "2026-07-28T20:07:50.723Z",
+  "sync": {
+    "titles": "bind-mounted /Users/ben/code/web/beepbeep-titles (no copy)",
+    "altText": {
+      "from": "/Users/ben/WP-Alt-text-plugin/",
+      "to": ".../plugins/beepbeep-ai-alt-text-generator/"
+    },
+    "linking": {
+      "from": "/Users/ben/code/web/BeepBeep Internal Linking/oppti-internal-linking/",
+      "to": ".../plugins/oppti-internal-linking/"
+    },
+    "auditor": {
+      "from": "/Users/ben/code/web/beepbeep-platform/plugins/optimizer/",
+      "to": ".../plugins/oppti-optimizer/"
+    },
+    "builds": "Titles/Linking/Optimizer bundles already fresh; no rebuild required before sync"
+  },
+  "screenshots": {
+    "titles": "/Users/ben/code/web/beepbeep-titles/.tmp/unify-dashboard-screenshots/01-titles-home.png",
+    "altText": "/Users/ben/code/web/beepbeep-titles/.tmp/unify-dashboard-screenshots/02-alttext-dashboard.png",
+    "linking": "/Users/ben/code/web/beepbeep-titles/.tmp/unify-dashboard-screenshots/03-linking-dashboard.png",
+    "auditor": "/Users/ben/code/web/beepbeep-titles/.tmp/unify-dashboard-screenshots/04-auditor-dashboard.png",
+    "auditorWpChrome": "/Users/ben/code/web/beepbeep-titles/.tmp/unify-dashboard-screenshots/04-auditor-dashboard-wp-chrome.png"
+  },
+  "auditorState": {
+    "primary": "#2563EB",
+    "bg": "#F6F8FB",
+    "textHead": "OpptiAI · Website Optimizer\nYour AI website\nhealth consultant\n\nScan your website in under a minute. Discover exactly what's holding your rankings, accessibility and AI visibility b",
+    "hasPriorities": false,
+    "isWelcome": true
+  },
+  "results": [
+    {
+      "plugin": "Titles",
+      "tab": "Home",
+      "pass": true,
+      "note": "New dashboard markers present; 0 console errors"
+    },
+    {
+      "plugin": "Titles",
+      "tab": "Advanced Library",
+      "pass": true
+    },
+    {
+      "plugin": "Titles",
+      "tab": "Autopilot",
+      "pass": true
+    },
+    {
+      "plugin": "Titles",
+      "tab": "Settings",
+      "pass": true
+    },
+    {
+      "plugin": "Titles",
+      "tab": "Billing",
+      "pass": true
+    },
+    {
+      "plugin": "Alt Text",
+      "tab": "Dashboard",
+      "pass": true,
+      "note": "Today's Priorities + Priority Action Centre markers present"
+    },
+    {
+      "plugin": "Alt Text",
+      "tab": "ALT Library",
+      "pass": true
+    },
+    {
+      "plugin": "Alt Text",
+      "tab": "Autopilot",
+      "pass": true
+    },
+    {
+      "plugin": "Alt Text",
+      "tab": "Audit",
+      "pass": true
+    },
+    {
+      "plugin": "Alt Text",
+      "tab": "Analytics",
+      "pass": true
+    },
+    {
+      "plugin": "Alt Text",
+      "tab": "Usage",
+      "pass": true
+    },
+    {
+      "plugin": "Alt Text",
+      "tab": "Settings",
+      "pass": true
+    },
+    {
+      "plugin": "Internal Linking",
+      "tab": "Dashboard",
+      "pass": true,
+      "note": "New dashboard markers present"
+    },
+    {
+      "plugin": "Internal Linking",
+      "tab": "Opportunities",
+      "pass": true,
+      "note": "PRE-EXISTING: REST /opportunities returns 501; screen mounts; console 501 expected per plan"
+    },
+    {
+      "plugin": "Internal Linking",
+      "tab": "Pages",
+      "pass": true
+    },
+    {
+      "plugin": "Internal Linking",
+      "tab": "Link Map",
+      "pass": true
+    },
+    {
+      "plugin": "Internal Linking",
+      "tab": "Settings",
+      "pass": true
+    },
+    {
+      "plugin": "Auditor",
+      "tab": "Dashboard",
+      "pass": true,
+      "note": "Tokens applied (--oa-primary=#2563EB). No prior audit → Welcome gate (pre-existing). New Dashboard with Priorities only after first audit."
+    },
+    {
+      "plugin": "Auditor",
+      "tab": "Website Audit",
+      "pass": true,
+      "note": "Iframe mounts; redirects to Welcome when no audit (pre-existing)"
+    },
+    {
+      "plugin": "Auditor",
+      "tab": "Opportunities",
+      "pass": true,
+      "note": "Iframe mounts; redirects to Welcome when no audit (pre-existing)"
+    },
+    {
+      "plugin": "Auditor",
+      "tab": "Progress",
+      "pass": true,
+      "note": "Iframe mounts; redirects to Welcome when no audit (pre-existing)"
+    },
+    {
+      "plugin": "Auditor",
+      "tab": "Solutions",
+      "pass": true,
+      "note": "Iframe mounts; redirects to Welcome when no audit (pre-existing)"
+    },
+    {
+      "plugin": "Auditor",
+      "tab": "Workspace",
+      "pass": true,
+      "note": "Iframe mounts; redirects to Welcome when no audit (pre-existing)"
+    }
+  ],
+  "summary": {
+    "total": 23,
+    "pass": 23,
+    "fail": 0,
+    "preexistingNotes": [
+      "Internal Linking Opportunities endpoint 501 Not Implemented",
+      "Auditor embed mode forces Welcome screen until first audit completes (app.jsx liveLoaded/hasAudit gate)"
+    ]
+  }
+}

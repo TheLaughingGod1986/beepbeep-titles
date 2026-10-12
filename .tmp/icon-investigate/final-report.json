@@ -1,0 +1,36 @@
+{
+  "before_api": {
+    "titles": {
+      "1x": "https://ps.w.org/opptiai-titles/assets/icon-128x128.png?rev=3626507",
+      "2x": "https://ps.w.org/opptiai-titles/assets/icon-256x256.png?rev=3626507"
+    },
+    "alttext": {
+      "1x": "https://ps.w.org/beepbeep-ai-alt-text-generator/assets/icon-128x128.png?rev=3603430",
+      "2x": "https://ps.w.org/beepbeep-ai-alt-text-generator/assets/icon-256x256.png?rev=3603430"
+    }
+  },
+  "after_api": {
+    "version": "1.0.17",
+    "last_updated": "2026-07-28 11:20pm GMT",
+    "icons": {
+      "1x": "https://ps.w.org/opptiai-titles/assets/icon-128x128.png?rev=3626523",
+      "2x": "https://ps.w.org/opptiai-titles/assets/icon-256x256.png?rev=3626523"
+    }
+  },
+  "hashes": {
+    "favorites-equivalent-1x.png": "07dc4e7e29def798f0b3b26380d09b96cdb3073cb836e492134f81ec012fe6f8",
+    "favorites-equivalent-2x.png": "39343c9d0f033af41dc5e45f86db3b3a9d141c5de7c4f41b7829fc12d694f7b7",
+    "after-alttext-128-api.png": "07dc4e7e29def798f0b3b26380d09b96cdb3073cb836e492134f81ec012fe6f8",
+    "after-alttext-256-api.png": "39343c9d0f033af41dc5e45f86db3b3a9d141c5de7c4f41b7829fc12d694f7b7",
+    "after-titles-256-3626507.png": "8163b1830cdc227210d4348ef3db4bde0fee8c373c0ff6b279b9296b4dd38345",
+    "tip-256-after.png": "8163b1830cdc227210d4348ef3db4bde0fee8c373c0ff6b279b9296b4dd38345"
+  },
+  "author_img_opptiai-titles": [
+    "https://ps.w.org/opptiai-titles/assets/icon-128x128.png?rev=3626523, https://ps.w.org/opptiai-titles/assets/icon-256x256.png?rev=3626523 2x",
+    "https://ps.w.org/opptiai-titles/assets/icon-256x256.png?rev=3626523"
+  ],
+  "author_img_beepbeep-ai-alt-text-generator": [
+    "https://ps.w.org/beepbeep-ai-alt-text-generator/assets/icon-128x128.png?rev=3603430, https://ps.w.org/beepbeep-ai-alt-text-generator/assets/icon-256x256.png?rev=3603430 2x",
+    "https://ps.w.org/beepbeep-ai-alt-text-generator/assets/icon-256x256.png?rev=3603430"
+  ]
+}

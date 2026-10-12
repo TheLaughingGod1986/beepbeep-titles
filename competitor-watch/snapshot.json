@@ -1,0 +1,177 @@
+{
+  "run_date": "2026-09-03",
+  "baseline_run": false,
+  "previous_run": "2026-08-27",
+  "notes": "Week 5 run. Diffed against 2026-08-27 snapshot. api.wordpress.org is not reachable from this environment (network allowlist), so all figures come from the public WP.org plugin/support pages; those pages are edge-cached and relative date labels ('1 week ago', '2 days ago') can lag - absolute dates taken from changelog/forum timestamps where present. Reddit/Stack Exchange not fetched (blocked). The week's single significant event is AI Alt Text Generator 2.7.0, which is both a threat (WP 7.1 compat, fixed protect-words) and the source of the strongest warm lead logged so far.",
+  "competitors": {
+    "alttext_ai": {
+      "wporg_slug": "alttext-ai",
+      "installs": "20,000+",
+      "marketing_claim_sites": "97K+ sites optimized; 38M+ images AI-ready (alttext.ai site-wide, all platforms)",
+      "rating": 4.7,
+      "review_count": 36,
+      "newest_review_date": "2025-12-20",
+      "version": "1.10.37",
+      "last_updated": "2026-08-19",
+      "tested_up_to": "7.0.4",
+      "entry_price": "Free 25 one-time credits (no card); Bronze $5/mo (100) or $49/yr (1,200); Silver $19/mo (500) or $189/yr (6,000); Gold $59/mo (2,000) or $489/yr (24,000); Titanium $119/mo (5,000) or $1,179/yr (60,000); Platinum $229/mo (10,000) or $2,199/yr (120,000); credit packs 50 for $3",
+      "notable_features": [
+        "JPG/PNG/GIF/WebP/BMP = 1 credit; AVIF/HEIC/HEIF/JP2/SVG/TIFF = 2 credits (paid plans only)",
+        "130+ languages, WPML + Polylang; translations 1 credit per extra language",
+        "WP-CLI (wp alttext generate/status)",
+        "Multisite, multilingual CSV import",
+        "WooCommerce Ecommerce Vision",
+        "SEO plugin keyphrase integration (7 plugins)",
+        "Review and Edit + History page",
+        "Generate button inside WordPress 'Image details' panel (1.10.37)",
+        "MCP Server, Google Drive, BigCommerce, Ecwid, Google Tag Manager integrations",
+        "Enterprise tier and Partners programme",
+        "Free site-wide crawl analyzer (alttext.ai/crawl-analyzer) as top-of-funnel",
+        "Credits roll over on normal renewal; forfeited on plan change"
+      ],
+      "top_changelog_line": "1.10.37 - 2026-08-19: Generate button added to WordPress Image details panel; prefix/suffix no-space option; connect-first settings ordering; History no longer reports 'Updated!' on failed saves",
+      "week_over_week": "No change on any tracked field - version, installs, rating, review count, newest review, tested-up-to and full pricing table all identical to the 2026-08-27 capture. Two weeks without a release. Support forum still dormant; newest thread remains 2026-03-25 (WPML disabled languages). Now tied with us on tested-up-to 7.0.4, i.e. both of us are behind Alt Magic and AI Alt Text Generator at 7.1.",
+      "support_forum_newest_thread": "2026-03-25"
+    },
+    "ai_alt_text_generator": {
+      "wporg_slug": "ai-alt-text-generator",
+      "installs": "2,000+",
+      "rating": 4.8,
+      "review_count": 5,
+      "newest_review_date": "2025-09-30",
+      "version": "2.7.0",
+      "last_updated": "2026-08-29 (approx; WP.org label '5 days ago', no absolute changelog date)",
+      "tested_up_to": "7.1",
+      "entry_price": "Free: 50 images/month managed credits, no API key and no signup; or BYO OpenAI/Anthropic key at cost; Pro add-on via store.lessbutmore.ai",
+      "notable_features": [
+        "Managed credits default - works out of the box, no signup, 50 free images/month",
+        "BYO OpenAI/Anthropic key (advanced); live model dropdown fetched from provider, cached 12h",
+        "WP-CLI (wp ai-alt-text generate/activate/status)",
+        "WCAG 2.2 / ADA / Section 508 / EAA positioning",
+        "SEO keyphrase from Yoast/Rank Math/SEOPress, page-context aware",
+        "Protected-words rule - NOW ACTUALLY WORKING as of 2.7.0, and protected images no longer cost a credit",
+        "NEW 2.7.0: Testing tab previews whether a bulk run would keep or replace an image's existing alt text, without spending a credit",
+        "Out-of-credits dashboard notice with snooze",
+        "~48 languages",
+        "WooCommerce context is Pro-only",
+        "Coverage dashboard widget",
+        "Bulk runs retry provider failures up to 3x"
+      ],
+      "top_changelog_line": "2.7.0: fixed the 'never overwrite alt text containing' list doing nothing (the Bulk Generation screen had no Save control, so a bulk run replaced the alt text the field was meant to protect); protected images no longer cost a credit; Testing tab now previews keep-vs-replace; tested up to WordPress 7.1",
+      "week_over_week": "The week's only mover, and a substantial one. 2.6.6 -> 2.7.0 after a two-week pause, fixing a data-loss bug in the protect-words feature they shipped in 2.6.0. Tested-up-to jumped 6.9.7 -> 7.1, a two-release leap that puts them ahead of both us and AltText.ai. Support responsiveness improved again: 'Issues resolved in last two months' now 3 out of 3 (was 2 of 2). Installs, rating and review count all flat; still no new review since 2025-09-30 - they ship fast but are not converting users into reviews.",
+      "support_forum_newest_thread": "2026-08-28"
+    },
+    "alt_magic": {
+      "wporg_slug": "alt-magic-ai-powered-alt-texts",
+      "installs": "2,000+",
+      "rating": 5.0,
+      "review_count": 19,
+      "newest_review_date": "2026-07-29",
+      "version": "1.8.2",
+      "last_updated": "2026-08-20 (approx; WP.org label '1 week ago', unchanged from last run)",
+      "tested_up_to": "7.1",
+      "entry_price": "Free 50 credits/month (refresh 1st of month); credit packs that never expire; custom high-volume plans; in-plugin pricing page with out-of-credit prompts since 1.8.2",
+      "notable_features": [
+        "10,000+ images/hour bulk processing",
+        "AI image renaming (existing + new uploads)",
+        "JPG/PNG/GIF/WebP/AVIF/HEIC/SVG",
+        "150+ languages, WPML",
+        "WooCommerce product-aware alt text",
+        "Titles, captions, descriptions",
+        "Verbosity / style controls and custom prompt layer",
+        "Processed-images history",
+        "Web app in addition to plugin",
+        "Published 'Alt Magic vs AltText.ai' comparison page",
+        "Advertises 4.8 stars on G2 in the readme",
+        "CSV upload for batch processing",
+        "Brilliant Directories support; Chrome extension planned"
+      ],
+      "top_changelog_line": "1.8.2: Added in-plugin pricing and out-of-credit plan prompts, improved support access, and confirmed WordPress 7.1 compatibility.",
+      "week_over_week": "No change. Still 1.8.2 one week after the monetisation release; installs, rating (5.0), review count (19) and newest review (2026-07-29) all flat. Tested-up-to still 7.1. WP.org support forum still effectively unused - support runs off-forum, which is why their rating stays clean.",
+      "support_forum_newest_thread": "2025-08-21"
+    },
+    "beepbeep_ai": {
+      "wporg_slug": "beepbeep-ai-alt-text-generator",
+      "public_name": "OpptiAI Alt Text - AI Alt Text Generator for Image SEO (renamed from BeepBeep AI)",
+      "installs": "Fewer than 10",
+      "rating": null,
+      "review_count": 0,
+      "newest_review_date": null,
+      "version": "4.6.132",
+      "last_updated": "no release this week; WP.org page still shows a stale '2 days ago' label against unchanged version 4.6.132, confirming that label is cached and unreliable",
+      "tested_up_to": "7.0.4",
+      "entry_price": "10 guest generations without an account, then Free plan 25 generations/month",
+      "notable_features": [
+        "Scan / bulk generate / review-and-approve workflow - nothing saved without approval",
+        "WooCommerce free (featured + gallery images)",
+        "Auto alt text on new uploads",
+        "Coverage and usage dashboard with progress ring",
+        "No OpenAI API key required (runs through OpptiAI backend)",
+        "OpptiAI Titles cross-sell and shared credit wallet across both plugins",
+        "Guest trial requires no signup for first 10 generations",
+        "Readme links to oppti.dev/alttext-ai-alternative comparison page and free image SEO audit"
+      ],
+      "top_changelog_line": "4.6.132: OpptiAI Titles cross-sell line on dashboard; low-credit warning only when <=5 remain; Settings Account Credit Wallet with shared pool and per-plugin breakdown",
+      "week_over_week": "Second consecutive week with no release. Still fewer than 10 installs and zero reviews. Tested-up-to 7.0.4 - now behind two of three tracked competitors. Free tier (25/mo) still half of Alt Magic's and AI Alt Text Generator's 50/mo, and our guest trial (10, no signup) remains the only true no-account entry point in the set."
+    }
+  },
+  "new_entrants_in_alt_text_tag": [
+    "No new entrants this week. Newest arrivals remain neo Alt / neo Rename (neoWP) and EzAlt AI, all first logged 2026-08-13. neoWP is still the most active vendor presence in the tag, and this week is the first time one of their threads is a user-reported failure rather than a vendor announcement."
+  ],
+  "known_tag_field": [
+    "neo Alt - AI Alt Text Generator for Images with Bulk Processing (neoWP)",
+    "neo Rename - AI Media Renamer (neoWP)",
+    "EzAlt AI - Bulk AI Alt Text for WordPress and WooCommerce",
+    "Infy SEO - Image SEO Optimizer",
+    "Auto Alt Text (Valerio Monti) - 4,000+ installs",
+    "AltTextLab AI Alt Text Generator",
+    "Smart Alt Fixer - Image Alt Text & SEO",
+    "AI Alt Text Builder",
+    "Bilder Alt",
+    "AutoAlt",
+    "AltVision",
+    "Altomatic",
+    "ImgSEO",
+    "Image Alt Text Manager",
+    "Image Alt & Accessibility Checker",
+    "Custom Alt Text for Elementor Images",
+    "Alt Text Updater",
+    "Auto Image Attributes From Filename With Bulk Updater - 100,000+ installs (non-AI)",
+    "WP Accessibility (Joe Dolson) - 60,000+ installs",
+    "Bulk Auto Image Alt Text optimizer (Pagup) - 10,000+ installs",
+    "Image Alt Text (RS WebStudios) - 9,000+ installs",
+    "SOOZ - AI for SEO - 2,000+ installs",
+    "Filikod - ALT Text Audit & Bulk Management (ALT Quality Score; overlaps our review-and-approve positioning)"
+  ],
+  "open_unanswered_competitor_threads": [
+    {
+      "forum": "WordPress.org plugin support - neo Rename (neoWP)",
+      "title": "'Write Image Alt Text with AI' bulk action not working",
+      "user": "brightonbeerblog",
+      "date": "2026-08-30",
+      "replies": 3,
+      "status": "last reply is from the reporting user, not the vendor - bulk alt text action failing on a competitor plugin, currently unanswered",
+      "url": "https://wordpress.org/support/topic/write-image-alt-text-with-ai-bulk-action-not-working/"
+    }
+  ],
+  "warm_threads_this_week": [
+    {
+      "forum": "WordPress.org plugin support - AI Alt Text Generator",
+      "title": "Existing alt text - exclude words",
+      "user": "wpprup (@wppraesenz)",
+      "date": "2026-08-28 (thread opened 2026-07-11)",
+      "replies": 6,
+      "status": "STRONGEST LEAD LOGGED TO DATE. User asked for a way to stop the AI overwriting hand-written alt text; the vendor shipped a protect-words field in 2.6.0 that silently did nothing, and a bulk run overwrote their protected alt texts - they stopped the run after ~200 images and had to restore them by hand. On 2026-08-28 they wrote 'If you could improve the mentioned prompt... I could use this plugin furtherly', i.e. they are not currently using it. Vendor replied to update to 2.7.0. This is a live, unconverted user whose exact complaint is our core differentiator (nothing saved without review and approval). Also independently told the vendor that not being tested against current WP hurts adoption.",
+      "url": "https://wordpress.org/support/topic/existing-alt-text-exclude-words/"
+    },
+    {
+      "forum": "WordPress.org Accessibility / core feature request",
+      "title": "FR: Alt text input field whilst uploading",
+      "user": "Craig Lambie (@cclambie)",
+      "date": "2026-08-18 (last reply; thread opened 2026-08-12)",
+      "replies": 4,
+      "status": "carried over; picked up one more reply since last run. Three weeks old, low priority now.",
+      "url": "https://wordpress.org/support/topic/fr-alt-text-input-field-whilst-uploading/"
+    }
+  ]
+}

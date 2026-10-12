@@ -12,8 +12,10 @@ import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normali
 import { paywallTrigger, errorToast, checkoutErrorToast } from './errors';
 import { hasDailyCap } from './quota';
 import { usePaywallGate } from './hooks/usePaywallGate';
+import { isProPlan, isPaidPlan } from './quota';
 import { resolveAllowedTab } from './navigation';
 import { recordCheckoutAttempt, recordCheckoutSuccess, recordCheckoutFailure } from './billingTelemetry';
+import { track, trackPluginOpened, trackScreen, trackPaywallShown } from './telemetry';
 
 // Checkout opens Stripe in a new tab, so the success return is a fresh page
 // load that doesn't know which plan was bought. We stash the intent in
@@ -71,14 +73,19 @@ export default function App() {
     const openConnect = ( mode = 'register' ) => {
         setConnectMode( mode );
         setConnectOpen( true );
+        track( mode === 'password' ? 'login_cta_clicked' : 'signup_cta_clicked', { feature_name: mode === 'password' ? 'login' : 'signup' } );
+        track( 'login_modal_opened', { mode } );
     };
 
     const selectTab = ( nextTab ) => {
-        setTab( resolveAllowedTab( nextTab, connected, { isAdmin } ) );
+        const resolved = resolveAllowedTab( nextTab, connected, { isAdmin } );
+        setTab( resolved );
+        trackScreen( resolved );
     };
 
     const handleSignOut = async () => {
         try { await clearLicense(); } catch ( e ) {}
+        track( 'license_disconnected', { source: 'sign_out' } );
         setConnected( false );
         setQuota( normalizeQuota( null ) );
         // Land on the signed-out audit report (Home) rather than Settings —
@@ -88,15 +95,35 @@ export default function App() {
     };
 
     const plan = quota?.plan || 'free';
-    const { dailyRemaining, isDailyExhausted, isBulkOverLimit, heroCap } = usePaywallGate( quota );
+    const { canGenerateOne, isBulkOverLimit, heroCap, costPerPage } = usePaywallGate( quota );
+    // Shared wallet may have no daily sub-cap (daily_limit: null) — then
+    // exhaustion means MONTHLY credits, not today's allowance.
+    const exhaustedTrigger = hasDailyCap( quota ) ? 'daily-limit' : 'monthly-limit';
 
     // The avatar menu represents the OpptiAI account (license), not the WP
     // user — show the account email when we know it, fall back to WP identity.
     const accountEmail = quota?.account_email || initial.accountEmail || '';
     const menuUser     = accountEmail ? { name: accountEmail.split( '@' )[0], email: accountEmail } : user;
 
+    // Soft-refresh the shared wallet when the admin tab regains focus so
+    // credits spent in AltText / Linking / Auditor show up without a full reload.
+    useEffect( () => {
+        const onResume = () => {
+            if ( document.visibilityState === 'hidden' ) return;
+            refreshQuota();
+        };
+        document.addEventListener( 'visibilitychange', onResume );
+        window.addEventListener( 'focus', onResume );
+        return () => {
+            document.removeEventListener( 'visibilitychange', onResume );
+            window.removeEventListener( 'focus', onResume );
+        };
+    }, [] );
+
     // Bootstrap: refresh quota + load queue/stats on mount.
     useEffect( () => {
+        trackPluginOpened();
+        trackScreen( 'dashboard' );
         refreshQuota();
         loadQueuePages();
         loadStats();
@@ -118,11 +145,13 @@ export default function App() {
             refreshQuota().then( ( q ) => {
                 if ( q ) {
                     recordCheckoutSuccess( { plan: pending?.plan || q.plan || null, priceId: pending?.price_id } );
+                    track( 'checkout_completed', { plan: pending?.plan || q.plan || null } );
                 }
                 clearPendingCheckout();
             } );
         } else if ( billing === 'cancelled' ) {
             setToast( { message: 'Checkout cancelled', sub: 'No charge was made.', icon: 'info', tone: 'warn' } );
+            track( 'checkout_cancelled' );
             clearPendingCheckout();
         }
         if ( billing ) {
@@ -132,6 +161,7 @@ export default function App() {
         } else if ( initial.licenseAdopted ) {
             // Another OpptiAI plugin on this site already had a license in
             // the database — we connected with it automatically.
+            track( 'license_adopted' );
             setToast( { message: 'Account connected automatically', sub: 'We found an existing OpptiAI account connection on this site.', icon: 'check', tone: 'ok' } );
         } else if ( ! initial.connected ) {
             // No account yet — nudge the user toward the connect modal.
@@ -143,6 +173,7 @@ export default function App() {
     useEffect( () => {
         if ( connected && ! ( settings?.onboarding_complete ?? true ) ) {
             setOnboardingOpen( true );
+            track( 'onboarding_opened' );
         }
     }, [connected, settings?.onboarding_complete] );
 
@@ -310,24 +341,56 @@ export default function App() {
 
     /** Pull up to `limit` affected items for one issue code, for an expanded Priority card. */
     const loadIssueItems = async ( issueCode, { limit = 50 } = {} ) => {
-        try {
-            const res = await fetchHealthItems( { issue: issueCode, sort: 'lowest-score', perPage: limit } );
-            return res.items || [];
-        } catch ( e ) {
-            return [];
-        }
+        const res = await fetchHealthItems( { issue: issueCode, sort: 'lowest-score', perPage: limit } );
+        return res.items || [];
+    };
+
+    const pagesFromHealthItems = ( items ) => ( items || [] )
+        .map( ( item ) => {
+            const id = Number( item.id || item.site_item_id );
+            return {
+                ...item,
+                id,
+                url: item.url || item.edit_url || '',
+                title: item.title || item.post_title || '',
+                hue: item.hue ?? ( ( id * 47 ) % 360 ),
+            };
+        } )
+        // Require a real WP post the current user can edit.
+        .filter( ( pg ) => Number.isFinite( pg.id ) && pg.id > 0 && ( pg.url || pg.edit_url ) );
+
+    /** Open the credits paywall with live remaining balance (never drop entitlement). */
+    const openCreditsPaywall = ( trigger = 'monthly-limit' ) => {
+        setPaywall( {
+            open: true,
+            trigger,
+            entitlement: quota,
+        } );
+        trackPaywallShown( trigger );
     };
 
     /** "Optimise All" on a Priority card — queue every affected item into the existing credit-consuming generation flow. */
     const handleOptimiseIssue = async ( issueCode ) => {
-        const items = await loadIssueItems( issueCode, { limit: 100 } );
-        const pages = items.map( ( item ) => ( {
-            id: Number( item.site_item_id ),
-            url: item.edit_url || '',
-            title: item.post_title || '',
-            hue: ( Number( item.site_item_id ) * 47 ) % 360,
-        } ) );
-        openBulk( pages );
+        if ( ! canGenerateOne() ) {
+            openCreditsPaywall( exhaustedTrigger );
+            return;
+        }
+        try {
+            const items = await loadIssueItems( issueCode, { limit: 100 } );
+            const pages = pagesFromHealthItems( items );
+            if ( ! pages.length ) {
+                setToast( {
+                    message: 'No pages found for this issue',
+                    sub: 'Try Quick Scan to refresh results, then try again.',
+                    icon: 'info',
+                    tone: 'warn',
+                } );
+                return;
+            }
+            openBulk( pages );
+        } catch ( e ) {
+            handleApiError( e );
+        }
     };
 
     /** Settings → Danger zone: revert every page this plugin has ever optimised. Does not refund credits already spent. */
@@ -357,18 +420,39 @@ export default function App() {
 
     /** "Optimise Critical Issues" hero button — every item currently scored critical. */
     const handleOptimiseCritical = async () => {
+        if ( ! canGenerateOne() ) {
+            openCreditsPaywall( exhaustedTrigger );
+            return;
+        }
         try {
             const res = await fetchHealthItems( { status: 'critical', sort: 'lowest-score', perPage: 100 } );
-            const pages = ( res.items || [] ).map( ( item ) => ( {
-                id: Number( item.site_item_id ),
-                url: item.edit_url || '',
-                title: item.post_title || '',
-                hue: ( Number( item.site_item_id ) * 47 ) % 360,
-            } ) );
+            const pages = pagesFromHealthItems( res.items || [] );
+            if ( ! pages.length ) {
+                setToast( {
+                    message: 'No critical pages to optimise',
+                    sub: 'Try Quick Scan to refresh results, then try again.',
+                    icon: 'info',
+                    tone: 'warn',
+                } );
+                return;
+            }
             openBulk( pages );
         } catch ( e ) {
             handleApiError( e );
         }
+    };
+
+    // Merge top-level quota fields onto entitlement so the paywall can show
+    // "1 left, needs 2" when the API returns remaining without a full snapshot.
+    const entitlementForPaywall = ( err, fallback = null ) => {
+        const base = err?.entitlement_state || fallback || {};
+        const remaining = err?.credits_remaining ?? base.credits_remaining ?? quota?.credits_remaining;
+        return {
+            ...base,
+            ...( remaining != null ? { credits_remaining: remaining } : {} ),
+            credits_per_page: base.credits_per_page ?? quota?.credits_per_page ?? costPerPage,
+            ...( err?.required_credits != null ? { required_credits: err.required_credits } : {} ),
+        };
     };
 
     // ── Error → paywall / toast ──
@@ -376,7 +460,8 @@ export default function App() {
         if ( err?.name === 'AbortError' ) return;
         const trigger = paywallTrigger( err );
         if ( trigger ) {
-            setPaywall( { open: true, trigger, entitlement: err.entitlement_state || null } );
+            setPaywall( { open: true, trigger, entitlement: entitlementForPaywall( err, quota ) } );
+            trackPaywallShown( trigger );
             return;
         }
         if ( err?.code === 'INVALID_LICENSE' ) {
@@ -387,38 +472,45 @@ export default function App() {
         setToast( errorToast( err ) );
     };
 
-    // The shared wallet may have no daily sub-cap (daily_limit: null) — then
-    // exhaustion means the MONTHLY credits are gone, not today's allowance.
-    const exhaustedTrigger = hasDailyCap( quota ) ? 'daily-limit' : 'monthly-limit';
-
     // ── Open generation drawer ──
     const openGen = () => {
-        if ( isDailyExhausted() ) {
-            setPaywall( { open: true, trigger: exhaustedTrigger, entitlement: quota } );
+        if ( ! canGenerateOne() ) {
+            openCreditsPaywall( exhaustedTrigger );
             return;
         }
         const count = Math.min( heroCap(), queuePages.length );
         if ( count <= 0 ) return;
+        track( 'generation_started', { generation_mode: count > 1 ? 'batch' : 'single', page_count: count } );
         setDrawer( { open: true, pages: queuePages.slice( 0, count ) } );
     };
 
     const openGenSingle = ( pg ) => {
-        if ( isDailyExhausted() ) {
-            setPaywall( { open: true, trigger: exhaustedTrigger, entitlement: quota } );
+        if ( ! canGenerateOne() ) {
+            openCreditsPaywall( exhaustedTrigger );
             return;
         }
+        track( 'generation_started', { generation_mode: 'single', page_count: 1 } );
         setDrawer( { open: true, pages: [ { ...pg, hue: pg.hue ?? 220 } ] } );
     };
 
     const openBulk = ( pages ) => {
-        if ( isBulkOverLimit( pages.length ) ) {
-            setPaywall( { open: true, trigger: 'bulk', entitlement: quota } );
+        if ( ! pages?.length ) {
+            setToast( {
+                message: 'No pages to optimise',
+                sub: 'Try Quick Scan to refresh results, then try again.',
+                icon: 'info',
+                tone: 'warn',
+            } );
             return;
         }
-        if ( ! pages.length ) return;
+        if ( isBulkOverLimit( pages.length ) ) {
+            openCreditsPaywall( 'bulk' );
+            return;
+        }
         // Single items already get a preview/confirm inside the drawer
         // itself — the pre-flight estimate below is specifically for bulk.
         if ( pages.length === 1 ) {
+            track( 'generation_started', { generation_mode: 'single', page_count: 1 } );
             setDrawer( { open: true, pages } );
             return;
         }
@@ -428,6 +520,7 @@ export default function App() {
     const confirmBulk = () => {
         const pages = bulkConfirm.pages;
         setBulkConfirm( { open: false, pages: [] } );
+        track( 'generation_started', { generation_mode: 'batch', page_count: pages.length } );
         setDrawer( { open: true, pages } );
     };
 
@@ -459,6 +552,13 @@ export default function App() {
     };
 
     const handleAutoToggle = async ( val ) => {
+        // Continuous Optimisation is Pro-only — Free and Starter open the paywall.
+        // Turning off stays allowed so a previously enabled site can pause.
+        if ( val && ! isProPlan( plan ) ) {
+            setPaywall( { open: true, trigger: 'continuous-optimisation', entitlement: quota } );
+            trackPaywallShown( 'continuous-optimisation' );
+            return;
+        }
         try {
             await saveSettings( { auto_generate: val } );
             setAutoOptimise( val );
@@ -477,13 +577,23 @@ export default function App() {
     // returns null, so we'd lose the handle and the fallback would navigate
     // the *current* WordPress tab to Stripe. We open a real handle and sever
     // window.opener manually for the same security benefit.
+    // Popup blockers require a synchronous window.open on the click gesture.
+    // We open a real handle immediately, paint a short "Opening…" message so
+    // the blank tab doesn't feel hung, then navigate once Stripe returns a URL.
     // Optional hooks let callers observe the resolved result without coupling
     // this popup helper to checkout semantics. `onResolved(res)` fires once a
     // usable URL is in hand (right before navigating); `onFailed(reason)` fires
     // when the call throws or returns no usable URL. Both are no-ops by default.
     const openInNewTab = async ( getUrl, { onResolved, onFailed } = {} ) => {
         const win = window.open( 'about:blank', '_blank' );
-        if ( win ) { try { win.opener = null; } catch ( e ) {} }
+        if ( win ) {
+            try { win.opener = null; } catch ( e ) {}
+            try {
+                win.document.open();
+                win.document.write( '<!doctype html><title>Opening checkout…</title><body style="font:14px/1.4 system-ui,sans-serif;padding:24px;color:#334155">Opening Stripe Checkout…</body>' );
+                win.document.close();
+            } catch ( e ) {}
+        }
         try {
             const res = await getUrl();
             if ( res?.url ) {
@@ -495,6 +605,7 @@ export default function App() {
                 // bad/archived Stripe price) instead of a generic message.
                 if ( win ) win.close();
                 onFailed?.( res );
+                setPaywall( ( p ) => ( { ...p, open: false } ) );
                 setToast( checkoutErrorToast( res ) );
             }
         } catch ( e ) {
@@ -503,8 +614,9 @@ export default function App() {
             onFailed?.( e );
             // License / quota errors still route to the connect modal or paywall.
             if ( e?.code === 'INVALID_LICENSE' || paywallTrigger( e ) ) { handleApiError( e ); return; }
-            // Everything else: show the real checkout/Stripe error so a
-            // misconfigured plan is diagnosable, not hidden behind "try again".
+            // Close the paywall so the toast isn't buried under the modal and the
+            // failure is obvious (Pro used to fail with SITE_LIMIT and look like a no-op).
+            setPaywall( ( p ) => ( { ...p, open: false } ) );
             setToast( checkoutErrorToast( e ) );
         }
     };
@@ -529,6 +641,8 @@ export default function App() {
                 // return (localStorage survives the new-tab round-trip).
                 persistPendingCheckout( args.plan, args.priceId );
                 recordCheckoutAttempt( { plan: args.plan, priceId: args.priceId } );
+                track( 'upgrade_cta_clicked', { plan: args.plan || 'pro', feature_name: 'billing' } );
+                track( 'checkout_started', { plan: args.plan || 'pro' } );
             },
             onFailed: ( reason ) => {
                 recordCheckoutFailure( { plan: args.plan, priceId: args.priceId, reason } );
@@ -538,7 +652,10 @@ export default function App() {
 
     const handleUpgrade      = () => goToCheckout( 'pro' );
     const handleBuyCredits   = () => goToCheckout( 'credits' );
-    const handleManageBilling = () => openInNewTab( () => createBillingPortal() );
+    const handleManageBilling = () => {
+        track( 'billing_portal_opened' );
+        openInNewTab( () => createBillingPortal() );
+    };
 
     const handleScan = async () => {
         try {
@@ -580,19 +697,30 @@ export default function App() {
                     onOptimiseCritical={handleOptimiseCritical}
                     onOptimiseIssue={handleOptimiseIssue}
                     onLoadIssueItems={loadIssueItems}
-                    onOptimiseSingleItem={( item ) => openGenSingle( {
-                        id: Number( item.site_item_id ),
-                        url: item.edit_url || '',
-                        title: item.post_title || '',
-                        hue: ( Number( item.site_item_id ) * 47 ) % 360,
-                    } )}
+                    onOptimiseSingleItem={( item ) => {
+                        if ( ! item?.edit_url || ! item?.site_item_id ) {
+                            setToast( {
+                                message: 'Page not found',
+                                sub: 'It may have been deleted. Run Quick Scan to refresh, then try again.',
+                                icon: 'alert',
+                                tone: 'warn',
+                            } );
+                            return;
+                        }
+                        openGenSingle( {
+                            id: Number( item.site_item_id ),
+                            url: item.edit_url || '',
+                            title: item.post_title || '',
+                            hue: ( Number( item.site_item_id ) * 47 ) % 360,
+                        } );
+                    }}
                     onUndo={handleUndo}
                 />
             ) : (
                 <AuditSignedOutScreen
                     stats={stats}
                     onConnect={() => openConnect( 'register' )}
-                    onHelp={() => setHelpOpen( true )}
+                    onHelp={() => { track( 'help_opened' ); setHelpOpen( true ); }}
                     onLibrary={() => selectTab( 'library' )}
                     onAutopilot={() => selectTab( 'automation' )}
                 />
@@ -605,6 +733,8 @@ export default function App() {
                     autoOptimise={autoOptimise}
                     onAutoToggle={handleAutoToggle}
                     onToast={setToast}
+                    locked={ ! isPaidPlan( plan ) }
+                    onUpgrade={() => setPaywall( { open: true, trigger: 'autopilot', entitlement: quota } )}
                 />
             );
             break;
@@ -614,13 +744,17 @@ export default function App() {
                     plan={plan}
                     quota={quota}
                     user={user}
+                    accountEmail={accountEmail}
                     settings={settings}
                     connected={connected}
-                    onUpgrade={() => setPaywall( { open: true, trigger: 'default', entitlement: null } )}
+                    onUpgrade={() => openCreditsPaywall( exhaustedTrigger )}
                     onBuyCredits={handleBuyCredits}
                     onManageBilling={handleManageBilling}
                     onToast={setToast}
                     onConnect={refreshQuota}
+                    onOpenConnect={() => openConnect( 'register' )}
+                    onSignIn={() => openConnect( 'password' )}
+                    onSignOut={() => setSignOutOpen( true )}
                     onReset={handleResetGenerated}
                 />
             );
@@ -648,11 +782,15 @@ export default function App() {
                 user={menuUser}
                 connected={connected}
                 isAdmin={isAdmin}
+                creditsUsed={quotaReady ? ( quota?.monthly_used ?? null ) : null}
+                creditsLimit={quotaReady ? ( quota?.monthly_limit ?? null ) : null}
+                creditsRemaining={quotaReady ? ( quota?.credits_remaining ?? null ) : null}
+                creditsPerPage={costPerPage}
                 onSignOut={() => setSignOutOpen( true )}
-                onHelp={() => setHelpOpen( true )}
+                onHelp={() => { track( 'help_opened' ); setHelpOpen( true ); }}
                 onConnect={() => openConnect( 'register' )}
                 onSignIn={() => openConnect( 'password' )}
-                onUpgrade={() => setPaywall( { open: true, trigger: 'default', entitlement: null } )}
+                onUpgrade={() => openCreditsPaywall( exhaustedTrigger )}
             >
                 {body}
                 {/*
@@ -668,10 +806,10 @@ export default function App() {
                     <PagesLibrary
                         quota={quota}
                         connected={connected}
-                        onConnect={() => setConnectOpen( true )}
+                        onConnect={() => openConnect( 'register' )}
                         onGenerate={openGenSingle}
                         onBulkGenerate={openBulk}
-                        onUpgrade={() => setPaywall( { open: true, trigger: 'bulk', entitlement: quota } )}
+                        onUpgrade={() => openCreditsPaywall( exhaustedTrigger )}
                     />
                 </div>
             </WPChrome>
@@ -679,7 +817,10 @@ export default function App() {
             <Onboarding
                 open={onboardingOpen}
                 onClose={() => setOnboardingOpen( false )}
-                onScan={handleOnboardingScan}
+                onScan={async () => {
+                    track( 'onboarding_scan_started' );
+                    return handleOnboardingScan();
+                }}
                 availablePostTypes={settings?.available_post_types || []}
                 onSaveScanScope={handleSaveScanScope}
                 onComplete={async () => {
@@ -687,6 +828,7 @@ export default function App() {
                         await saveSettings( { onboarding_complete: true } );
                         setSettings( s => ( { ...s, onboarding_complete: true } ) );
                     } catch ( e ) {}
+                    track( 'onboarding_completed' );
                     setOnboardingOpen( false );
                     setToast( { message: 'Welcome to OpptiAI Titles', sub: 'Your OpptiAI service credits are ready to use.', icon: 'logo', tone: 'ok' } );
                 }}
@@ -718,6 +860,7 @@ export default function App() {
                 open={bulkConfirm.open}
                 count={bulkConfirm.pages.length}
                 creditsRemaining={quota?.credits_remaining ?? null}
+                costPerPage={costPerPage}
                 onCancel={() => setBulkConfirm( { open: false, pages: [] } )}
                 onConfirm={confirmBulk}
             />
@@ -727,7 +870,14 @@ export default function App() {
                 pages={drawer.pages}
                 onClose={() => setDrawer( { open: false, pages: null } )}
                 onComplete={completeGen}
-                onPaywall={( trigger, entitlement ) => setPaywall( { open: true, trigger, entitlement } )}
+                onPaywall={( trigger, entitlement, err ) => {
+                    setPaywall( {
+                        open: true,
+                        trigger,
+                        entitlement: entitlementForPaywall( err || { entitlement_state: entitlement }, quota ),
+                    } );
+                    trackPaywallShown( trigger );
+                }}
                 onApiError={handleApiError}
                 onEntitlement={applyEntitlement}
                 onToast={setToast}

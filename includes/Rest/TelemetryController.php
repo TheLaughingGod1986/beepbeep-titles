@@ -40,11 +40,30 @@ class TelemetryController {
 				$out[ $key ] = $v;
 			} elseif ( is_int( $v ) || ( is_float( $v ) && is_finite( $v ) ) ) {
 				$out[ $key ] = max( 0, min( 1000000, (int) $v ) );
-			} elseif ( is_string( $v ) && 1 === preg_match( '/^[A-Za-z0-9_.\-]{1,64}$/', $v ) ) {
+			} elseif ( is_string( $v ) && self::is_safe_client_string( $v ) ) {
 				$out[ $key ] = $v;
 			}
 		}
 		return $out;
+	}
+
+	/**
+	 * Short token check for browser string values. The 64-char cap applies to
+	 * the raw value before anything else; only [A-Za-z0-9_.-] is allowed; and
+	 * a dot is only allowed in a version-like number (1.0.29), so host names,
+	 * IPv4 addresses and email domains are dropped.
+	 */
+	public static function is_safe_client_string( string $v ): bool {
+		if ( '' === $v || strlen( $v ) > 64 ) {
+			return false;
+		}
+		if ( 1 !== preg_match( '/^[A-Za-z0-9_.\-]+$/', $v ) ) {
+			return false;
+		}
+		if ( false === strpos( $v, '.' ) ) {
+			return true;
+		}
+		return 1 === preg_match( '/^\d+\.\d+(\.\d+)?(-[A-Za-z0-9]+)?$/', $v );
 	}
 
 	/**

@@ -317,6 +317,9 @@ class Client {
      */
     public function register( string $email, string $password, array $signup = [] ): array|\WP_Error {
         $signup = self::sanitize_signup_source( $signup['signup_source'] ?? '', $signup['signup_source_other'] ?? '' );
+        // Website Auditor deep-link attribution (account data, not telemetry:
+        // sent regardless of usage-stats consent, never to PostHog).
+        $signup += \BeepBeep_Titles\AuditorAttribution::signup_fields();
         $result = $this->do_request( 'POST', '/auth/register', $signup + [
             'email'             => $email,
             'password'          => $password,

@@ -2,7 +2,7 @@ export const TABS = [
     { id: 'dashboard',  label: 'Home' },
     { id: 'library',    label: 'Library' },
     { id: 'automation', label: 'Autopilot', requiresAuth: true },
-    { id: 'settings',   label: 'Settings', requiresAuth: true },
+    { id: 'settings',   label: 'Settings' },
     { id: 'billing',    label: 'Billing', adminOnly: true, requiresAuth: true },
 ];
 

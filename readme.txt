@@ -4,7 +4,7 @@ Tags: seo, ai seo, meta description, title tag, site audit
 Requires at least: 6.3
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.0.28
+Stable tag: 1.0.29
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -172,6 +172,14 @@ Data sent: Site URL; WordPress, PHP, and plugin versions; a pseudonymous install
 Privacy Policy: https://oppti.dev/privacy
 Terms of Use: https://oppti.dev/terms
 
+Service: PostHog (anonymous usage stats, opt-in only)
+Service URL: https://us.i.posthog.com
+Purpose: Help us understand which features are used so we can improve OpptiAI Titles.
+When data is sent: Only after an administrator turns on "Share anonymous usage stats to help improve OpptiAI Titles" in Settings. It is off by default, and nothing is sent or queued before you opt in. Turning it off stops sending immediately.
+Data sent: Anonymous feature usage events (for example, which screen was opened or that a generation finished), the plugin, WordPress and PHP versions, and a pseudonymous installation identifier. Never page content, titles, meta descriptions, URLs, post IDs, search terms or personal data.
+Privacy Policy: https://posthog.com/privacy
+Terms of Use: https://posthog.com/terms
+
 == Installation ==
 
 1. Upload the `opptiai-titles` folder to `/wp-content/plugins/` or install from **Plugins → Add New** (WordPress.org slug: `opptiai-titles`).
@@ -246,7 +254,7 @@ WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, R
 
 == Changelog ==
 
-= 1.0.29 =
+= 1.0.29 - 2026-10-12 =
 * Privacy: usage stats are only sent after you opt in.
 
 = 1.0.28 - 2026-10-12 =

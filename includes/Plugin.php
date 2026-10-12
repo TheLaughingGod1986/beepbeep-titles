@@ -34,6 +34,10 @@ class Plugin {
             Telemetry::flush_lifecycle_queue();
         }, 5 );
 
+        // Website Auditor deep-links (source=auditor&finding=<type>): remember
+        // them briefly so the later generate REST call can attribute itself.
+        add_action( 'admin_init', [ Telemetry::class, 'remember_auditor_attribution' ] );
+
         // Let sibling OptiAI plugins (and, later, a shared Hub) detect this
         // module the same way this plugin already detects Alt Text.
         Module_Registry::register( 'titles', BEEPTI_SLUG . '/' . basename( BEEPTI_FILE ), admin_url( 'admin.php?page=beepbeep-titles' ), BEEPTI_PLUGIN_TITLE );

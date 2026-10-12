@@ -97,6 +97,66 @@ class Telemetry {
 	];
 
 	/**
+	 * Read source/finding from the current request. Only source=auditor is
+	 * accepted; finding is a sanitized key (e.g. missing_title).
+	 *
+	 * @return array{source:string,finding?:string}|null
+	 */
+	private static function auditor_attribution_from_request(): ?array {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only attribution tag, no state change.
+		$source = isset( $_REQUEST['source'] ) ? sanitize_key( wp_unslash( $_REQUEST['source'] ) ) : '';
+		if ( 'auditor' !== $source ) {
+			return null;
+		}
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only attribution tag, no state change.
+		$finding = isset( $_REQUEST['finding'] ) ? sanitize_key( wp_unslash( $_REQUEST['finding'] ) ) : '';
+		$out     = [ 'source' => 'auditor' ];
+		if ( '' !== $finding ) {
+			$out['finding'] = substr( $finding, 0, 64 );
+		}
+		return $out;
+	}
+
+	/**
+	 * admin_init: when the Titles admin page is opened from the Website
+	 * Auditor, keep the attribution for the current user for 30 minutes.
+	 */
+	public static function remember_auditor_attribution(): void {
+		if ( wp_doing_ajax() ) {
+			return;
+		}
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Admin page routing only.
+		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
+		if ( 'beepbeep-titles' !== $page && ( ! defined( 'BEEPTI_SLUG' ) || BEEPTI_SLUG !== $page ) ) {
+			return;
+		}
+		$attr    = self::auditor_attribution_from_request();
+		$user_id = get_current_user_id();
+		if ( null === $attr || $user_id <= 0 ) {
+			return;
+		}
+		set_transient( 'beepti_auditor_attr_' . $user_id, $attr, 30 * MINUTE_IN_SECONDS );
+	}
+
+	/**
+	 * Properties to merge into generate events: the request's own
+	 * source/finding first, then a remembered Auditor deep-link.
+	 *
+	 * @return array<string,string> Empty when the Auditor wasn't involved.
+	 */
+	public static function auditor_attribution(): array {
+		$attr = self::auditor_attribution_from_request();
+		if ( null === $attr ) {
+			$user_id = get_current_user_id();
+			$stored  = $user_id > 0 ? get_transient( 'beepti_auditor_attr_' . $user_id ) : false;
+			if ( is_array( $stored ) && 'auditor' === ( $stored['source'] ?? '' ) ) {
+				$attr = $stored;
+			}
+		}
+		return is_array( $attr ) ? $attr : [];
+	}
+
+	/**
 	 * Whether external PostHog capture is allowed.
 	 * Default: granted when the option is unset (same as Alt Text).
 	 */

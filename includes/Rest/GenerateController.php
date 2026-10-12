@@ -60,17 +60,17 @@ class GenerateController {
         $meta  = (string) ( $result['meta'] ?? '' );
         MetaWriter::write( $post->ID, $title, $meta );
         ActivityLog::record( $post->ID, 'generated' );
-        Telemetry::capture( 'generation_completed', [
+        Telemetry::capture( 'generation_completed', array_merge( Telemetry::auditor_attribution(), [
             'generation_surface' => 'dashboard',
             'generation_mode'    => 'single',
             'page_count'         => 1,
             'is_regenerate'      => ! empty( $previous ),
-        ] );
-        Telemetry::capture( 'title_meta_generated', [
+        ] ) );
+        Telemetry::capture( 'title_meta_generated', array_merge( Telemetry::auditor_attribution(), [
             'generation_surface' => 'dashboard',
             'generation_mode'    => 'single',
             'page_count'         => 1,
-        ] );
+        ] ) );
         ( new Scan_Repository( 'titles' ) )->mark_optimised( (string) $post->ID, $post->post_type );
         $this->bust_stats();
         // Refresh the local health score so the dashboard shows the
@@ -233,11 +233,11 @@ class GenerateController {
                     'job_id'             => $job_id,
                 ] );
                 if ( $completed_count > 0 ) {
-                    Telemetry::capture( 'title_meta_generated', [
+                    Telemetry::capture( 'title_meta_generated', array_merge( Telemetry::auditor_attribution(), [
                         'generation_surface' => 'bulk_generation',
                         'generation_mode'    => 'batch',
                         'page_count'         => $completed_count,
-                    ] );
+                    ] ) );
                 }
             }
         }

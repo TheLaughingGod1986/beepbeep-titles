@@ -1,3 +1,4 @@
+import { restUrl } from './restUrl';
 /**
  * OpptiAI Titles — client telemetry helper.
  *
@@ -124,7 +125,7 @@ async function flush() {
 	}
 	const batch = queue.splice( 0, 40 );
 	try {
-		await fetch( `${ BASE }/telemetry`, {
+		await fetch( restUrl( BASE, '/telemetry' ), {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',

@@ -183,8 +183,8 @@ export async function loginWithPassword( email, password ) {
     return request( 'POST', '/auth/login', { email, password } );
 }
 
-export async function registerAccount( email, password ) {
-    return request( 'POST', '/auth/register', { email, password } );
+export async function registerAccount( email, password, signup = {} ) {
+    return request( 'POST', '/auth/register', { email, password, ...signup } );
 }
 
 export async function clearLicense() {

@@ -82,6 +82,7 @@ class Admin {
         $settings = get_option( 'beepti_settings', [] );
         $settings = is_array( $settings ) ? $settings : [];
         $settings = SettingsSanitizer::normalize_settings( $settings );
+        $settings['usage_stats_opt_in'] = 'yes' === get_option( Telemetry::CONSENT_OPTION, '' );
         $client = new Client();
         // If another OpptiAI plugin on this site already stores a license
         // (same key works across all of them), connect with it automatically.

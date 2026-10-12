@@ -90,8 +90,15 @@ function resolveLifecycle() {
 
 const lifecycle = resolveLifecycle();
 
-function enabled() {
-	return cfg.enabled !== false;
+// Opt-in only: anything other than an explicit `true` from PHP means no consent.
+export function enabled() {
+	return cfg.enabled === true;
+}
+
+/** Apply a just-saved consent choice without a reload. */
+export function setTelemetryEnabled( on ) {
+	cfg.enabled = on === true;
+	if ( ! cfg.enabled ) queue = [];
 }
 
 function baseProps() {
@@ -102,7 +109,6 @@ function baseProps() {
 		plugin_id: cfg.pluginId || 'titles',
 		product: cfg.product || 'title_meta',
 		plugin_version: cfg.pluginVersion || data.version || '',
-		site_install_id: cfg.siteInstallId || '',
 		environment: cfg.environment || 'production',
 		user_state: cfg.connected ? 'connected' : 'guest',
 		is_logged_in: !! cfg.connected,
@@ -112,8 +118,6 @@ function baseProps() {
 	if ( lifecycle.inactivityMs !== null ) {
 		props.inactivity_hours = Math.round( lifecycle.inactivityMs / ( 60 * 60 * 1000 ) );
 	}
-	if ( cfg.accountId ) props.account_id = cfg.accountId;
-	if ( cfg.userId ) props.user_id = cfg.userId;
 
 	return props;
 }

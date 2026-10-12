@@ -1,9 +1,19 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Icon, Card, Pill, Button, KBD, PageAvatar, SerpPreview } from '../components';
-import { fetchPages, updatePage } from '../api';
+import { fetchPages, fetchHealthItems, updatePage } from '../api';
 import { contentSubtitle } from '../contentType';
-import { dailyRemainingForLibrary, hasDailyCap, isBulkOverLimit, isGenerationUnavailable } from '../quota';
+import { dailyRemainingForLibrary, hasDailyCap, isBulkOverLimit, isGenerationUnavailable, creditsPerPage, pagesAffordable, isInsufficientCredits, insufficientCreditsMessage, isDailyExhausted, QUOTA_DEFAULTS } from '../quota';
 import { PageShell } from '../ui';
+
+const EMPTY_COUNTS = {
+    needs: 0,
+    'missing-title': 0,
+    'missing-meta': 0,
+    ok: 0,
+    new: 0,
+    drafts: 0,
+    all: 0,
+};
 
 export const PagesLibrary = ({ quota, connected = true, onConnect, onGenerate, onBulkGenerate, onUpgrade }) => {
     const [filter, setFilter]     = useState( 'needs' );
@@ -17,31 +27,78 @@ export const PagesLibrary = ({ quota, connected = true, onConnect, onGenerate, o
     const [loading, setLoading]   = useState( true );
     const [page, setPage]         = useState( 1 );
     const [total, setTotal]       = useState( 0 );
-    const [libStats, setLibStats] = useState( null );
+    const [counts, setCounts]     = useState( EMPTY_COUNTS );
     const [scanning, setScanning] = useState( false );
     const sentinelRef = useRef( null );
 
     const dailyRemaining = dailyRemainingForLibrary( quota );
+    const costPerPage = creditsPerPage( quota );
+    const affordablePages = pagesAffordable( dailyRemaining, costPerPage );
 
     // Local review and editing stay available. Only the remote AI action
     // depends on a service connection and available service credits.
     const signedOut = !connected;
-    const generationUnavailable = isGenerationUnavailable( connected, dailyRemaining );
+    const generationUnavailable = isGenerationUnavailable( connected, dailyRemaining, costPerPage );
     const onServiceAction = signedOut ? ( onConnect || onUpgrade ) : onUpgrade;
 
     useEffect( () => {
         loadPages();
     }, [filter, search, page] );
 
+    const applyCounts = ( res ) => {
+        const c = res?.counts;
+        if ( ! c ) return;
+        setCounts( {
+            needs:          c.needs ?? 0,
+            'missing-title': c.missing_title ?? 0,
+            'missing-meta':  c.missing_meta ?? 0,
+            ok:             c.ok ?? 0,
+            new:            c.new ?? 0,
+            drafts:         c.drafts ?? res?.stats?.drafts ?? 0,
+            all:            c.all ?? 0,
+        } );
+    };
+
     const loadPages = async () => {
         setLoading( true );
         try {
-            const res = await fetchPages( { filter: filter === 'all' ? '' : filter, search, page, perPage: 30 } );
-            setPages( res.pages || res || [] );
-            setTotal( res.total || ( res.pages || res || [] ).length );
-            if ( res.stats ) setLibStats( res.stats );
+            // Drafts are unpublished (not in the health scan table). Everything
+            // else reads Scan_Repository so Library filters match Home priorities
+            // (including duplicate titles that still have SEO title+meta set).
+            if ( filter === 'drafts' ) {
+                const res = await fetchPages( { filter: 'drafts', search, page, perPage: 30 } );
+                setPages( res.pages || res || [] );
+                setTotal( res.total || ( res.pages || res || [] ).length );
+                // Keep other tab badges from the last health response; refresh drafts only.
+                setCounts( prev => ( {
+                    ...prev,
+                    drafts: res.stats?.drafts ?? ( res.pages || [] ).length,
+                } ) );
+                // Also pull aggregate health counts so All/Needs stay correct
+                // even if the user opens Drafts first.
+                try {
+                    const health = await fetchHealthItems( { filter: 'all', perPage: 1 } );
+                    applyCounts( health );
+                    setCounts( prev => ( {
+                        ...prev,
+                        drafts: res.stats?.drafts ?? prev.drafts,
+                    } ) );
+                } catch ( e ) { /* drafts list still usable */ }
+            } else {
+                const res = await fetchHealthItems( {
+                    filter: filter === 'all' ? '' : filter,
+                    search,
+                    page,
+                    perPage: 30,
+                    sort: filter === 'needs' ? 'lowest-score' : 'newest',
+                } );
+                setPages( res.pages || res.items || [] );
+                setTotal( res.total || 0 );
+                applyCounts( res );
+            }
         } catch ( e ) {
             setPages( [] );
+            setTotal( 0 );
         } finally {
             setLoading( false );
         }
@@ -65,26 +122,14 @@ export const PagesLibrary = ({ quota, connected = true, onConnect, onGenerate, o
         return () => io.disconnect();
     }, [] );
 
-    const needsAttention = ( p ) => p.status === 'missing-both' || p.status === 'missing-title' || p.status === 'missing-meta';
-
-    const counts = useMemo( () => ( {
-        needs:          pages.filter( needsAttention ).length,
-        'missing-title': pages.filter( p => p.status === 'missing-title' || p.status === 'missing-both' ).length,
-        'missing-meta':  pages.filter( p => p.status === 'missing-meta'  || p.status === 'missing-both' ).length,
-        ok:             pages.filter( p => p.status === 'ok'  ).length,
-        new:            pages.filter( p => p.is_new ).length,
-        drafts:         libStats?.drafts ?? 0,
-        all:            total,
-    } ), [pages, total, libStats] );
-
     const toggle    = ( id ) => { const s = new Set( selected ); s.has( id ) ? s.delete( id ) : s.add( id ); setSelected( s ); };
     const toggleAll = () => selected.size === pages.length && pages.length > 0 ? setSelected( new Set() ) : setSelected( new Set( pages.map( p => p.id ) ) );
 
     const tryBulk = () => {
         if ( generationUnavailable ) { onServiceAction(); return; }
         const selectedPages = pages.filter( p => selected.has( p.id ) );
-        if ( isBulkOverLimit( selectedPages.length, dailyRemaining ) ) {
-            if ( dailyRemaining > 0 ) onBulkGenerate( selectedPages.slice( 0, dailyRemaining ) );
+        if ( isBulkOverLimit( selectedPages.length, dailyRemaining, costPerPage ) ) {
+            if ( affordablePages > 0 ) onBulkGenerate( selectedPages.slice( 0, affordablePages ) );
             onUpgrade();
             return;
         }
@@ -101,9 +146,9 @@ export const PagesLibrary = ({ quota, connected = true, onConnect, onGenerate, o
         setTimeout( () => setSavedFlash( curr => curr === id ? null : curr ), 1800 );
     };
 
-    const overLimit = isBulkOverLimit( selected.size, dailyRemaining );
+    const overLimit = isBulkOverLimit( selected.size, dailyRemaining, costPerPage );
 
-    const filterTabs = [
+    const filterTabs = useMemo( () => [
         { id: 'needs',         label: 'Needs attention', count: counts.needs },
         { id: 'missing-title', label: 'Missing title',   count: counts['missing-title'] },
         { id: 'missing-meta',  label: 'Missing meta',    count: counts['missing-meta'] },
@@ -111,7 +156,7 @@ export const PagesLibrary = ({ quota, connected = true, onConnect, onGenerate, o
         { id: 'ok',            label: 'Optimised',       count: counts.ok },
         { id: 'drafts',        label: 'Drafts',          count: counts.drafts },
         { id: 'all',           label: 'All',             count: counts.all },
-    ];
+    ], [counts] );
 
     return (
         <PageShell>
@@ -126,7 +171,15 @@ export const PagesLibrary = ({ quota, connected = true, onConnect, onGenerate, o
                 </Button>
             </div>
 
-            {generationUnavailable && <ServiceNotice signedOut={signedOut} hasDaily={hasDailyCap( quota )} onAction={onServiceAction}/>}
+            {generationUnavailable && (
+                <ServiceNotice
+                    signedOut={signedOut}
+                    hasDaily={hasDailyCap( quota )}
+                    creditsRemaining={dailyRemaining}
+                    costPerPage={costPerPage}
+                    onAction={onServiceAction}
+                />
+            )}
 
             <div ref={sentinelRef} style={{ height: 1, marginBottom: -1 }}/>
 
@@ -210,14 +263,14 @@ export const PagesLibrary = ({ quota, connected = true, onConnect, onGenerate, o
 
                 <div style={{ borderTop: '1px solid var(--hairline)', padding: '10px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--surface-2)', fontSize: 11.5, color: 'var(--text-3)' }}>
                     <span>Showing <span className="mono tnum" style={{ color: 'var(--text-2)', fontWeight: 500 }}>{pages.length}</span> of <span className="mono tnum">{total}</span></span>
-                    <span><span className="mono tnum">{quota?.monthly_used ?? 0}</span> of <span className="mono tnum">{quota?.monthly_limit ?? 50}</span> service credits used this cycle</span>
+                    <span><span className="mono tnum">{quota?.monthly_used ?? 0}</span> of <span className="mono tnum">{quota?.monthly_limit ?? QUOTA_DEFAULTS.monthly_limit}</span> service credits used this cycle</span>
                 </div>
             </Card>
 
             {selected.size > 0 && (
                 <BulkActionBar
                     count={selected.size}
-                    allowed={Math.max( 0, dailyRemaining === Infinity ? selected.size : dailyRemaining )}
+                    allowed={Math.max( 0, dailyRemaining === Infinity ? selected.size : affordablePages )}
                     overLimit={overLimit}
                     generationUnavailable={generationUnavailable}
                     serviceLabel={signedOut ? 'Connect service' : 'Add service credits'}
@@ -230,7 +283,7 @@ export const PagesLibrary = ({ quota, connected = true, onConnect, onGenerate, o
             {selected.size === 0 && (
                 <div style={{ marginTop: 14, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--text-3)' }}>
                     <Icon name="info" size={13} style={{ color: 'var(--text-3)', flexShrink: 0 }}/>
-                    <span style={{ flex: 1 }}>The OpptiAI service includes <span className="mono">{quota?.monthly_limit ?? 50}</span> generations per cycle on this service plan. Local scanning, bulk selection, review, and editing remain available.</span>
+                    <span style={{ flex: 1 }}>The OpptiAI service includes <span className="mono">{quota?.monthly_limit ?? QUOTA_DEFAULTS.monthly_limit}</span> generations per cycle on this service plan. Local scanning, bulk selection, review, and editing remain available.</span>
                     <button onClick={onUpgrade} style={{ background: 'transparent', border: 'none', padding: 0, color: 'var(--primary-ink)', fontSize: 12.5, fontWeight: 500, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                         View service credits <Icon name="arrow-right" size={11}/>
                     </button>
@@ -245,10 +298,11 @@ export const PagesLibrary = ({ quota, connected = true, onConnect, onGenerate, o
 const PageRow = ({ pg, selected, onToggle, onGenerate, onEdit, justSaved, generationUnavailable, onServiceAction, last }) => {
     const [hover, setHover] = useState( false );
     const statusConfig = {
-        'missing-both':  { tone: 'danger', label: 'Missing both' },
-        'missing-title': { tone: 'danger', label: 'Missing title' },
-        'missing-meta':  { tone: 'warn',   label: 'Missing meta' },
-        'ok':            { tone: 'ok',     label: 'Optimised' },
+        'missing-both':     { tone: 'danger', label: 'Missing both' },
+        'missing-title':    { tone: 'danger', label: 'Missing title' },
+        'missing-meta':     { tone: 'warn',   label: 'Missing meta' },
+        'needs-attention':  { tone: 'warn',   label: 'Needs attention' },
+        'ok':               { tone: 'ok',     label: 'Optimised' },
     };
     const cfg = statusConfig[pg.status] || { tone: 'neutral', label: pg.status || '—' };
     const isOk = pg.status === 'ok';
@@ -410,7 +464,23 @@ const EditPageSEOModal = ({ page, onClose, onSave }) => {
     );
 };
 
-const ServiceNotice = ({ signedOut, hasDaily = true, onAction }) => (
+const ServiceNotice = ({ signedOut, hasDaily = true, creditsRemaining = 0, costPerPage = 2, onAction }) => {
+    const insufficient = ! signedOut && isInsufficientCredits( creditsRemaining, costPerPage );
+    const exhausted = ! signedOut && isDailyExhausted( creditsRemaining );
+    const title = signedOut
+        ? 'AI service not connected'
+        : insufficient
+            ? 'Not enough credits for this page'
+            : hasDaily
+                ? 'Daily service credits used'
+                : 'Monthly service credits used';
+    const body = signedOut
+        ? 'You can still review and edit titles & meta descriptions. Connect your OpptiAI account to generate with AI.'
+        : insufficient
+            ? insufficientCreditsMessage( creditsRemaining, costPerPage )
+            : 'Local scanning, review, and editing remain available. More AI generation requires OpptiAI service credits.';
+
+    return (
     <Card padding={0} style={{ marginBottom: 16 }}>
         <div style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)', color: 'var(--text-3)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -418,22 +488,19 @@ const ServiceNotice = ({ signedOut, hasDaily = true, onAction }) => (
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                    {signedOut ? 'AI service not connected' : hasDaily ? 'Daily service credits used' : 'Monthly service credits used'}
+                    {title}
                 </div>
                 <p style={{ margin: '4px 0 0', fontSize: 13, lineHeight: 1.45, color: 'var(--text-2)' }}>
-                    {signedOut
-                        ? 'You can still review and edit titles & meta descriptions. Connect your OpptiAI account to generate with AI.'
-                        : hasDaily
-                            ? 'Local scanning, review, and editing remain available. More AI generation requires OpptiAI service credits.'
-                            : 'Local scanning, review, and editing remain available. More AI generation requires OpptiAI service credits.'}
+                    {body}
                 </p>
             </div>
             <Button variant={signedOut ? 'primary' : 'pro'} size="sm" icon={signedOut ? 'arrow-right' : 'crown'} onClick={onAction}>
-                {signedOut ? 'Connect service' : 'View service plans'}
+                {signedOut ? 'Connect service' : exhausted || insufficient ? 'Add credits' : 'View service plans'}
             </Button>
         </div>
     </Card>
-);
+    );
+};
 
 const BulkActionBar = ({ count, allowed = 0, overLimit, generationUnavailable, serviceLabel = 'Service options', onClear, onOptimise, onUpgrade }) => (
     <div style={{ position: 'sticky', bottom: 16, zIndex: 6, marginTop: 16, background: 'var(--text)', color: '#fff', borderRadius: 'var(--r-md)', padding: '10px 12px 10px 16px', display: 'flex', alignItems: 'center', gap: 12, boxShadow: 'var(--shadow-lg)', animation: 'beepti-slide-up .22s cubic-bezier(.2,.8,.2,1)' }}>

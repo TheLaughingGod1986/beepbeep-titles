@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Icon, Card, Pill, Button, Progress, Ring, PageAvatar } from '../components';
-import { QUOTA_DEFAULTS } from '../quota';
+import { QUOTA_DEFAULTS, CREDITS_PER_PAGE, isInsufficientCredits, insufficientCreditsMessage, creditsPerPage } from '../quota';
 import { PageShell } from '../ui';
+import { capPriorityEstimates } from '../priorityEstimates';
 
 const useCountUp = ( target, { duration = 900, decimals = 0 } = {} ) => {
     const [value, setValue] = useState( target );
@@ -109,21 +110,32 @@ export const Dashboard = ({
     const hasDailyLimit  = ( quota?.daily_limit ?? null ) !== null; // backend has no daily cap on the shared wallet
     const monthlyRemaining = Math.max( 0, monthlyLimit - monthlyUsed );
     const dailyRemaining = hasDailyLimit ? ( quota?.daily_remaining ?? ( dailyLimit - dailyUsed ) ) : monthlyRemaining;
-    const creditsRemaining = hasDailyLimit ? dailyRemaining : monthlyRemaining;
+    const creditsRemaining = quota?.credits_remaining ?? ( hasDailyLimit ? dailyRemaining : monthlyRemaining );
+    const pageCost = creditsPerPage( quota );
+    const insufficientCredits = isInsufficientCredits( creditsRemaining, pageCost );
     const streak = stats?.streak || 0;
 
     const total      = stats?.total      || 0;
     const optimised  = stats?.optimised  || 0;
     const newSince   = stats?.new_since_last_visit || 0;
 
-    const topPriorities = ( priorities || [] ).slice( 0, 5 );
+    const scanned = health?.scanned === true || ( health?.items_scanned ?? 0 ) > 0;
+    const topPriorities = scanned
+        ? capPriorityEstimates(
+            ( priorities || [] ).slice( 0, 5 ),
+            health?.score,
+        )
+        : [];
+    const todaysPriorities = topPriorities.slice( 0, 3 );
+    const todaysEstimatedGain = todaysPriorities.reduce( ( sum, p ) => sum + ( p.estimated_gain || 0 ), 0 );
 
     return (
         <PageShell style={{ paddingTop: 24, paddingBottom: 48 }}>
             <TodaysPriorities
                 ready={healthReady}
-                priorities={topPriorities.slice( 0, 3 )}
-                estimatedGain={health?.score != null ? Math.min( 100 - health.score, topPriorities.slice( 0, 3 ).reduce( ( sum, p ) => sum + p.estimated_gain, 0 ) ) : 0}
+                scanned={scanned}
+                priorities={todaysPriorities}
+                estimatedGain={todaysEstimatedGain}
                 onReview={() => onView && onView( 'library' )}
             />
 
@@ -132,15 +144,18 @@ export const Dashboard = ({
                 health={health}
                 previousScore={previousScore}
                 creditsRemaining={creditsRemaining}
+                costPerPage={pageCost}
+                insufficientCredits={insufficientCredits}
                 onQuickScan={onQuickScan}
                 onFullScan={onFullScan}
                 onOptimiseCritical={onOptimiseCritical}
             />
 
-            <SummaryCardsRow ready={healthReady} health={health} priorities={priorities || []} aeo={aeo}/>
+            <SummaryCardsRow ready={healthReady} scanned={scanned} health={health} priorities={priorities || []} aeo={aeo}/>
 
             <PriorityActionCentre
                 ready={healthReady}
+                scanned={scanned}
                 priorities={topPriorities}
                 onOptimiseIssue={onOptimiseIssue}
                 onLoadIssueItems={onLoadIssueItems}
@@ -149,11 +164,7 @@ export const Dashboard = ({
             />
 
             <div style={{ display: 'grid', gridTemplateColumns: '1.25fr 1fr', gap: 14, marginTop: 20, alignItems: 'stretch' }}>
-                <RecentProgressCard
-                    health={health}
-                    previousScore={previousScore}
-                    optimisedThisWeek={health?.optimised_this_week || 0}
-                />
+                <RecentProgressCard health={health} healthReady={healthReady} scanned={scanned}/>
                 <AutopilotActiveCard autoOptimise={autoOptimise} onToggle={onAutoToggle}/>
             </div>
 
@@ -170,6 +181,7 @@ export const Dashboard = ({
                 iconBg="#EFF6FF" iconColor="#2563EB" iconBorder="#BFDBFE"
                 title="Your credits also work on Internal Linking"
                 body={<>The same shared credit pool powers <strong style={{ color: 'var(--text)', fontWeight: 600 }}>OptiAI Internal Linking</strong> — find and fix missing links between your own pages. No extra subscription.</>}
+                comingSoon
             />
             <ActivityStrip onView={onView} newSince={newSince} activity={activity} onUndo={onUndo}/>
             <FooterMetrics
@@ -186,13 +198,26 @@ export const Dashboard = ({
 };
 
 // ── Today's Priorities — the very first thing a returning user sees ────
-const TodaysPriorities = ({ ready, priorities, estimatedGain, onReview }) => {
+const TodaysPriorities = ({ ready, scanned, priorities, estimatedGain, onReview }) => {
     if ( ! ready ) {
         return (
             <Card padding={0} style={{ marginBottom: 14 }}>
                 <div style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span className="pulse-dot" style={{ width: 8, height: 8, background: 'var(--text-3)' }}/>
                     <span style={{ fontSize: 13, color: 'var(--text-3)' }}>Checking today's priorities…</span>
+                </div>
+            </Card>
+        );
+    }
+
+    if ( ! scanned ) {
+        return (
+            <Card padding={0} style={{ marginBottom: 14 }}>
+                <div style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Icon name="search" size={16} style={{ color: 'var(--text-3)' }}/>
+                    <div style={{ fontSize: 13, color: 'var(--text-2)' }}>
+                        <strong style={{ color: 'var(--text)' }}>No scan yet.</strong> Run a Quick Scan or Full Scan to see today's priorities.
+                    </div>
                 </div>
             </Card>
         );
@@ -243,17 +268,24 @@ const TodaysPriorities = ({ ready, priorities, estimatedGain, onReview }) => {
 };
 
 // ── Hero Score — the single largest element on the page ────────────────
-const HeroScoreCard = ({ ready, health, previousScore, creditsRemaining, onQuickScan, onFullScan, onOptimiseCritical }) => {
+const HeroScoreCard = ({ ready, health, previousScore, creditsRemaining, costPerPage = CREDITS_PER_PAGE, insufficientCredits = false, onQuickScan, onFullScan, onOptimiseCritical }) => {
     const [scanning, setScanning] = useState( null ); // 'quick' | 'full' | 'critical' | null
+    const scanned = health?.scanned === true || ( health?.items_scanned ?? 0 ) > 0;
     const score = health?.score ?? 0;
-    const animScore = useCountUp( ready ? score : 0 );
-    const tone = toneForStatus( health?.status );
-    const trend = health?.trend ?? ( previousScore != null && health ? health.score - previousScore : null );
+    const animScore = useCountUp( ready && scanned ? score : 0 );
+    const tone = scanned ? toneForStatus( health?.status ) : 'neutral';
+    // Never invent a trend from a stale previousScore when unscanned / empty.
+    const trend = ! scanned ? null : ( health?.trend ?? null );
     const lastScanned = health?.last_scanned_at
         ? new Date( health.last_scanned_at.replace( ' ', 'T' ) ).toLocaleDateString( undefined, { month: 'short', day: 'numeric' } )
         : 'Never';
+    const creditNoun = creditsRemaining === 1 ? 'credit' : 'credits';
+    const creditsSuffix = insufficientCredits
+        ? `${ creditNoun } left · need ${ costPerPage }/page`
+        : `${ creditNoun } remaining`;
 
     const run = ( kind, fn ) => async () => {
+        if ( scanning !== null ) return;
         setScanning( kind );
         try { await fn?.(); } finally { setScanning( null ); }
     };
@@ -261,10 +293,10 @@ const HeroScoreCard = ({ ready, health, previousScore, creditsRemaining, onQuick
     return (
         <Card padding={0}>
             <div style={{ padding: '22px 24px 18px', display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
-                <Ring value={ready ? animScore : 0} size={104} stroke={9} tone={tone}>
+                <Ring value={ready && scanned ? animScore : 0} size={104} stroke={9} tone={tone}>
                     <div style={{ textAlign: 'center' }}>
                         <div className="mono tnum" style={{ fontSize: 30, fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1 }}>
-                            {ready ? animScore : '\u2013'}
+                            {ready && scanned ? animScore : '\u2013'}
                         </div>
                         <div style={{ fontSize: 10.5, color: 'var(--text-3)' }}>/ 100</div>
                     </div>
@@ -274,8 +306,8 @@ const HeroScoreCard = ({ ready, health, previousScore, creditsRemaining, onQuick
                         Metadata Health
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
-                        <Pill tone={tone}>{ready ? ( health?.label || '\u2013' ) : 'Checking\u2026'}</Pill>
-                        {ready && trend != null && trend !== 0 && (
+                        <Pill tone={tone}>{! ready ? 'Checking\u2026' : ( health?.label || ( scanned ? '\u2013' : 'Not scanned' ) )}</Pill>
+                        {ready && scanned && trend != null && trend !== 0 && (
                             <span style={{ fontSize: 12.5, fontWeight: 600, color: trend > 0 ? 'var(--ok-ink)' : 'var(--danger-ink)', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
                                 <Icon name={trend > 0 ? 'trend' : 'chevron-down'} size={12}/>
                                 {trend > 0 ? '+' : ''}{trend} since last scan
@@ -285,19 +317,22 @@ const HeroScoreCard = ({ ready, health, previousScore, creditsRemaining, onQuick
                     <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', fontSize: 12.5, color: 'var(--text-2)' }}>
                         <span><strong className="mono tnum" style={{ color: 'var(--text)' }}>{ready ? ( health?.items_scanned ?? 0 ) : '\u2013'}</strong> items scanned</span>
                         <span><strong className="mono tnum" style={{ color: 'var(--danger-ink)' }}>{ready ? ( health?.critical_issues ?? 0 ) : '\u2013'}</strong> critical issues</span>
-                        <span><strong className="mono tnum" style={{ color: 'var(--text)' }}>{creditsRemaining}</strong> credits remaining</span>
+                        <span title={insufficientCredits ? insufficientCreditsMessage( creditsRemaining, costPerPage ) : undefined}>
+                            <strong className="mono tnum" style={{ color: insufficientCredits ? 'var(--warn-ink)' : 'var(--text)' }}>{ready ? creditsRemaining : '\u2013'}</strong>
+                            {` ${ ready ? creditsSuffix : 'credits remaining' }`}
+                        </span>
                         <span>Last scan <strong style={{ color: 'var(--text)' }}>{ready ? lastScanned : '\u2013'}</strong></span>
                     </div>
                 </div>
             </div>
             <div style={{ borderTop: '1px solid var(--hairline)', padding: '12px 24px', display: 'flex', gap: 8, flexWrap: 'wrap', background: 'var(--surface-2)' }}>
-                <Button variant="secondary" size="md" icon="refresh" onClick={run( 'quick', onQuickScan )} disabled={scanning !== null}>
+                <Button variant="secondary" size="md" icon="refresh" onClick={run( 'quick', onQuickScan )} disabled={scanning === 'quick'}>
                     {scanning === 'quick' ? 'Scanning\u2026' : 'Quick Scan'}
                 </Button>
-                <Button variant="primary" size="md" icon="zap" onClick={run( 'critical', onOptimiseCritical )} disabled={scanning !== null || ! ( health?.critical_issues > 0 )}>
-                    Optimise Critical Issues
+                <Button variant="primary" size="md" icon="zap" onClick={run( 'critical', onOptimiseCritical )} disabled={scanning === 'critical' || ! ( health?.critical_issues > 0 )}>
+                    {scanning === 'critical' ? 'Queuing\u2026' : 'Optimise Critical Issues'}
                 </Button>
-                <Button variant="secondary" size="md" icon="search" onClick={run( 'full', onFullScan )} disabled={scanning !== null}>
+                <Button variant="secondary" size="md" icon="search" onClick={run( 'full', onFullScan )} disabled={scanning === 'full'}>
                     {scanning === 'full' ? 'Scanning\u2026' : 'Run Full Scan'}
                 </Button>
             </div>
@@ -317,23 +352,29 @@ const HeroScoreCard = ({ ready, health, previousScore, creditsRemaining, onQuick
 // ── Summary Cards ────────────────────────────────────────────────────
 const findIssue = ( priorities, code ) => priorities.find( p => p.code === code );
 
-const SummaryCardsRow = ({ ready, health, priorities, aeo }) => {
+const SummaryCardsRow = ({ ready, scanned, health, priorities, aeo }) => {
     const byStatus = health?.by_status || {};
     const missingTitles = findIssue( priorities, 'missing_title' )?.count || 0;
     const missingDescriptions = findIssue( priorities, 'missing_description' )?.count || 0;
     const duplicateMetadata = ( findIssue( priorities, 'duplicate_title' )?.count || 0 ) + ( findIssue( priorities, 'duplicate_description' )?.count || 0 );
     const weakMetadataCodes = [ 'title_too_short', 'title_too_long', 'description_too_short', 'description_too_long', 'generic_title', 'generic_description' ];
     const weakMetadata = weakMetadataCodes.reduce( ( sum, code ) => sum + ( findIssue( priorities, code )?.count || 0 ), 0 );
+    const aeoScanned = aeo?.scanned === true || ( aeo?.items_scanned ?? 0 ) > 0;
 
     const cards = [
         { label: 'Pages Scanned', value: health?.items_scanned ?? 0, tone: 'neutral' },
-        { label: 'Missing Titles', value: missingTitles, tone: missingTitles > 0 ? 'danger' : 'ok' },
-        { label: 'Missing Descriptions', value: missingDescriptions, tone: missingDescriptions > 0 ? 'danger' : 'ok' },
-        { label: 'Duplicate Metadata', value: duplicateMetadata, tone: duplicateMetadata > 0 ? 'warn' : 'ok' },
-        { label: 'Weak Metadata', value: weakMetadata, tone: weakMetadata > 0 ? 'warn' : 'ok' },
-        { label: 'Excellent Pages', value: byStatus.excellent || 0, tone: 'ok' },
+        { label: 'Missing Titles', value: scanned ? missingTitles : '\u2013', tone: ! scanned ? 'neutral' : missingTitles > 0 ? 'danger' : 'ok', muted: ! scanned },
+        { label: 'Missing Descriptions', value: scanned ? missingDescriptions : '\u2013', tone: ! scanned ? 'neutral' : missingDescriptions > 0 ? 'danger' : 'ok', muted: ! scanned },
+        { label: 'Duplicate Metadata', value: scanned ? duplicateMetadata : '\u2013', tone: ! scanned ? 'neutral' : duplicateMetadata > 0 ? 'warn' : 'ok', muted: ! scanned },
+        { label: 'Weak Metadata', value: scanned ? weakMetadata : '\u2013', tone: ! scanned ? 'neutral' : weakMetadata > 0 ? 'warn' : 'ok', muted: ! scanned },
+        { label: 'Excellent Pages', value: scanned ? ( byStatus.excellent || 0 ) : '\u2013', tone: scanned ? 'ok' : 'neutral', muted: ! scanned },
         aeo
-            ? { label: 'AI Search Readiness', value: aeo.label, tone: aeo.score >= 55 ? 'ok' : aeo.score >= 30 ? 'warn' : 'danger' }
+            ? {
+                label: 'AI Search Readiness',
+                value: aeoScanned ? aeo.label : 'Not scanned',
+                tone: ! aeoScanned ? 'neutral' : aeo.score >= 55 ? 'ok' : aeo.score >= 30 ? 'warn' : 'danger',
+                muted: ! aeoScanned,
+            }
             : { label: 'AI Search Readiness', value: 'Checking\u2026', tone: 'neutral', muted: true },
     ];
 
@@ -365,24 +406,40 @@ const SummaryCardsRow = ({ ready, health, priorities, aeo }) => {
 const SEVERITY_LABEL = { critical: 'Critical', warning: 'High', review: 'Medium', information: 'Low' };
 const SEVERITY_TONE  = { critical: 'danger', warning: 'warn', review: 'warn', information: 'neutral' };
 
-const PriorityActionCentre = ({ ready, priorities, onOptimiseIssue, onLoadIssueItems, onOptimiseSingleItem, onViewAll }) => {
+const PriorityActionCentre = ({ ready, scanned, priorities, onOptimiseIssue, onLoadIssueItems, onOptimiseSingleItem, onViewAll }) => {
     const [expanded, setExpanded] = useState( null );
     const [items, setItems] = useState( [] );
     const [loadingItems, setLoadingItems] = useState( false );
+    // Track the active Optimise All row only — never disable sibling rows.
     const [optimising, setOptimising] = useState( null );
+    const [optimisingItem, setOptimisingItem] = useState( null );
 
     const toggleExpand = async ( code ) => {
         if ( expanded === code ) { setExpanded( null ); return; }
         setExpanded( code );
         setLoadingItems( true );
-        const rows = await onLoadIssueItems?.( code, { limit: 20 } ) ?? [];
-        setItems( rows );
-        setLoadingItems( false );
+        setItems( [] );
+        try {
+            const rows = await onLoadIssueItems?.( code, { limit: 20 } ) ?? [];
+            setItems( rows );
+        } catch ( e ) {
+            setItems( [] );
+        } finally {
+            setLoadingItems( false );
+        }
     };
 
     const handleOptimiseAll = async ( code ) => {
+        if ( optimising !== null ) return;
         setOptimising( code );
         try { await onOptimiseIssue?.( code ); } finally { setOptimising( null ); }
+    };
+
+    const handleOptimiseItem = async ( item ) => {
+        const id = item?.site_item_id;
+        if ( id == null || optimisingItem !== null ) return;
+        setOptimisingItem( id );
+        try { await onOptimiseSingleItem?.( item ); } finally { setOptimisingItem( null ); }
     };
 
     return (
@@ -398,6 +455,13 @@ const PriorityActionCentre = ({ ready, priorities, onOptimiseIssue, onLoadIssueI
 
             {! ready ? (
                 <Card padding={16}><div style={{ fontSize: 13, color: 'var(--text-3)' }}>{'Checking for issues\u2026'}</div></Card>
+            ) : ! scanned ? (
+                <Card padding={16}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <Icon name="search" size={18} style={{ color: 'var(--text-3)' }}/>
+                        <div style={{ fontSize: 13.5, color: 'var(--text-2)' }}><strong style={{ color: 'var(--text)' }}>Run a scan to see priorities.</strong> Quick Scan or Full Scan scores your titles and meta locally.</div>
+                    </div>
+                </Card>
             ) : ! priorities.length ? (
                 <Card padding={16}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -409,6 +473,7 @@ const PriorityActionCentre = ({ ready, priorities, onOptimiseIssue, onLoadIssueI
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {priorities.map( ( p ) => {
                         const isOpen = expanded === p.code;
+                        const rowBusy = optimising === p.code;
                         return (
                             <Card key={p.code} padding={0}>
                                 <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
@@ -430,8 +495,8 @@ const PriorityActionCentre = ({ ready, priorities, onOptimiseIssue, onLoadIssueI
                                         <Button variant="secondary" size="sm" onClick={() => toggleExpand( p.code )}>
                                             {isOpen ? 'Hide' : 'Review'}
                                         </Button>
-                                        <Button variant="primary" size="sm" icon="zap" onClick={() => handleOptimiseAll( p.code )} disabled={optimising !== null}>
-                                            {optimising === p.code ? 'Queuing\u2026' : 'Optimise All'}
+                                        <Button variant="primary" size="sm" icon="zap" onClick={() => handleOptimiseAll( p.code )} disabled={rowBusy}>
+                                            {rowBusy ? 'Queuing\u2026' : 'Optimise All'}
                                         </Button>
                                     </div>
                                 </div>
@@ -443,18 +508,23 @@ const PriorityActionCentre = ({ ready, priorities, onOptimiseIssue, onLoadIssueI
                                             <div style={{ fontSize: 12.5, color: 'var(--text-3)', padding: '8px 0' }}>No items found for this issue.</div>
                                         ) : (
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                                {items.map( ( item ) => (
-                                                    <div key={item.site_item_id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 4px', borderRadius: 'var(--r-md)' }}>
-                                                        <PageAvatar type={item.item_type} section="" hue={( Number( item.site_item_id ) * 47 ) % 360} size={28}/>
-                                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                                            <div style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                                {item.post_title || `#${item.site_item_id}`}
+                                                {items.map( ( item ) => {
+                                                    const itemBusy = optimisingItem === item.site_item_id;
+                                                    return (
+                                                        <div key={item.site_item_id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 4px', borderRadius: 'var(--r-md)' }}>
+                                                            <PageAvatar type={item.item_type} section="" hue={( Number( item.site_item_id ) * 47 ) % 360} size={28}/>
+                                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                                <div style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                    {item.post_title || `#${item.site_item_id}`}
+                                                                </div>
                                                             </div>
+                                                            <span className="mono tnum" style={{ fontSize: 11.5, color: 'var(--text-3)', flexShrink: 0 }}>Score {item.score}</span>
+                                                            <Button variant="secondary" size="sm" onClick={() => handleOptimiseItem( item )} disabled={itemBusy}>
+                                                                {itemBusy ? 'Opening\u2026' : 'Optimise'}
+                                                            </Button>
                                                         </div>
-                                                        <span className="mono tnum" style={{ fontSize: 11.5, color: 'var(--text-3)', flexShrink: 0 }}>Score {item.score}</span>
-                                                        <Button variant="secondary" size="sm" onClick={() => onOptimiseSingleItem?.( item )}>Optimise</Button>
-                                                    </div>
-                                                ) )}
+                                                    );
+                                                } )}
                                             </div>
                                         )}
                                     </div>
@@ -468,58 +538,151 @@ const PriorityActionCentre = ({ ready, priorities, onOptimiseIssue, onLoadIssueI
     );
 };
 
-// ── Recent Progress — celebrate improvement, not just show numbers ──
-const RecentProgressCard = ({ health, previousScore, optimisedThisWeek }) => {
-    const hasDelta = previousScore != null && health?.score != null && previousScore !== health.score;
+// ── Recent Progress — this week's wins at a glance ──────────────────
+const RecentProgressCard = ({ health, healthReady, scanned }) => {
+    const score = scanned ? ( health?.score ?? null ) : null;
+    // Activity can exist without a current scan; never show a bogus score delta.
+    const trend = scanned ? ( health?.trend ?? null ) : null;
+    const optimisedThisWeek = health?.optimised_this_week ?? 0;
+    const manualThisWeek = health?.manual_this_week ?? 0;
+    const autoThisWeek = health?.auto_this_week ?? 0;
+    const creditsUsed = health?.credits_used_this_week ?? 0;
+    const headroom = score != null ? Math.max( 0, 100 - score ) : null;
+    const barTone = toneForStatus( health?.status );
+
+    let scoreDeltaLabel = null;
+    let scoreDeltaColor = 'var(--text-2)';
+    if ( trend == null ) {
+        scoreDeltaLabel = null;
+    } else if ( trend === 0 ) {
+        scoreDeltaLabel = 'Score unchanged';
+        scoreDeltaColor = 'var(--text-2)';
+    } else if ( trend > 0 ) {
+        scoreDeltaLabel = `+${trend} Health Score`;
+        scoreDeltaColor = 'var(--ok-ink)';
+    } else {
+        scoreDeltaLabel = `${trend} Health Score`;
+        scoreDeltaColor = 'var(--danger-ink)';
+    }
+
+    const breakdown = [];
+    if ( manualThisWeek > 0 || autoThisWeek > 0 ) {
+        breakdown.push( { key: 'manual', label: 'Manual', value: manualThisWeek } );
+        breakdown.push( { key: 'auto', label: 'Autopilot', value: autoThisWeek } );
+    }
+    if ( creditsUsed > 0 ) {
+        breakdown.push( { key: 'credits', label: 'Credits used', value: creditsUsed } );
+    }
+
     return (
         <Card padding={0} style={{ display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--hairline)' }}>
                 <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Recent Progress</div>
             </div>
-            <div style={{ padding: '16px 18px', flex: 1 }}>
-                {hasDelta ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                        <span className="mono tnum" style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-3)', textDecoration: 'line-through', opacity: 0.6 }}>{previousScore}</span>
-                        <Icon name="arrow-right" size={16} style={{ color: 'var(--ok-ink)' }}/>
-                        <span className="mono tnum" style={{ fontSize: 24, fontWeight: 700, color: 'var(--ok-ink)' }}>{health.score}</span>
-                        <span style={{ fontSize: 12.5, color: 'var(--ok-ink)', fontWeight: 600 }}>Health Score improved</span>
+            <div style={{ padding: '16px 18px', flex: 1, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                    <div>
+                        <div className="mono tnum" style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1, color: 'var(--text)' }}>
+                            {healthReady ? optimisedThisWeek : '\u2013'}
+                        </div>
+                        <div style={{ fontSize: 12.5, color: 'var(--text-2)', marginTop: 4 }}>
+                            {optimisedThisWeek === 1 ? 'item improved this week' : 'items improved this week'}
+                        </div>
                     </div>
-                ) : (
-                    <div style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 10 }}>Keep optimising to see your score climb here.</div>
-                )}
-                <div style={{ fontSize: 12.5, color: 'var(--text-2)' }}>
-                    <strong className="mono tnum" style={{ color: 'var(--text)' }}>{optimisedThisWeek}</strong> item{optimisedThisWeek === 1 ? '' : 's'} improved this week
+                    {healthReady && scoreDeltaLabel && (
+                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                            <div className="mono tnum" style={{ fontSize: 14, fontWeight: 700, color: scoreDeltaColor, letterSpacing: '-0.01em' }}>
+                                {scoreDeltaLabel}
+                            </div>
+                            <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>since last scan</div>
+                        </div>
+                    )}
                 </div>
+
+                {healthReady && breakdown.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        {breakdown.map( ( b ) => (
+                            <span
+                                key={b.key}
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 5,
+                                    padding: '3px 9px',
+                                    borderRadius: 6,
+                                    background: 'var(--surface-2)',
+                                    border: '1px solid var(--hairline)',
+                                    fontSize: 12,
+                                    color: 'var(--text-2)',
+                                }}
+                            >
+                                <strong className="mono tnum" style={{ color: 'var(--text)', fontWeight: 600 }}>{b.value}</strong>
+                                {b.label}
+                            </span>
+                        ) )}
+                    </div>
+                )}
+
+                {healthReady && score != null && (
+                    <div>
+                        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+                            <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                                Toward 100
+                            </span>
+                            <span className="mono tnum" style={{ fontSize: 12, color: 'var(--text-2)' }}>
+                                <strong style={{ color: 'var(--text)', fontWeight: 600 }}>{score}</strong>
+                                <span style={{ color: 'var(--text-3)' }}> / 100</span>
+                                {headroom != null && headroom > 0 && (
+                                    <span style={{ color: 'var(--text-3)' }}> · {headroom} to go</span>
+                                )}
+                                {headroom === 0 && (
+                                    <span style={{ color: 'var(--ok-ink)' }}> · maxed</span>
+                                )}
+                            </span>
+                        </div>
+                        <Progress value={score} max={100} tone={barTone} height={6}/>
+                    </div>
+                )}
+
+                {healthReady && optimisedThisWeek === 0 && ! scoreDeltaLabel && (
+                    <div style={{ fontSize: 12.5, color: 'var(--text-3)' }}>
+                        Optimise titles &amp; meta to fill this week&rsquo;s progress.
+                    </div>
+                )}
             </div>
         </Card>
     );
 };
 
-const CompanionBanner = ({ companion, icon: fallbackIcon = 'image', iconBg = '#ECFDF5', iconColor = '#059669', iconBorder = '#A7F3D0', title, body }) => {
+const CompanionBanner = ({ companion, icon: fallbackIcon = 'image', iconBg = '#ECFDF5', iconColor = '#059669', iconBorder = '#A7F3D0', title, body, comingSoon = false }) => {
     const state = companion?.state || 'missing';
-    const label = companion?.label || 'Install';
+    const label = comingSoon ? 'Coming soon' : ( companion?.label || 'Install' );
     const url = companion?.url || '';
     const icon = companion?.icon || ( state === 'active' ? 'external' : state === 'installed' ? 'play' : 'upload' );
     const openCompanion = () => {
-        if ( url ) window.location.href = url;
+        if ( comingSoon || ! url ) return;
+        window.location.href = url;
     };
 
     return (
-        <Card padding={0} style={{ marginTop: 12 }}>
+        <Card padding={0} style={{ marginTop: 12, opacity: comingSoon ? 0.55 : 1, pointerEvents: comingSoon ? 'none' : undefined }}>
             <div style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div style={{ width: 40, height: 40, borderRadius: 10, background: iconBg, color: iconColor, border: `1px solid ${iconBorder}`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: comingSoon ? 'var(--bg-sunken)' : iconBg, color: comingSoon ? 'var(--text-3)' : iconColor, border: `1px solid ${comingSoon ? 'var(--hairline)' : iconBorder}`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <Icon name={fallbackIcon} size={19} strokeWidth={1.9}/>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 3 }}>
-                        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{title}</span>
+                        <span style={{ fontSize: 14, fontWeight: 600, color: comingSoon ? 'var(--text-2)' : 'var(--text)' }}>{title}</span>
                         <Pill tone="neutral" style={{ padding: '1px 8px', fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase' }}>From OptiAI</Pill>
+                        {comingSoon && (
+                            <Pill tone="neutral" style={{ padding: '1px 8px', fontSize: 10.5, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Coming soon</Pill>
+                        )}
                     </div>
                     <div style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.5 }}>
                         {body}
                     </div>
                 </div>
-                <Button variant="secondary" size="md" icon={icon} onClick={openCompanion} disabled={!url}>{label}</Button>
+                <Button variant="secondary" size="md" icon={comingSoon ? undefined : icon} onClick={openCompanion} disabled={comingSoon || !url}>{label}</Button>
             </div>
         </Card>
     );
@@ -580,21 +743,35 @@ const ACTIVITY_KINDS = {
     edited:    { icon: 'edit',     tone: 'primary', verb: 'Edited' },
 };
 
+/** Newest-first activity → one visible row per post (latest event wins). */
+const uniqueActivityByPost = ( activity ) => {
+    const seen = new Set();
+    const out  = [];
+    for ( const e of activity || [] ) {
+        const id = e?.post_id;
+        if ( ! id || seen.has( id ) ) continue;
+        seen.add( id );
+        out.push( e );
+    }
+    return out;
+};
+
 const ActivityStrip = ({ onView, newSince, activity, onUndo }) => {
     const [undoing, setUndoing] = useState( null );
-    const real = ( activity || [] ).map( ( e ) => {
+    const real = uniqueActivityByPost( activity ).map( ( e ) => {
         const kind  = ACTIVITY_KINDS[ e.kind ] || ACTIVITY_KINDS.edited;
         const title = e.title?.trim() || 'Untitled';
         const canUndo = onUndo && e.post_id && ( e.kind === 'generated' || e.kind === 'auto' );
         return {
+            postId: e.post_id,
             time: e.ago || '', icon: kind.icon, tone: kind.tone, text: `${kind.verb} “${title}”`,
             action: canUndo ? ( undoing === e.post_id ? 'Undoing…' : 'Undo' ) : null,
             onAction: canUndo ? () => { setUndoing( e.post_id ); Promise.resolve( onUndo( e.post_id ) ).finally( () => setUndoing( null ) ); } : null,
         };
     } );
     const events = [
-        ...(newSince > 0 ? [{ time: 'Just now', icon: 'upload', tone: 'warn', text: `${newSince} new page${newSince === 1 ? '' : 's'} detected`, action: 'Review', onAction: () => onView && onView( 'library' ) }] : []),
-        ...real,
+        ...(newSince > 0 ? [{ key: 'new-pages', time: 'Just now', icon: 'upload', tone: 'warn', text: `${newSince} new page${newSince === 1 ? '' : 's'} detected`, action: 'Review', onAction: () => onView && onView( 'library' ) }] : []),
+        ...real.map( ( e ) => ( { ...e, key: e.postId ? `post-${e.postId}` : e.text } ) ),
     ];
     return (
         <div style={{ marginTop: 22, borderTop: '1px solid var(--hairline)', paddingTop: 14 }}>
@@ -606,7 +783,7 @@ const ActivityStrip = ({ onView, newSince, activity, onUndo }) => {
                     <div style={{ fontSize: 12.5, color: 'var(--text-3)', padding: '4px 0' }}>No improvements yet — optimise titles & meta to see activity here.</div>
                 )}
                 {events.map( ( e, i ) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '4px 0', borderTop: i ? '1px solid var(--hairline)' : 'none' }}>
+                    <div key={e.key || i} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '4px 0', borderTop: i ? '1px solid var(--hairline)' : 'none' }}>
                         <div style={{ width: 16, height: 16, borderRadius: 999, background: e.tone === 'ok' ? 'var(--ok-soft)' : e.tone === 'warn' ? 'var(--warn-soft)' : 'var(--primary-soft)', color: e.tone === 'ok' ? 'var(--ok-ink)' : e.tone === 'warn' ? 'var(--warn-ink)' : 'var(--primary-ink)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                             <Icon name={e.icon} size={9} strokeWidth={2.4}/>
                         </div>

@@ -1,13 +1,17 @@
 export const TABS = [
     { id: 'dashboard',  label: 'Home' },
-    { id: 'library',    label: 'Advanced Library' },
-    { id: 'automation', label: 'Autopilot' },
-    { id: 'settings',   label: 'Settings' },
-    { id: 'billing',    label: 'Billing', adminOnly: true },
+    { id: 'library',    label: 'Library' },
+    { id: 'automation', label: 'Autopilot', requiresAuth: true },
+    { id: 'settings',   label: 'Settings', requiresAuth: true },
+    { id: 'billing',    label: 'Billing', adminOnly: true, requiresAuth: true },
 ];
 
-export function getVisibleTabs( _connected, { isAdmin = false } = {} ) {
-    return TABS.filter( tab => ! tab.adminOnly || isAdmin );
+export function getVisibleTabs( connected, { isAdmin = false } = {} ) {
+    return TABS.filter( ( tab ) => {
+        if ( tab.adminOnly && ! isAdmin ) return false;
+        if ( tab.requiresAuth && ! connected ) return false;
+        return true;
+    } );
 }
 
 export function resolveAllowedTab( tab, connected, { isAdmin = false } = {} ) {

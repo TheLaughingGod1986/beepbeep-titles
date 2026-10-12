@@ -87,6 +87,81 @@ class Scan_Repository {
 	}
 
 	/**
+	 * Drop scan rows whose WordPress post no longer exists.
+	 *
+	 * Orphan rows (deleted/trashed posts) still surface in Priorities and
+	 * make /generate return rest_forbidden via edit_post on a missing ID.
+	 *
+	 * @return int Number of rows removed.
+	 */
+	public function prune_missing_posts() {
+		global $wpdb;
+
+		if ( ! Schema::items_table_exists() ) {
+			return 0;
+		}
+
+		$table = Schema::items_table();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared -- value bound via prepare().
+		$rows  = $wpdb->get_results( $wpdb->prepare(
+			"SELECT id, site_item_id FROM {$table} WHERE module = %s",
+			$this->module
+		), ARRAY_A );
+
+		if ( ! is_array( $rows ) || empty( $rows ) ) {
+			return 0;
+		}
+
+		$deleted = 0;
+		foreach ( $rows as $row ) {
+			$post_id = absint( $row['site_item_id'] ?? 0 );
+			if ( $post_id > 0 && get_post( $post_id ) ) {
+				continue;
+			}
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- $wpdb->delete() escapes/prepares internally.
+			$wpdb->delete( $table, array( 'id' => (int) $row['id'] ), array( '%d' ) );
+			++$deleted;
+		}
+
+		return $deleted;
+	}
+
+	/**
+	 * After a full scan, keep only the site_item_ids that were just scored.
+	 * Removes deleted posts and anything no longer in the scanned set.
+	 *
+	 * @param string[] $keep_site_item_ids Post IDs (as strings) that remain valid.
+	 * @return int Number of rows removed.
+	 */
+	public function retain_only( array $keep_site_item_ids ) {
+		global $wpdb;
+
+		if ( ! Schema::items_table_exists() ) {
+			return 0;
+		}
+
+		$table = Schema::items_table();
+		$keep  = array_values( array_unique( array_filter( array_map( 'strval', $keep_site_item_ids ) ) ) );
+
+		// Never wipe the whole module on an empty keep list — that happens when
+		// a scan finds zero posts (misconfigured scope, race, empty site) and
+		// would destroy the last good score while leaving run-history intact,
+		// producing bogus trends like "-94 since last scan" against score 0.
+		if ( empty( $keep ) ) {
+			return 0;
+		}
+
+		$placeholders = implode( ',', array_fill( 0, count( $keep ), '%s' ) );
+		$args         = array_merge( array( $this->module ), $keep );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- placeholders built from count($keep); values bound via prepare().
+		return (int) $wpdb->query( $wpdb->prepare(
+			"DELETE FROM {$table} WHERE module = %s AND site_item_id NOT IN ($placeholders)",
+			$args
+		) );
+	}
+
+	/**
 	 * Mark an item as freshly optimised (called after a successful AI fix
 	 * is saved, separately from the next full rescan).
 	 *
@@ -167,11 +242,14 @@ class Scan_Repository {
 			$this->module
 		) );
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared -- value bound via prepare().
+		// Match last_optimised_at writes (current_time( 'mysql' ) = site-local).
+		$week_ago = gmdate( 'Y-m-d H:i:s', current_time( 'timestamp' ) - WEEK_IN_SECONDS );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared -- values bound via prepare().
 		$optimised_this_week = (int) $wpdb->get_var( $wpdb->prepare(
 			"SELECT COUNT(*) FROM {$table} WHERE module = %s AND last_optimised_at >= %s",
 			$this->module,
-			gmdate( 'Y-m-d H:i:s', strtotime( '-7 days' ) )
+			$week_ago
 		) );
 
 		$total_deduction = array_sum( array_map( static fn( $s ) => 100 - $s, $scores ) );
@@ -192,6 +270,10 @@ class Scan_Repository {
 	 * Aggregate issues across every scanned item into "priority issue"
 	 * groups (one card per issue code) for the Priority Action Centre /
 	 * Today's Priorities banner.
+	 *
+	 * estimated_gain is a raw heuristic (sum of issue deductions ÷ pages
+	 * scanned). Callers must cap against remaining score headroom before
+	 * display — see HealthController::cap_priority_estimates().
 	 *
 	 * @param int $limit Max number of groups to return.
 	 * @return array<int,array{code:string,severity:string,count:int,message:string,estimated_gain:int}>
@@ -272,10 +354,91 @@ class Scan_Repository {
 	}
 
 	/**
+	 * Aggregate filter-tab counts for the Advanced Library.
+	 *
+	 * "needs" = any stored scoring issue (duplicates, missing title/meta, etc.)
+	 * so Home priorities and Library Needs attention stay aligned.
+	 *
+	 * @return array{all:int,needs:int,missing_title:int,missing_meta:int,ok:int,new:int}
+	 */
+	public function get_library_counts() {
+		global $wpdb;
+
+		$empty = array(
+			'all'           => 0,
+			'needs'         => 0,
+			'missing_title' => 0,
+			'missing_meta'  => 0,
+			'ok'            => 0,
+			'new'           => 0,
+		);
+
+		if ( ! Schema::items_table_exists() ) {
+			return $empty;
+		}
+
+		$table = Schema::items_table();
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared -- value bound via prepare().
+		$all = (int) $wpdb->get_var( $wpdb->prepare(
+			"SELECT COUNT(*) FROM {$table} WHERE module = %s",
+			$this->module
+		) );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared -- value bound via prepare().
+		$needs = (int) $wpdb->get_var( $wpdb->prepare(
+			"SELECT COUNT(*) FROM {$table}
+			 WHERE module = %s
+			   AND issues_json IS NOT NULL
+			   AND issues_json != ''
+			   AND issues_json != '[]'",
+			$this->module
+		) );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared -- value bound via prepare().
+		$missing_title = (int) $wpdb->get_var( $wpdb->prepare(
+			"SELECT COUNT(*) FROM {$table} WHERE module = %s AND issues_json LIKE %s",
+			$this->module,
+			'%"code":"missing_title"%'
+		) );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared -- value bound via prepare().
+		$missing_meta = (int) $wpdb->get_var( $wpdb->prepare(
+			"SELECT COUNT(*) FROM {$table} WHERE module = %s AND issues_json LIKE %s",
+			$this->module,
+			'%"code":"missing_description"%'
+		) );
+
+		$ok = max( 0, $all - $needs );
+
+		// "New" = scanned posts published in the last 7 days.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared -- value bound via prepare().
+		$new = (int) $wpdb->get_var( $wpdb->prepare(
+			"SELECT COUNT(*) FROM {$table} i
+			 INNER JOIN {$wpdb->posts} p ON p.ID = CAST(i.site_item_id AS UNSIGNED)
+			 WHERE i.module = %s AND p.post_date >= %s",
+			$this->module,
+			gmdate( 'Y-m-d H:i:s', strtotime( '-7 days' ) )
+		) );
+
+		return array(
+			'all'           => $all,
+			'needs'         => $needs,
+			'missing_title' => $missing_title,
+			'missing_meta'  => $missing_meta,
+			'ok'            => $ok,
+			'new'           => $new,
+		);
+	}
+
+	/**
 	 * Paginated, filterable, sortable item list for the Advanced Library view.
 	 *
 	 * @param array $args {
 	 *     @type string $status  Filter by status band, or '' for all.
+	 *     @type string $issue   Filter to items that carry this issue code, or '' for all.
+	 *     @type string $filter  Library tab: needs|missing-title|missing-meta|ok|new|all|''.
+	 *     @type string $search  Optional title/URL/value search string.
 	 *     @type string $sort    lowest-score|highest-score|most-issues|newest|oldest|recently-optimised.
 	 *     @type int    $page    1-based page number.
 	 *     @type int    $per_page Page size.
@@ -293,42 +456,92 @@ class Scan_Repository {
 		}
 
 		$status   = isset( $args['status'] ) ? (string) $args['status'] : '';
+		$issue    = isset( $args['issue'] ) ? (string) $args['issue'] : '';
+		$filter   = isset( $args['filter'] ) ? (string) $args['filter'] : '';
+		$search   = isset( $args['search'] ) ? trim( (string) $args['search'] ) : '';
 		$sort     = isset( $args['sort'] ) ? (string) $args['sort'] : 'lowest-score';
 		$page     = max( 1, (int) ( $args['page'] ?? 1 ) );
-		$per_page = max( 1, min( 200, (int) ( $args['per_page'] ?? 20 ) ) );
+		$per_page = (int) ( $args['per_page'] ?? 20 );
+		$per_page = max( 1, min( 200, $per_page > 0 ? $per_page : 20 ) );
 		$offset   = ( $page - 1 ) * $per_page;
 
 		$table       = Schema::items_table();
-		$where       = 'WHERE module = %s';
+		$join        = '';
+		$where       = 'WHERE i.module = %s';
 		$where_args  = array( $this->module );
-		if ( '' !== $status ) {
-			$where      .= ' AND status = %s';
-			$where_args[] = $status;
+
+		// Library tabs map onto issue presence / specific codes so Home and
+		// Advanced Library agree on what "needs attention" means.
+		switch ( $filter ) {
+			case 'needs':
+				$where .= " AND i.issues_json IS NOT NULL AND i.issues_json != '' AND i.issues_json != '[]'";
+				break;
+			case 'missing-title':
+				$issue = 'missing_title';
+				break;
+			case 'missing-meta':
+				$issue = 'missing_description';
+				break;
+			case 'ok':
+			case 'optimised':
+				$where .= " AND (i.issues_json IS NULL OR i.issues_json = '' OR i.issues_json = '[]')";
+				break;
+			case 'new':
+				$join   = " INNER JOIN {$wpdb->posts} p ON p.ID = CAST(i.site_item_id AS UNSIGNED)";
+				$where .= ' AND p.post_date >= %s';
+				$where_args[] = gmdate( 'Y-m-d H:i:s', strtotime( '-7 days' ) );
+				break;
+			default:
+				break;
 		}
 
-		$order_by = 'score ASC';
+		if ( '' !== $status ) {
+			$where      .= ' AND i.status = %s';
+			$where_args[] = $status;
+		}
+		// Match the stored Issue::to_array() JSON shape: {"code":"missing_title",...}.
+		// Filtering in SQL (not page-then-filter) so Optimise All / Review never
+		// miss matching rows that fall outside the current score-ordered page.
+		if ( '' !== $issue ) {
+			$where      .= ' AND i.issues_json LIKE %s';
+			$where_args[] = '%"code":"' . $wpdb->esc_like( $issue ) . '"%';
+		}
+
+		if ( '' !== $search ) {
+			if ( '' === $join ) {
+				$join = " LEFT JOIN {$wpdb->posts} p ON p.ID = CAST(i.site_item_id AS UNSIGNED)";
+			}
+			$like         = '%' . $wpdb->esc_like( $search ) . '%';
+			$where       .= ' AND (p.post_title LIKE %s OR p.post_name LIKE %s OR i.current_value LIKE %s OR i.site_item_id = %s)';
+			$where_args[] = $like;
+			$where_args[] = $like;
+			$where_args[] = $like;
+			$where_args[] = $search;
+		}
+
+		$order_by = 'i.score ASC';
 		switch ( $sort ) {
 			case 'highest-score':
-				$order_by = 'score DESC';
+				$order_by = 'i.score DESC';
 				break;
 			case 'newest':
-				$order_by = 'created_at DESC';
+				$order_by = 'i.created_at DESC';
 				break;
 			case 'oldest':
-				$order_by = 'created_at ASC';
+				$order_by = 'i.created_at ASC';
 				break;
 			case 'recently-optimised':
-				$order_by = 'last_optimised_at DESC';
+				$order_by = 'i.last_optimised_at DESC';
 				break;
 			case 'lowest-score':
 			default:
-				$order_by = 'score ASC';
+				$order_by = 'i.score ASC';
 				break;
 		}
 
-		// phpcs:disable WordPress.DB.PreparedSQL.NotPrepared -- $table/$order_by are internal, values bound via prepare().
+		// phpcs:disable WordPress.DB.PreparedSQL.NotPrepared -- $table/$join/$order_by are internal, values bound via prepare().
 		$total = (int) $wpdb->get_var( $wpdb->prepare(
-			"SELECT COUNT(*) FROM {$table} {$where}",
+			"SELECT COUNT(*) FROM {$table} i {$join} {$where}",
 			$where_args
 		) );
 
@@ -336,7 +549,7 @@ class Scan_Repository {
 		$query_args[] = $per_page;
 		$query_args[] = $offset;
 		$rows = $wpdb->get_results( $wpdb->prepare(
-			"SELECT * FROM {$table} {$where} ORDER BY {$order_by} LIMIT %d OFFSET %d",
+			"SELECT i.* FROM {$table} i {$join} {$where} ORDER BY {$order_by} LIMIT %d OFFSET %d",
 			$query_args
 		), ARRAY_A );
 		// phpcs:enable WordPress.DB.PreparedSQL.NotPrepared
@@ -381,7 +594,9 @@ class Scan_Repository {
 
 	/**
 	 * The score from the previous completed run, for the Hero Score's trend
-	 * arrow. Null when there is no prior run (first scan).
+	 * arrow. Null when there is no prior run (first scan), when the current
+	 * items table is empty (nothing to compare against), or when the latest
+	 * run itself scanned zero items (an empty/aborted pass is not a baseline).
 	 *
 	 * @return int|null
 	 */
@@ -390,10 +605,23 @@ class Scan_Repository {
 		if ( ! Schema::items_table_exists() ) {
 			return null;
 		}
+
+		$items_table = Schema::items_table();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared -- value bound via prepare().
+		$current_total = (int) $wpdb->get_var( $wpdb->prepare(
+			"SELECT COUNT(*) FROM {$items_table} WHERE module = %s",
+			$this->module
+		) );
+		if ( $current_total < 1 ) {
+			return null;
+		}
+
 		$table = Schema::runs_table();
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared -- value bound via prepare().
 		$rows = $wpdb->get_results( $wpdb->prepare(
-			"SELECT average_score FROM {$table} WHERE module = %s ORDER BY completed_at DESC LIMIT 2",
+			"SELECT average_score, items_scanned FROM {$table}
+			 WHERE module = %s AND items_scanned > 0
+			 ORDER BY completed_at DESC LIMIT 2",
 			$this->module
 		), ARRAY_A );
 		if ( count( $rows ) < 2 ) {

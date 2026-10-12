@@ -17,12 +17,14 @@ const BASE  = data.apiBase ?? '/wp-json/beepbeep-titles/v1';
 const NONCE = data.nonce   ?? '';
 
 export class ApiError extends Error {
-    constructor( message, { code, status, entitlement_state } = {} ) {
+    constructor( message, { code, status, entitlement_state, required_credits, credits_remaining } = {} ) {
         super( message || 'Request failed' );
-        this.name              = 'ApiError';
-        this.code              = code || 'API_ERROR';
-        this.status            = status || 0;
-        this.entitlement_state = entitlement_state || null;
+        this.name               = 'ApiError';
+        this.code               = code || 'API_ERROR';
+        this.status             = status || 0;
+        this.entitlement_state  = entitlement_state || null;
+        this.required_credits   = required_credits ?? null;
+        this.credits_remaining  = credits_remaining ?? null;
     }
 }
 
@@ -52,10 +54,21 @@ async function request( method, path, body = null ) {
     // { connected: false } for the "no license yet" case, which is NOT an
     // error — callers read that flag directly.
     if ( ! res.ok ) {
-        throw new ApiError( json?.message, {
-            code:              json?.code,
+        const entitlement = json?.entitlement_state || null;
+        const code = json?.code
+            || ( typeof json?.error === 'string' ? json.error : null )
+            || ( typeof json?.error?.code === 'string' ? json.error.code : null );
+        const message = json?.message
+            || ( typeof json?.error?.message === 'string' ? json.error.message : null )
+            || ( typeof json?.error === 'string' ? json.error : null );
+        throw new ApiError( message, {
+            code,
             status:            res.status,
-            entitlement_state: json?.entitlement_state,
+            entitlement_state: entitlement,
+            required_credits:  json?.required_credits ?? null,
+            credits_remaining: json?.credits_remaining
+                ?? entitlement?.credits_remaining
+                ?? null,
         } );
     }
 
@@ -142,8 +155,9 @@ export function normalizeQuota( ent ) {
     const hasDaily       = ( ent.daily_limit ?? null ) !== null;
     const dailyLimit     = hasDaily ? ent.daily_limit : null;
     const dailyRemaining = hasDaily ? ( ent.daily_remaining ?? dailyLimit ) : null;
-    const monthlyLimit   = ent.total_limit ?? ent.monthly_limit ?? QUOTA_DEFAULTS.monthly_limit;
-    const monthlyUsed    = ent.credits_used ?? ( monthlyLimit - ( ent.credits_remaining ?? monthlyLimit ) );
+    // Prefer site-wallet totals (same fields AltText / Linking / Auditor use).
+    const monthlyLimit   = ent.total_limit ?? ent.credits_total ?? ent.limit ?? ent.monthly_limit ?? QUOTA_DEFAULTS.monthly_limit;
+    const monthlyUsed    = ent.credits_used ?? ent.used ?? ( monthlyLimit - ( ent.credits_remaining ?? ent.remaining ?? monthlyLimit ) );
     return {
         ...ent,
         connected:       true,
@@ -154,6 +168,8 @@ export function normalizeQuota( ent ) {
         monthly_limit:   monthlyLimit,
         monthly_used:    monthlyUsed,
         credits_remaining: ent.credits_remaining ?? Math.max( 0, monthlyLimit - monthlyUsed ),
+        // Backend may omit this; UI defaults to CREDITS_PER_PAGE (title + meta).
+        credits_per_page: ent.credits_per_page ?? null,
         reset_date:      ent.reset_date ?? null,
     };
 }
@@ -218,8 +234,16 @@ export async function fetchPriorities( { limit = 5 } = {} ) {
     return request( 'GET', `/health/priorities?limit=${ encodeURIComponent( limit ) }` );
 }
 
-export async function fetchHealthItems( { status = '', issue = '', sort = 'lowest-score', page = 1, perPage = 20 } = {} ) {
-    const qs = new URLSearchParams( { status, issue, sort, page: String( page ), per_page: String( perPage ) } );
+export async function fetchHealthItems( { status = '', issue = '', filter = '', search = '', sort = 'lowest-score', page = 1, perPage = 20 } = {} ) {
+    const qs = new URLSearchParams( {
+        status,
+        issue,
+        filter,
+        search,
+        sort,
+        page: String( page ),
+        per_page: String( perPage ),
+    } );
     return request( 'GET', `/health/items?${ qs }` );
 }
 

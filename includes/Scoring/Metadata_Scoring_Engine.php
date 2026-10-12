@@ -123,10 +123,22 @@ final class Metadata_Scoring_Engine {
             $item_scores[] = $overall_score;
         }
 
-        $average_score = Score_Service::site_score( $item_scores );
-        $this->repository->record_run( $items_scanned, $issues_found, $average_score );
+        // Drop rows for posts that were deleted or left the scanned set —
+        // otherwise Priorities still offer Optimise and /generate 403s with
+        // rest_forbidden (edit_post fails for a missing post ID). Skip when
+        // nothing was scored so an empty pass cannot wipe a prior good scan.
+        if ( $items_scanned > 0 ) {
+            $this->repository->retain_only( array_map( 'strval', array_keys( $pages ) ) );
+        }
 
-        update_option( 'beepti_last_scan', current_time( 'mysql' ) );
+        $average_score = Score_Service::site_score( $item_scores );
+
+        // Only record runs that actually scored items — a zero-item pass
+        // must not become the "current" baseline for trend math.
+        if ( $items_scanned > 0 ) {
+            $this->repository->record_run( $items_scanned, $issues_found, $average_score );
+            update_option( 'beepti_last_scan', current_time( 'mysql' ) );
+        }
 
         return [
             'items_scanned' => $items_scanned,

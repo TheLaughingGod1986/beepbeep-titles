@@ -16,6 +16,7 @@ use BeepBeep_Titles\ActivityLog;
 use BeepBeep_Titles\Api\Client;
 use BeepBeep_Titles\Seo\MetaWriter;
 use BeepBeep_Titles\SupportLog;
+use BeepBeep_Titles\Telemetry;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -71,6 +72,8 @@ class SupportController {
                 [ 'status' => 502 ]
             );
         }
+
+        Telemetry::capture( 'support_submitted', [ 'via' => is_wp_error( $backend ) ? 'email_fallback' : 'backend' ] );
 
         return new \WP_REST_Response( [
             'sent'    => true,

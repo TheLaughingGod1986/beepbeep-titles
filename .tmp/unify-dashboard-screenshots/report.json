@@ -1,0 +1,212 @@
+{
+  "generatedAt": "2026-07-28T20:04:03.378Z",
+  "base": "http://localhost:8890",
+  "results": [
+    {
+      "plugin": "Titles",
+      "tab": "Home",
+      "pass": true,
+      "detail": "Dashboard rendered; console errors=0",
+      "screenshot": "/Users/ben/code/web/beepbeep-titles/.tmp/unify-dashboard-screenshots/01-titles-home.png",
+      "consoleErrors": []
+    },
+    {
+      "plugin": "Titles",
+      "tab": "Advanced Library",
+      "pass": true,
+      "detail": "clicked; bodyLen=1096; console errors=0",
+      "consoleErrors": []
+    },
+    {
+      "plugin": "Titles",
+      "tab": "Autopilot",
+      "pass": true,
+      "detail": "clicked; bodyLen=1312; console errors=0",
+      "consoleErrors": []
+    },
+    {
+      "plugin": "Titles",
+      "tab": "Settings",
+      "pass": true,
+      "detail": "clicked; bodyLen=1942; console errors=0",
+      "consoleErrors": []
+    },
+    {
+      "plugin": "Titles",
+      "tab": "Billing",
+      "pass": true,
+      "detail": "clicked; bodyLen=904; console errors=0",
+      "consoleErrors": []
+    },
+    {
+      "plugin": "Alt Text",
+      "tab": "Dashboard",
+      "pass": true,
+      "detail": "loaded; console errors=0; new dashboard markers present",
+      "screenshot": "/Users/ben/code/web/beepbeep-titles/.tmp/unify-dashboard-screenshots/02-alttext-dashboard.png",
+      "consoleErrors": [],
+      "url": "http://localhost:8890/wp-admin/admin.php?page=bbai"
+    },
+    {
+      "plugin": "Alt Text",
+      "tab": "ALT Library",
+      "pass": true,
+      "detail": "loaded; console errors=0",
+      "screenshot": null,
+      "consoleErrors": [],
+      "url": "http://localhost:8890/wp-admin/admin.php?page=bbai-library"
+    },
+    {
+      "plugin": "Alt Text",
+      "tab": "Autopilot",
+      "pass": true,
+      "detail": "loaded; console errors=0",
+      "screenshot": null,
+      "consoleErrors": [],
+      "url": "http://localhost:8890/wp-admin/admin.php?page=bbai-autopilot"
+    },
+    {
+      "plugin": "Alt Text",
+      "tab": "Audit",
+      "pass": true,
+      "detail": "loaded; console errors=0",
+      "screenshot": null,
+      "consoleErrors": [],
+      "url": "http://localhost:8890/wp-admin/admin.php?page=bbai-audit"
+    },
+    {
+      "plugin": "Alt Text",
+      "tab": "Analytics",
+      "pass": true,
+      "detail": "loaded; console errors=0",
+      "screenshot": null,
+      "consoleErrors": [],
+      "url": "http://localhost:8890/wp-admin/admin.php?page=bbai-analytics"
+    },
+    {
+      "plugin": "Alt Text",
+      "tab": "Usage",
+      "pass": true,
+      "detail": "loaded; console errors=0",
+      "screenshot": null,
+      "consoleErrors": [],
+      "url": "http://localhost:8890/wp-admin/admin.php?page=bbai-credit-usage"
+    },
+    {
+      "plugin": "Alt Text",
+      "tab": "Settings",
+      "pass": true,
+      "detail": "loaded; console errors=0",
+      "screenshot": null,
+      "consoleErrors": [],
+      "url": "http://localhost:8890/wp-admin/admin.php?page=bbai-settings"
+    },
+    {
+      "plugin": "Internal Linking",
+      "tab": "Dashboard",
+      "pass": true,
+      "detail": "mounted; console errors=0; new dashboard markers present",
+      "screenshot": "/Users/ben/code/web/beepbeep-titles/.tmp/unify-dashboard-screenshots/03-linking-dashboard.png",
+      "consoleErrors": [],
+      "url": "http://localhost:8890/wp-admin/admin.php?page=oppti-internal-linking"
+    },
+    {
+      "plugin": "Internal Linking",
+      "tab": "Opportunities",
+      "pass": false,
+      "detail": "mounted; console errors=1",
+      "screenshot": null,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 501 (Not Implemented)"
+      ],
+      "url": "http://localhost:8890/wp-admin/admin.php?page=oppti-internal-linking&screen=opportunities"
+    },
+    {
+      "plugin": "Internal Linking",
+      "tab": "Pages",
+      "pass": true,
+      "detail": "mounted; console errors=0",
+      "screenshot": null,
+      "consoleErrors": [],
+      "url": "http://localhost:8890/wp-admin/admin.php?page=oppti-internal-linking&screen=pages"
+    },
+    {
+      "plugin": "Internal Linking",
+      "tab": "Link Map",
+      "pass": true,
+      "detail": "mounted; console errors=0",
+      "screenshot": null,
+      "consoleErrors": [],
+      "url": "http://localhost:8890/wp-admin/admin.php?page=oppti-internal-linking&screen=map"
+    },
+    {
+      "plugin": "Internal Linking",
+      "tab": "Settings",
+      "pass": true,
+      "detail": "mounted; console errors=0",
+      "screenshot": null,
+      "consoleErrors": [],
+      "url": "http://localhost:8890/wp-admin/admin.php?page=oppti-internal-linking&screen=settings"
+    },
+    {
+      "plugin": "Auditor",
+      "tab": "Dashboard",
+      "pass": false,
+      "detail": "Iframe empty/not mounted",
+      "screenshot": "/Users/ben/code/web/beepbeep-titles/.tmp/unify-dashboard-screenshots/04-auditor-dashboard.png",
+      "consoleErrors": [],
+      "url": "http://localhost:8890/wp-admin/admin.php?page=oppti-optimizer"
+    },
+    {
+      "plugin": "Auditor",
+      "tab": "Website Audit",
+      "pass": false,
+      "detail": "Iframe empty/not mounted",
+      "screenshot": null,
+      "consoleErrors": [],
+      "url": "http://localhost:8890/wp-admin/admin.php?page=oppti-optimizer-audit"
+    },
+    {
+      "plugin": "Auditor",
+      "tab": "Opportunities",
+      "pass": false,
+      "detail": "Iframe empty/not mounted",
+      "screenshot": null,
+      "consoleErrors": [],
+      "url": "http://localhost:8890/wp-admin/admin.php?page=oppti-optimizer-opportunities"
+    },
+    {
+      "plugin": "Auditor",
+      "tab": "Progress",
+      "pass": false,
+      "detail": "Iframe empty/not mounted",
+      "screenshot": null,
+      "consoleErrors": [],
+      "url": "http://localhost:8890/wp-admin/admin.php?page=oppti-optimizer-progress"
+    },
+    {
+      "plugin": "Auditor",
+      "tab": "Solutions",
+      "pass": false,
+      "detail": "Iframe empty/not mounted",
+      "screenshot": null,
+      "consoleErrors": [],
+      "url": "http://localhost:8890/wp-admin/admin.php?page=oppti-optimizer-solutions"
+    },
+    {
+      "plugin": "Auditor",
+      "tab": "Workspace",
+      "pass": false,
+      "detail": "Iframe empty/not mounted",
+      "screenshot": null,
+      "consoleErrors": [],
+      "url": "http://localhost:8890/wp-admin/admin.php?page=oppti-optimizer-workspace"
+    }
+  ],
+  "summary": {
+    "total": 23,
+    "pass": 16,
+    "fail": 7,
+    "skipped": 0
+  }
+}

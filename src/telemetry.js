@@ -90,8 +90,9 @@ function resolveLifecycle() {
 
 const lifecycle = resolveLifecycle();
 
-function enabled() {
-	return cfg.enabled !== false;
+// Opt-in only: anything other than an explicit `true` from PHP means no consent.
+export function enabled() {
+	return cfg.enabled === true;
 }
 
 function baseProps() {

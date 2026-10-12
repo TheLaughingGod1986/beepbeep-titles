@@ -17,6 +17,10 @@ class TelemetryController {
 	 * Accept a batch of allowlisted client events and forward each to PostHog.
 	 */
 	public function ingest( \WP_REST_Request $req ): \WP_REST_Response {
+		if ( ! Telemetry::has_consent() ) {
+			return new \WP_REST_Response( [ 'success' => true, 'accepted' => 0, 'rejected' => 0, 'consent' => false ], 200 );
+		}
+
 		$events = $req->get_param( 'events' );
 		if ( ! is_array( $events ) ) {
 			$single = $req->get_param( 'event' );

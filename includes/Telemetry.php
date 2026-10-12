@@ -98,7 +98,7 @@ class Telemetry {
 
 	/**
 	 * Whether external PostHog capture is allowed.
-	 * Default: granted when the option is unset (same as Alt Text).
+	 * Opt-in only: a missing or unsaved consent option means NO consent.
 	 */
 	public static function has_consent(): bool {
 		if ( defined( 'BEEPTI_TELEMETRY_CONSENT' ) ) {
@@ -106,11 +106,7 @@ class Telemetry {
 		}
 
 		$stored = get_option( self::CONSENT_OPTION, false );
-		if ( false === $stored ) {
-			$granted = true;
-		} else {
-			$granted = in_array( $stored, [ 'yes', '1', 1, true ], true );
-		}
+		$granted = in_array( $stored, [ 'yes', '1', 1, true ], true );
 
 		return (bool) apply_filters( 'beepti_telemetry_consent_granted', $granted );
 	}
@@ -189,6 +185,10 @@ class Telemetry {
 		if ( ! in_array( $event_name, [ 'plugin_activated', 'plugin_deactivated', 'plugin_updated' ], true ) ) {
 			return;
 		}
+		// Never store events for later delivery when the user has not opted in.
+		if ( ! self::has_consent() ) {
+			return;
+		}
 
 		$queue   = get_option( self::LIFECYCLE_QUEUE_OPTION, [] );
 		$queue   = is_array( $queue ) ? $queue : [];
@@ -204,6 +204,10 @@ class Telemetry {
 	/** Flush queued lifecycle events to PostHog. */
 	public static function flush_lifecycle_queue(): void {
 		if ( ! self::has_consent() ) {
+			// Drop anything queued before consent (e.g. by an older version).
+			if ( false !== get_option( self::LIFECYCLE_QUEUE_OPTION, false ) ) {
+				delete_option( self::LIFECYCLE_QUEUE_OPTION );
+			}
 			return;
 		}
 

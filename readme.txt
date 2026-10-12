@@ -246,6 +246,9 @@ WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, R
 
 == Changelog ==
 
+= 1.0.29 =
+* Privacy: usage stats are only sent after you opt in.
+
 = 1.0.28 - 2026-10-12 =
 * **Improved**: Sign-up question options.
 

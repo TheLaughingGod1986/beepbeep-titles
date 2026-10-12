@@ -1,4 +1,5 @@
 import { QUOTA_DEFAULTS } from './quota';
+import { restUrl } from './restUrl';
 
 /**
  * OpptiAI Titles — WordPress REST client.
@@ -31,7 +32,7 @@ export class ApiError extends Error {
 async function request( method, path, body = null ) {
     let res;
     try {
-        res = await fetch( BASE + path, {
+        res = await fetch( restUrl( BASE, path ), {
             method,
             headers: {
                 'Content-Type': 'application/json',

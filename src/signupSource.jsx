@@ -6,16 +6,15 @@ import { Field, Input } from './ui';
  * Values must match the backend (licenses.signup_source) and PostHog.
  */
 export const SIGNUP_SOURCE_VALUES = [
-    'wporg_search', 'google', 'ai_assistant', 'oppti_site', 'friend_colleague', 'social', 'other',
+    'wporg', 'search', 'x', 'facebook_group', 'friend', 'other',
 ];
 
 export const signupSourceOptions = () => [
-    [ 'wporg_search', __( 'WordPress.org plugin search', 'beepbeep-titles' ) ],
-    [ 'google', __( 'Google or another search engine', 'beepbeep-titles' ) ],
-    [ 'ai_assistant', __( 'An AI assistant (ChatGPT, Claude, Gemini…)', 'beepbeep-titles' ) ],
-    [ 'oppti_site', __( 'The Oppti website or blog', 'beepbeep-titles' ) ],
-    [ 'friend_colleague', __( 'A friend or colleague', 'beepbeep-titles' ) ],
-    [ 'social', __( 'Social media', 'beepbeep-titles' ) ],
+    [ 'wporg', __( 'WordPress.org', 'beepbeep-titles' ) ],
+    [ 'search', __( 'Search engine', 'beepbeep-titles' ) ],
+    [ 'x', __( 'X (Twitter)', 'beepbeep-titles' ) ],
+    [ 'facebook_group', __( 'A Facebook group', 'beepbeep-titles' ) ],
+    [ 'friend', __( 'A friend or colleague', 'beepbeep-titles' ) ],
     [ 'other', __( 'Other', 'beepbeep-titles' ) ],
 ];
 

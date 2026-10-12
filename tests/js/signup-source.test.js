@@ -10,8 +10,13 @@ describe( 'signupSourcePayload', () => {
         expect( signupSourcePayload( 'tiktok', '' ) ).toEqual( {} );
     } );
     test( 'valid value drops free text unless other', () => {
-        expect( signupSourcePayload( 'oppti_site', 'x' ) ).toEqual( { signup_source: 'oppti_site' } );
-        expect( SIGNUP_SOURCE_VALUES ).toEqual( [ 'wporg_search', 'google', 'ai_assistant', 'oppti_site', 'friend_colleague', 'social', 'other' ] );
+        expect( signupSourcePayload( 'facebook_group', 'x' ) ).toEqual( { signup_source: 'facebook_group' } );
+        expect( SIGNUP_SOURCE_VALUES ).toEqual( [ 'wporg', 'search', 'x', 'facebook_group', 'friend', 'other' ] );
+    } );
+    test( 'old codes are dropped', () => {
+        [ 'wporg_search', 'google', 'ai_assistant', 'oppti_site', 'friend_colleague', 'social' ].forEach( ( v ) => {
+            expect( signupSourcePayload( v, '' ) ).toEqual( {} );
+        } );
     } );
     test( 'other keeps stripped, capped text', () => {
         const out = signupSourcePayload( 'other', '<b>Podcast</b> ' + 'a'.repeat( 300 ) );

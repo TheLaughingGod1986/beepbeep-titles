@@ -284,7 +284,7 @@ class Client {
     }
 
     /** Allowed values for the optional "How did you find us?" answer. */
-    public const SIGNUP_SOURCE_VALUES = [ 'wporg_search', 'google', 'ai_assistant', 'oppti_site', 'friend_colleague', 'social', 'other' ];
+    public const SIGNUP_SOURCE_VALUES = [ 'wporg', 'search', 'x', 'facebook_group', 'friend', 'other' ];
 
     /**
      * Sanitize the optional sign-up source fields. Blank or unknown values

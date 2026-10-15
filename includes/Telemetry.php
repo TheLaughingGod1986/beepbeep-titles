@@ -24,6 +24,11 @@ class Telemetry {
 	public const CURRENT_VERSION_OPTION  = 'beepti_telemetry_current_plugin_version';
 	public const PREVIOUS_VERSION_OPTION = 'beepti_telemetry_previous_plugin_version';
 	public const ANON_ID_OPTION          = 'beepti_telemetry_anon_id';
+	public const CONSENT_VERSION_OPTION  = 'beepti_telemetry_consent_version';
+	/** Consent v2 = toggle text discloses that usage is linked to the OpptiAI account ID. */
+	public const CONSENT_VERSION         = 2;
+	public const IDENTIFIED_OPTION       = 'beepti_telemetry_identified_account';
+	public const ACTIVATED_OPTION        = 'beepti_telemetry_activated';
 
 	private const POSTHOG_API_KEY  = 'phc_6L7JzpjYRC8Gk4Br3YevTmjZnJsJPvoy9GK7RFdo72s';
 	private const POSTHOG_API_HOST = 'https://us.i.posthog.com';
@@ -89,6 +94,9 @@ class Telemetry {
 		'login_succeeded',
 		'login_failed',
 		'license_connected',
+		'account_signed_up',
+		'account_logged_in',
+		'user_activated',
 		'license_disconnected',
 		'license_adopted',
 		'settings_saved',
@@ -110,6 +118,30 @@ class Telemetry {
 		$granted = in_array( $stored, [ 'yes', '1', 1, true ], true );
 
 		return (bool) apply_filters( 'beepti_telemetry_consent_granted', $granted );
+	}
+
+	/**
+	 * Consent to link usage to the OpptiAI account ID. Requires consent saved
+	 * under the v2 toggle text; installs that opted in under the older
+	 * "anonymous" wording keep anonymous events until they re-save.
+	 */
+	public static function has_account_consent(): bool {
+		if ( defined( 'BEEPTI_TELEMETRY_CONSENT' ) ) {
+			return (bool) BEEPTI_TELEMETRY_CONSENT;
+		}
+		return self::has_consent()
+			&& (int) get_option( self::CONSENT_VERSION_OPTION, 0 ) >= self::CONSENT_VERSION;
+	}
+
+	/** Store the usage-stats choice together with the consent text version. */
+	public static function save_consent( bool $opt_in ): void {
+		update_option( self::CONSENT_OPTION, $opt_in ? 'yes' : 'no', false );
+		if ( $opt_in ) {
+			update_option( self::CONSENT_VERSION_OPTION, self::CONSENT_VERSION, false );
+		} else {
+			delete_option( self::CONSENT_VERSION_OPTION );
+			delete_option( self::IDENTIFIED_OPTION );
+		}
 	}
 
 	public static function get_api_key(): string {
@@ -173,6 +205,110 @@ class Telemetry {
 				'data_format' => 'body',
 			]
 		);
+
+		// First AI result on this install = activation (sent once).
+		if ( 'title_meta_generated' === $event_name ) {
+			self::maybe_activate(
+				'first_title_meta_generated',
+				[
+					'generation_surface' => (string) ( $properties['generation_surface'] ?? '' ),
+					'generation_mode'    => (string) ( $properties['generation_mode'] ?? '' ),
+				]
+			);
+		}
+	}
+
+	/**
+	 * Link this install's anonymous PostHog id to the OpptiAI account id
+	 * (the backend licenses.id UUID, same id Alt Text identifies with) so
+	 * Titles users appear as one person across OpptiAI plugins.
+	 *
+	 * Opt-in only: nothing is sent or stored without usage-stats consent
+	 * saved under the v2 toggle text (has_account_consent).
+	 * Never sends the email. Sent once per account id per install.
+	 */
+	public static function identify( string $account_id, string $method = 'login' ): void {
+		$account_id = strtolower( trim( $account_id ) );
+		if ( ! preg_match( '/^[0-9a-f-]{8,64}$/', $account_id ) ) {
+			return;
+		}
+		if ( ! self::has_account_consent() ) {
+			return;
+		}
+		if ( get_option( self::IDENTIFIED_OPTION, '' ) === $account_id ) {
+			return;
+		}
+		$api_key  = self::get_api_key();
+		$api_host = self::get_api_host();
+		if ( '' === $api_key || '' === $api_host ) {
+			return;
+		}
+
+		$payload = wp_json_encode(
+			[
+				'api_key'     => $api_key,
+				'event'       => '$identify',
+				'distinct_id' => $account_id,
+				'properties'  => [
+					'$anon_distinct_id' => self::distinct_id(),
+					'plugin_slug'       => self::PLUGIN_SLUG,
+					'plugin_id'         => defined( 'BEEPTI_PLUGIN_ID' ) ? BEEPTI_PLUGIN_ID : 'titles',
+					'plugin_version'    => BEEPTI_VERSION,
+					'identify_method'   => sanitize_key( $method ),
+					'$lib'              => 'opptiai-titles-php',
+					'$set'              => [
+						'uses_titles'           => true,
+						'titles_plugin_version' => BEEPTI_VERSION,
+						'last_plugin_slug'      => self::PLUGIN_SLUG,
+					],
+					'$set_once'         => [
+						'first_plugin_slug' => self::PLUGIN_SLUG,
+					],
+				],
+				'timestamp'   => gmdate( 'c' ),
+			]
+		);
+		if ( ! is_string( $payload ) || '' === $payload ) {
+			return;
+		}
+
+		wp_remote_post(
+			$api_host . '/capture/',
+			[
+				'timeout'     => 1,
+				'blocking'    => false,
+				'headers'     => [ 'Content-Type' => 'application/json' ],
+				'body'        => $payload,
+				'data_format' => 'body',
+			]
+		);
+		update_option( self::IDENTIFIED_OPTION, $account_id, false );
+	}
+
+	/**
+	 * After a successful sign-up or sign-in: identify, then a server-side
+	 * account_signed_up / account_logged_in event (browser events can be
+	 * lost when the modal closes). Consent-gated like every capture.
+	 */
+	public static function on_account_connected( string $account_id, string $method ): void {
+		if ( ! self::has_consent() ) {
+			return;
+		}
+		self::identify( $account_id, $method );
+		self::capture( 'register' === $method ? 'account_signed_up' : 'account_logged_in', [ 'method' => sanitize_key( $method ) ] );
+	}
+
+	/**
+	 * Activation = first successful AI title/meta result on this install.
+	 * Fires once; the marker is only stored when the event is sent, so an
+	 * install that opts in later still reports its next result.
+	 */
+	public static function maybe_activate( string $activation_type, array $properties = [] ): void {
+		if ( ! self::has_consent() || get_option( self::ACTIVATED_OPTION, false ) ) {
+			return;
+		}
+		self::capture( 'user_activated', array_merge( $properties, [ 'activation_type' => sanitize_key( $activation_type ) ] ) );
+		update_option( self::ACTIVATED_OPTION, time(), false );
 	}
 
 	/**

@@ -101,3 +101,4 @@ PHP
 php tests/php/telemetry-consent-test.php
 php tests/php/telemetry-optin-toggle-test.php
 php tests/php/telemetry-browser-strip-test.php
+php tests/php/telemetry-identify-test.php

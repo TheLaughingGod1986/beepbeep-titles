@@ -159,7 +159,7 @@ class PagesController {
         // Usage-stats consent lives in its own option; stored only when the user saves the toggle.
         if ( array_key_exists( 'usage_stats_opt_in', $incoming ) ) {
             $opt_in = filter_var( $incoming['usage_stats_opt_in'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE );
-            update_option( Telemetry::CONSENT_OPTION, true === $opt_in ? 'yes' : 'no', false );
+            Telemetry::save_consent( true === $opt_in );
         }
         $current['usage_stats_opt_in'] = 'yes' === get_option( Telemetry::CONSENT_OPTION, '' );
         // Immediately reconcile the scheduled-scan cron if scan_daily changed,

@@ -71,11 +71,16 @@ class GenerateController {
         if ( $is_first_generation ) {
             update_option( $first_value_option, time(), false );
         }
+        $activated_at = (int) get_option( Telemetry::ACTIVATION_MARKER, 0 );
+        $first_value_seconds = $is_first_generation && $activated_at > 0
+            ? max( 0, time() - $activated_at )
+            : null;
         Telemetry::capture( 'title_meta_generated', [
             'generation_surface' => 'dashboard',
             'generation_mode'    => 'single',
             'page_count'         => 1,
             'is_first_generation' => $is_first_generation,
+            'time_to_first_value_seconds' => $first_value_seconds,
         ] );
         ( new Scan_Repository( 'titles' ) )->mark_optimised( (string) $post->ID, $post->post_type );
         $this->bust_stats();
@@ -244,11 +249,16 @@ class GenerateController {
                     if ( $is_first_generation ) {
                         update_option( $first_value_option, time(), false );
                     }
+                    $activated_at = (int) get_option( Telemetry::ACTIVATION_MARKER, 0 );
+                    $first_value_seconds = $is_first_generation && $activated_at > 0
+                        ? max( 0, time() - $activated_at )
+                        : null;
                     Telemetry::capture( 'title_meta_generated', [
                         'generation_surface' => 'bulk_generation',
                         'generation_mode'    => 'batch',
                         'page_count'         => $completed_count,
                         'is_first_generation' => $is_first_generation,
+                        'time_to_first_value_seconds' => $first_value_seconds,
                     ] );
                 }
             }

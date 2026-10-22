@@ -169,6 +169,10 @@ class PagesController {
             'keys' => array_keys( SettingsSanitizer::sanitize_patch( $incoming ) ),
         ] );
         if ( array_key_exists( 'auto_generate', $incoming ) ) {
+            // A fresh switch-on retries straight away rather than waiting out a pause.
+            if ( ! empty( $current['auto_generate'] ) ) {
+                \BeepBeep_Titles\AutopilotGuard::resume();
+            }
             Telemetry::capture( 'autopilot_toggled', [
                 'enabled' => ! empty( $current['auto_generate'] ),
             ] );

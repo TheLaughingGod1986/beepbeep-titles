@@ -15,7 +15,7 @@ describe( 'isProPlan (Continuous Optimisation)', () => {
 	} );
 } );
 
-describe( 'isPaidPlan (Autopilot screen) is unchanged', () => {
+describe( 'isPaidPlan (Autopilot, incl. auto-generate on publish)', () => {
 	test.each( [ 'starter', 'pro', 'growth', 'agency' ] )( 'allows %p', ( plan ) => {
 		expect( isPaidPlan( plan ) ).toBe( true );
 	} );

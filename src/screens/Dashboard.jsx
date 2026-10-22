@@ -740,17 +740,17 @@ const AutopilotActiveCard = ({ autoOptimise, onToggle }) => (
     <Card padding={0}>
         <div style={{ padding: '18px 22px 12px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
             <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>Continuous Optimisation</div>
+                <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>Autopilot</div>
                 <div style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.01em' }}>{autoOptimise ? 'Running in the background.' : 'Paused.'}</div>
                 <div style={{ fontSize: 12.5, color: 'var(--text-2)', marginTop: 4 }}>
-                    {autoOptimise ? 'New pages are scanned, scored, and optimised automatically as they publish.' : 'Enable continuous optimisation for newly published pages.'}
+                    {autoOptimise ? 'New posts get a title and meta description automatically as they publish.' : 'Turn on Autopilot to write titles and meta for new posts as they publish.'}
                 </div>
             </div>
             <SmallToggle on={autoOptimise} onChange={() => onToggle( !autoOptimise )}/>
         </div>
         <div style={{ padding: '10px 22px 16px', display: 'flex', flexDirection: 'column', gap: 6 }}>
             {[
-                { label: 'New pages covered instantly', on: autoOptimise },
+                { label: 'New posts covered on publish', on: autoOptimise },
                 { label: 'Uses available AI service credits', on: true },
                 { label: 'Pages, posts and WooCommerce support', on: true },
             ].map( ( r, i ) => (
@@ -771,7 +771,7 @@ const SmallToggle = ({ on, onChange, disabled }) => (
 
 const ACTIVITY_KINDS = {
     generated: { icon: 'sparkles', tone: 'primary', verb: 'Optimised title & meta for' },
-    auto:      { icon: 'zap',      tone: 'ok',      verb: 'Continuous optimisation improved' },
+    auto:      { icon: 'zap',      tone: 'ok',      verb: 'Autopilot optimised' },
     edited:    { icon: 'edit',     tone: 'primary', verb: 'Edited' },
 };
 
@@ -856,7 +856,7 @@ const FooterMetrics = ({ streak, dailyUsed, dailyLimit, hasDailyLimit, monthlyUs
                 }/>
             )}
             <Item label="Monthly service usage" value={<><span className="mono tnum">{monthlyUsed}</span> of <span className="mono tnum">{monthlyLimit}</span> used</>}/>
-            <Item label="Continuous Optimisation" value={autoOptimise ? 'Enabled' : 'Paused'}/>
+            <Item label="Autopilot" value={autoOptimise ? 'Enabled' : 'Paused'}/>
             <Item label="Remaining" value={<><span className="mono tnum">{monthlyRemaining}</span> service credits</>}/>
         </div>
     );

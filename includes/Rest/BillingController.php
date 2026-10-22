@@ -23,6 +23,8 @@ class BillingController {
         if ( is_wp_error( $result ) ) {
             return ErrorResponder::from_wp_error( $result );
         }
+        // Credits are back (renewal or top-up): let Autopilot run again.
+        \BeepBeep_Titles\AutopilotGuard::resume_if_credits( $result );
         $result['connected']     = true;
         $result['account_email'] = $this->client->get_account_email();
         // `usage_by_feature` (per-plugin attribution of the shared wallet) is

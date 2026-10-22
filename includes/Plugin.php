@@ -242,10 +242,27 @@ class Plugin {
             return;
         }
 
+        // Out of credits: stay quiet until a quota read shows credits again.
+        if ( AutopilotGuard::is_paused() ) {
+            return;
+        }
+
         $result = $client->generate(
             $this->autopilot_page_envelope( $post, $current ),
             $this->autopilot_options( $settings )
         );
+
+        if ( is_wp_error( $result ) && AutopilotGuard::is_credit_error( $result ) ) {
+            // One notice and one event per pause, not one per publish.
+            if ( AutopilotGuard::pause_for_credits() ) {
+                $this->queue_admin_notice( AutopilotGuard::paused_notice(), 'warning' );
+                Telemetry::capture( 'autopilot_failed', [
+                    'error_code'         => 'quota_exceeded',
+                    'generation_surface' => 'autopilot',
+                ] );
+            }
+            return;
+        }
 
         if ( is_wp_error( $result ) ) {
             $this->queue_admin_notice(
@@ -347,6 +364,11 @@ class Plugin {
     private function queue_admin_notice( string $message, string $type = 'info' ): void {
         $notices   = get_transient( 'beepti_admin_notices' );
         $notices   = is_array( $notices ) ? $notices : [];
+        foreach ( $notices as $existing ) {
+            if ( ( $existing['message'] ?? '' ) === $message ) {
+                return; // Same notice already queued; never stack duplicates.
+            }
+        }
         $notices[] = [ 'message' => $message, 'type' => $type ];
         set_transient( 'beepti_admin_notices', $notices, 5 * MINUTE_IN_SECONDS );
     }

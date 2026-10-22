@@ -12,9 +12,8 @@ import { getUsdPriceId } from './billingPlansCatalog';
 import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, normalizeStats, createCheckout, createBillingPortal, clearLicense, saveSettings, fetchSettings, fetchHealth, fetchPriorities, fetchHealthItems, runHealthScan, undoPage, fetchAeo, resetGenerated, recordReviewPrompt } from './api';
 import { paywallTrigger, errorToast, checkoutErrorToast } from './errors';
 import { createCheckoutFlow } from './checkoutFlow';
-import { hasDailyCap } from './quota';
+import { hasDailyCap, isPaidPlan, autopilotToggleGate } from './quota';
 import { usePaywallGate } from './hooks/usePaywallGate';
-import { isProPlan, isPaidPlan } from './quota';
 import { resolveAllowedTab } from './navigation';
 import { recordCheckoutAttempt, recordCheckoutSuccess, recordCheckoutFailure } from './billingTelemetry';
 import { track, trackPluginOpened, trackScreen, trackPaywallShown } from './telemetry';
@@ -561,11 +560,13 @@ export default function App() {
     };
 
     const handleAutoToggle = async ( val ) => {
-        // Continuous Optimisation is Growth/Agency only; Free and Starter open the paywall.
-        // Turning off stays allowed so a previously enabled site can pause.
-        if ( val && ! isProPlan( plan ) ) {
-            setPaywall( { open: true, trigger: 'continuous-optimisation', entitlement: quota } );
-            trackPaywallShown( 'continuous-optimisation' );
+        // Autopilot (auto-generate on publish) is included on Starter, Growth and
+        // Agency; Free opens the paywall. Turning off stays allowed so a
+        // previously enabled site can pause.
+        const gate = autopilotToggleGate( val, plan );
+        if ( gate ) {
+            setPaywall( { open: true, trigger: gate, entitlement: quota } );
+            trackPaywallShown( gate );
             return;
         }
         try {

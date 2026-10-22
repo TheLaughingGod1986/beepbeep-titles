@@ -6,7 +6,9 @@ export const QUOTA_DEFAULTS = {
 };
 
 /**
- * Continuous Optimisation enable is Growth or Agency only.
+ * Continuous Optimisation is Growth or Agency only. It is not the Autopilot
+ * auto-generate toggle: automatic titles on new posts are on every paid plan
+ * (see canUseAutopilot / autopilotToggleGate below).
  * Billing id `pro` is Growth (`growth` accepted as an alias); `agency` is a
  * higher tier and keeps the feature. Free, guest and Starter are gated.
  */
@@ -16,12 +18,28 @@ export function isProPlan( plan ) {
 }
 
 /**
- * Autopilot screen (preferences + auto-generate UI) requires any paid plan.
- * Free / unpaid users are gated; Starter and Growth get full access to the page.
+ * Autopilot (preferences + automatic titles/meta on new posts, the
+ * `auto_generate` setting) requires any paid plan: Starter, Growth (`pro`,
+ * alias `growth`) or Agency. Free / unpaid users are gated.
  */
 export function isPaidPlan( plan ) {
-    const p = String( plan || '' ).toLowerCase();
+    const p = String( plan || '' ).trim().toLowerCase();
     return p === 'starter' || p === 'pro' || p === 'agency' || p === 'growth';
+}
+
+/** Autopilot auto-generate on publish: included on Starter, Growth and Agency. */
+export function canUseAutopilot( plan ) {
+    return isPaidPlan( plan );
+}
+
+/**
+ * Gate for the auto-generate (Autopilot) toggle. Returns the paywall trigger
+ * to open, or null when the change may be saved. Turning it off is always
+ * allowed so a site whose plan lapsed can still pause it.
+ */
+export function autopilotToggleGate( enable, plan ) {
+    if ( ! enable ) return null;
+    return canUseAutopilot( plan ) ? null : 'autopilot';
 }
 
 /**

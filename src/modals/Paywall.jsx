@@ -102,7 +102,8 @@ export const Paywall = ({ open, onClose, trigger = 'default', entitlement, stats
     // Free allowance comes from the live entitlement (currently 25), never hard-coded.
     const freeLimit    = Number.isFinite( entitlement?.token_limit ) ? entitlement.token_limit : QUOTA_DEFAULTS.monthly_limit;
 
-    // Feature gates: Continuous Optimisation is Pro-only; Autopilot screen is paid (Starter/Pro).
+    // Feature gates: Continuous Optimisation is Growth/Agency only; Autopilot
+    // (incl. auto-generate on publish) is on every paid plan (Starter/Growth/Agency).
     const continuousOptGate = trigger === 'continuous-optimisation';
     const autopilotGate     = trigger === 'autopilot';
     const featureGate       = continuousOptGate || autopilotGate;
@@ -166,8 +167,8 @@ export const Paywall = ({ open, onClose, trigger = 'default', entitlement, stats
     // ROI framing — users buy time saved, not generations.
     const why = continuousOptGate
         ? [
-            'Continuously optimise newly published pages',
-            'Generate SEO titles and descriptions automatically',
+            'Continuous Optimisation on Growth and Agency',
+            'A much larger monthly generation allowance',
             'Save hours of manual editing',
             'Priority processing on Growth',
         ]
@@ -175,14 +176,14 @@ export const Paywall = ({ open, onClose, trigger = 'default', entitlement, stats
             ? [
                 'Configure tone, length, and custom instructions',
                 'Auto-generate titles and meta on publish',
-                'Hands-off SEO for every new page',
-                'Available on Starter and Growth',
+                'Hands-off SEO for every new post',
+                'Included on Starter, Growth and Agency',
             ]
             : [
                 'Generate SEO titles and descriptions in seconds',
                 'Save hours of manual editing',
                 'Improve search visibility',
-                'Use credits with manual, bulk, or Continuous Optimisation',
+                'Use credits manually, in bulk, or with Autopilot',
             ];
     // Risk reducers kept beside the purchase button.
     const trust = [
@@ -203,9 +204,9 @@ export const Paywall = ({ open, onClose, trigger = 'default', entitlement, stats
                 <div className="beepti-pw__section" style={{ padding: '36px 40px 4px' }}>
                     <h2 style={{ fontSize: 25, fontWeight: 600, letterSpacing: '-0.025em', lineHeight: 1.15, margin: '0 0 8px', maxWidth: 560 }}>
                         {continuousOptGate
-                            ? 'Continuous Optimisation needs Growth'
+                            ? 'Continuous Optimisation is on Growth and Agency'
                             : autopilotGate
-                                ? 'Autopilot / hands-off SEO needs a paid subscription'
+                                ? 'Autopilot is included from Starter'
                                 : showInsufficient
                                     ? 'Not enough credits for this page'
                                     : showScanGaps
@@ -214,13 +215,13 @@ export const Paywall = ({ open, onClose, trigger = 'default', entitlement, stats
                     </h2>
                     <p style={{ fontSize: 14.5, color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 16px', maxWidth: 580 }}>
                         {continuousOptGate
-                            ? <>A paid Growth subscription unlocks automatic optimisation for newly published pages. Upgrade to Growth to enable Continuous Optimisation.</>
+                            ? <>Continuous Optimisation is included with Growth and Agency. Autopilot (automatic titles and meta on new posts) is already included with Starter.</>
                             : autopilotGate
-                                ? <>Hands-off page SEO — tone, length, custom instructions, and auto-generate on publish — requires a Starter or Growth subscription.</>
+                                ? <>Hands-off page SEO — tone, length, custom instructions, and automatic titles and meta on new posts — is included with every paid plan, from Starter up.</>
                                 : showInsufficient
                                     ? insufficientCreditsMessage( remainingCredits, pageCost )
                                     : showScanGaps
-                                        ? <>Some of your content is missing SEO metadata. OpptiAI service credits can be used for manual, bulk, or Continuous Optimisation requests.</>
+                                        ? <>Some of your content is missing SEO metadata. OpptiAI service credits can be used for manual, bulk, or Autopilot requests.</>
                                         : <>Choose the external-service credit allowance that fits your expected AI generation volume. Local scanning and editing remain available on every plan.</> }
                     </p>
 
@@ -334,7 +335,7 @@ export const Paywall = ({ open, onClose, trigger = 'default', entitlement, stats
                             <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 8, marginTop: 4 }}>Starter</div>
                             <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.02em' }}>{starterPrice}<span style={{ fontSize: 12.5, color: 'var(--text-3)', fontWeight: 400 }}> /mo</span></div>
                             <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                {[ `${ fmtCount( starterQuota ) } SEO generations every month`, 'Use credits manually or in bulk', 'Great for bloggers and small business sites' ].map( ( f, i ) => (
+                                {[ `${ fmtCount( starterQuota ) } SEO generations every month`, 'Use credits manually or in bulk', 'Autopilot: automatic titles on new posts', 'Great for bloggers and small business sites' ].map( ( f, i ) => (
                                     <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.4 }}>
                                         <Icon name="check" size={12} strokeWidth={2.4} style={{ color: 'var(--text-3)', flexShrink: 0, marginTop: 2 }}/> {f}
                                     </div>
@@ -359,7 +360,7 @@ export const Paywall = ({ open, onClose, trigger = 'default', entitlement, stats
                                 For only {monthlyExtra} more than Starter
                             </div>
                             <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 9 }}>
-                                {[ `${ capacityMult }× more SEO generations (${ fmtCount( proQuota ) }/mo)`, 'Continuous Optimisation for new pages', 'Priority processing', 'Shared across all OpptiAI plugins' ].map( ( f, i ) => (
+                                {[ `${ capacityMult }× more SEO generations (${ fmtCount( proQuota ) }/mo)`, 'Continuous Optimisation', 'Priority processing', 'Shared across all OpptiAI plugins' ].map( ( f, i ) => (
                                     <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12.5, color: 'var(--text)', fontWeight: i === 0 ? 600 : 500, lineHeight: 1.4 }}>
                                         <Icon name="check" size={13} strokeWidth={2.6} style={{ color: 'var(--primary-ink)', flexShrink: 0, marginTop: 1 }}/> {f}
                                     </div>

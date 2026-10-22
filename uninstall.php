@@ -59,6 +59,9 @@ defined( 'WP_UNINSTALL_PLUGIN' ) || exit;
     // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- prefix-built identifier; static DDL, no user input.
     $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}beepti_usage_log" );
 
+    // Review prompt answers (per user).
+    delete_metadata( 'user', 0, 'beepti_review_prompt_done', '', true );
+
     // 4. Fallback-mode post meta — only when the user asked for a full wipe.
     if ( $delete_all ) {
         delete_post_meta_by_key( '_beepti_seo_title' );

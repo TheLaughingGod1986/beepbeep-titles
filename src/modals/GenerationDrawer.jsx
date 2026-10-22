@@ -4,6 +4,8 @@ import { generateSingle, submitJob, updatePage } from '../api';
 import { pollUntilComplete } from '../jobs';
 import { isPaywall, errorToast } from '../errors';
 import { contentSubtitle } from '../contentType';
+import { __ } from '@wordpress/i18n';
+import { internalLinkingNextAudit } from '../quota';
 
 /* ── Generation drawer ─────────────────────────────────────────────── */
 const ASSISTANT_PHRASES = [
@@ -81,7 +83,7 @@ const startBulkJob = ( key, postIds ) => {
     return p;
 };
 
-export const GenerationDrawer = ({ open, pages, onClose, onComplete, onPaywall, onApiError, onEntitlement, onToast }) => {
+export const GenerationDrawer = ({ open, pages, onClose, onComplete, onPaywall, onApiError, onEntitlement, onToast, internalLinkingCompanion }) => {
     const [phase, setPhase]     = useState( 'idle' ); // idle | thinking | done
     const [results, setResults] = useState( [] );
     const pagesKey = ( pages || [] ).map( ( p ) => p.id ).join( ',' );
@@ -264,6 +266,9 @@ export const GenerationDrawer = ({ open, pages, onClose, onComplete, onPaywall, 
                     ) )}
                     {phase === 'thinking' && upcoming && (
                         <GenPlaceholderRow page={upcoming} index={done}/>
+                    )}
+                    {allDone && successfulCount > 0 && (
+                        <NextAuditCard companion={internalLinkingCompanion}/>
                     )}
                 </div>
 
@@ -456,6 +461,29 @@ const GenPlaceholderRow = ({ page }) => {
                     </div>
                 </div>
             </div>
+        </div>
+    );
+};
+
+/** Done-screen "Next free audit" card → OpptiAI Internal Linking (hidden when active). */
+const NextAuditCard = ( { companion } ) => {
+    const { show, url } = internalLinkingNextAudit( companion );
+    if ( ! show ) return null;
+    return (
+        <div className="beepti-next-audit" style={{ marginTop: 14, padding: '14px 16px', border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface-2)' }}>
+            <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>
+                {__( 'Next free audit', 'beepbeep-titles' )}
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>
+                {__( 'Titles done. Check your internal links next.', 'beepbeep-titles' )}
+            </div>
+            <div style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.5, marginBottom: 10 }}>
+                {__( 'OpptiAI Internal Linking scans your site for free and shows the orphan pages no other page links to.', 'beepbeep-titles' )}
+            </div>
+            <a href={url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary-ink)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                {__( 'Get the free Internal Linking audit', 'beepbeep-titles' )}
+                <Icon name="arrow-right" size={13}/>
+            </a>
         </div>
     );
 };

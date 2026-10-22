@@ -62,6 +62,33 @@ export function altTextCrossSell( companion ) {
     };
 }
 
+/** WordPress.org listing for OpptiAI Internal Linking. */
+export const INTERNAL_LINKING_WPORG_URL = 'https://wordpress.org/plugins/opptiai-internal-linking/';
+
+/**
+ * "Next free audit" card on the generation done screen. Hidden once Internal
+ * Linking is active on this site.
+ */
+export function internalLinkingNextAudit( companion ) {
+    const active = companion?.state === 'active';
+    return {
+        show: ! active,
+        url: INTERNAL_LINKING_WPORG_URL,
+    };
+}
+
+/**
+ * Dashboard Internal Linking banner target: the sibling page when active,
+ * the Plugins screen when installed, otherwise the WordPress.org listing.
+ */
+export function internalLinkingBannerCompanion( companion ) {
+    const state = companion?.state || 'missing';
+    if ( state === 'missing' ) {
+        return { ...( companion || {} ), state, url: INTERNAL_LINKING_WPORG_URL, external: true };
+    }
+    return { ...( companion || {} ), state };
+}
+
 /**
  * Settings / chrome usage label.
  * - left 0 → “No credits left this month” (never Only-X, never used/limit)

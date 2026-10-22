@@ -4,7 +4,7 @@ Tags: seo, ai seo, meta description, title tag, site audit
 Requires at least: 6.3
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.0.29
+Stable tag: 1.0.30
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -196,6 +196,13 @@ Non-minified React source files and the npm build configuration are included in 
 WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, REST namespace, and internal admin slug remain `beepbeep-titles` for backwards compatibility with existing installs, options, and translations.
 
 == Changelog ==
+= 1.0.30 - 2026-10-22 =
+* New: Autopilot for new posts is now included in Starter, as well as Growth and Agency.
+* Fixed: Autopilot no longer replaces an SEO title you already have when only the meta description is missing.
+* Fixed: Starter and Agency accounts see their own plan and Manage billing in Settings.
+* Fixed: sign-up errors stay on screen so you can read them.
+* Security hardening.
+
 = 1.0.29 - 2026-10-12 =
 * Privacy: usage stats are only sent after you opt in.
 
@@ -304,6 +311,9 @@ WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, R
 * Plugin Check and WordPress.org packaging readiness.
 
 == Upgrade Notice ==
+= 1.0.30 =
+Starter now includes Autopilot for new posts, Autopilot keeps any SEO title you already have, and paid plans show correctly in Settings. Includes security hardening.
+
 = 1.0.24 =
 Signed-out first open now shows the free health-check wizard when onboarding is incomplete. Free allowance and plan ids unchanged.
 

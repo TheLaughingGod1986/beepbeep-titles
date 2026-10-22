@@ -167,7 +167,7 @@ export const Paywall = ({ open, onClose, trigger = 'default', entitlement, stats
     // ROI framing — users buy time saved, not generations.
     const why = autopilotGate
         ? [
-            'Configure tone, length, and custom instructions',
+            'Choose a tone and brand name',
             'Auto-generate titles and meta on publish',
             'Hands-off SEO for every new post',
             'Included on Starter, Growth and Agency',
@@ -206,7 +206,7 @@ export const Paywall = ({ open, onClose, trigger = 'default', entitlement, stats
                     </h2>
                     <p style={{ fontSize: 14.5, color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 16px', maxWidth: 580 }}>
                         {autopilotGate
-                                ? <>Hands-off page SEO — tone, length, custom instructions, and automatic titles and meta on new posts — is included with every paid plan, from Starter up.</>
+                                ? <>Hands-off page SEO, where you choose a tone and brand name and get automatic titles and meta on new posts, is included with every paid plan, from Starter up.</>
                                 : showInsufficient
                                     ? insufficientCreditsMessage( remainingCredits, pageCost )
                                     : showScanGaps

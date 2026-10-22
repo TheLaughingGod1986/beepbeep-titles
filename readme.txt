@@ -53,7 +53,7 @@ Select many pages, generate suggestions in one run and approve them individually
 
 **Autopilot and Continuous Optimisation (paid)**
 
-Autopilot (Growth or Agency) generates titles and descriptions when new content is published, using your tone and length preferences. Continuous Optimisation (Growth or Agency) keeps newly published pages covered.
+Autopilot writes titles and meta descriptions for new posts when they're published, using your tone and length preferences. Included in Starter, Growth and Agency. Continuous Optimisation (Growth or Agency) keeps newly published pages covered.
 
 **Lightweight**
 
@@ -67,7 +67,7 @@ Autopilot (Growth or Agency) generates titles and descriptions when new content 
 2. Run the free health check to find missing titles, missing meta descriptions and pages needing review. No account required.
 3. Fix pages by hand, or connect a free OpptiAI account when you want AI suggestions.
 4. Generate suggestions one page at a time or in bulk, then review and apply them from the Dashboard or Advanced Library.
-5. Optionally upgrade for a higher allowance, **Autopilot** (Growth or Agency) or **Continuous Optimisation** (Growth or Agency).
+5. Optionally upgrade for a higher allowance, **Autopilot** (Starter, Growth or Agency) or **Continuous Optimisation** (Growth or Agency).
 
 = SEO plugin compatibility =
 
@@ -80,7 +80,7 @@ Autopilot (Growth or Agency) generates titles and descriptions when new content 
 
 * **Free, no account:** the SEO health check, full reports, manual metadata editing and settings.
 * **Free account:** a monthly allowance of AI generations, used one page at a time or in bulk, performed by the external OpptiAI service.
-* **Starter:** a higher allowance.
+* **Starter:** a higher allowance and **Autopilot** for newly published posts.
 * **Growth or Agency:** higher allowances, **Autopilot** and **Continuous Optimisation** for newly published pages.
 
 See [plans](https://oppti.dev/docs/titles/plans).
@@ -160,11 +160,11 @@ Yes. You can request AI-generated SEO titles and meta descriptions from the Dash
 
 = Can it generate meta descriptions automatically? =
 
-Yes, with Autopilot on a **Growth or Agency** plan. Autopilot requests titles and descriptions from the external service when new content is published. Free users can still scan, edit manually and generate on demand, one page at a time or in bulk.
+Yes, with Autopilot on a **Starter, Growth or Agency** plan. Autopilot requests titles and descriptions from the external service when new content is published. Free users can still scan, edit manually and generate on demand, one page at a time or in bulk.
 
 = Do I need a paid plan to use the plugin? =
 
-No. Scanning, full reports, manual metadata editing and settings are free with no account. AI generation, including bulk, is free to try with a free OpptiAI account. Autopilot needs Growth or Agency, and Continuous Optimisation needs Growth or Agency.
+No. Scanning, full reports, manual metadata editing and settings are free with no account. AI generation, including bulk, is free to try with a free OpptiAI account. Autopilot needs Starter, Growth or Agency, and Continuous Optimisation needs Growth or Agency.
 
 = Will this guarantee better Google rankings? =
 
@@ -187,7 +187,7 @@ Yes, two more free audits. [OpptiAI Alt Text](https://wordpress.org/plugins/beep
 1. Free SEO health check result before you connect an account: health score, missing and duplicate titles and meta descriptions, and the pages to fix first.
 2. OpptiAI Titles Home: metadata health score, today's priorities, coverage stats and continuous optimisation controls.
 3. OpptiAI Titles Advanced Library: filter pages needing attention and generate SEO titles or meta descriptions in bulk.
-4. OpptiAI Titles Autopilot: configure tone, title length and auto-generate on publish (Growth or Agency).
+4. OpptiAI Titles Autopilot: configure tone, title length and auto-generate on publish (Starter, Growth or Agency).
 5. OpptiAI Titles Settings: account connection, shared OpptiAI credit wallet, notifications and support.
 
 == Development Notes ==
@@ -204,7 +204,6 @@ WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, R
 * Fixed: Continuous Optimisation is available on Agency.
 * Fixed: sign-up errors stay on screen.
 * Changed: automatic titles pause with one notice when you run out of credits, and resume when credits are back.
-* Changed: if you opt in to usage stats and connect an account, usage is linked to your OpptiAI account ID, never your email.
 * Changed: support requests go to support@oppti.dev.
 
 = 1.0.29 - 2026-10-12 =

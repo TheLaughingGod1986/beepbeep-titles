@@ -109,11 +109,11 @@ Data sent: Site URL; WordPress, PHP, and plugin versions; a pseudonymous install
 Privacy Policy: https://oppti.dev/privacy
 Terms of Use: https://oppti.dev/terms
 
-Service: PostHog (usage stats, opt-in only)
+Service: PostHog (anonymous usage stats, opt-in only)
 Service URL: https://us.i.posthog.com
 Purpose: Help us understand which features are used so we can improve OpptiAI Titles.
-When data is sent: Only after an administrator turns on "Share usage stats to help improve OpptiAI Titles" in Settings. It is off by default, and nothing is sent or queued before you opt in. Turning it off stops sending immediately.
-Data sent: Anonymous feature usage events (for example, which screen was opened or that a generation finished), the plugin, WordPress and PHP versions, and a pseudonymous installation identifier. If you sign up or sign in to an OpptiAI account, the OpptiAI account ID (never the email) is linked to those events so usage across OpptiAI plugins is counted once. Never page content, titles, meta descriptions, URLs, post IDs, search terms or personal data.
+When data is sent: Only after an administrator turns on "Share anonymous usage stats to help improve OpptiAI Titles" in Settings. It is off by default, and nothing is sent or queued before you opt in. Turning it off stops sending immediately.
+Data sent: Anonymous feature usage events (for example, which screen was opened or that a generation finished), the plugin, WordPress and PHP versions, and a pseudonymous installation identifier. Never page content, titles, meta descriptions, URLs, post IDs, search terms or personal data.
 Privacy Policy: https://posthog.com/privacy
 Terms of Use: https://posthog.com/terms
 

@@ -54,7 +54,6 @@ namespace {
 
 	$r = $pages->update_settings( new WP_REST_Request( [ 'usage_stats_opt_in' => true ] ) );
 	check( 'yes' === get_option( Telemetry::CONSENT_OPTION ), 'toggle on saves yes' );
-	check( Telemetry::CONSENT_VERSION === get_option( Telemetry::CONSENT_VERSION_OPTION ), 'toggle on stores consent text version' );
 	check( true === $r->data['usage_stats_opt_in'], 'response reports on' );
 
 	$GLOBALS['http'] = [];

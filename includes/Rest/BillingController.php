@@ -86,13 +86,7 @@ class BillingController {
 
         $result['connected']     = true;
         $result['account_email'] = $this->client->get_account_email();
-        \BeepBeep_Titles\Telemetry::on_account_connected( self::account_id_from_user( $user ), 'login' );
         return new \WP_REST_Response( $result, 200 );
-    }
-
-    /** Backend account id (licenses.id) from an /auth user payload. */
-    private static function account_id_from_user( $user ): string {
-        return is_array( $user ) && isset( $user['id'] ) && is_scalar( $user['id'] ) ? (string) $user['id'] : '';
     }
 
     /**
@@ -134,7 +128,6 @@ class BillingController {
         $result['connected']     = true;
         $result['account_email'] = $this->client->get_account_email();
         $result['created']       = true;
-        \BeepBeep_Titles\Telemetry::on_account_connected( self::account_id_from_user( $user ), 'register' );
         return new \WP_REST_Response( $result, 200 );
     }
 

@@ -26,6 +26,9 @@ const META_LENGTHS = [
     { id: 'detailed', label: 'Detailed', range: '160–170 chars' },
 ];
 
+// Autopilot ignores title length; say so next to the control.
+export const TITLE_LENGTH_HELP = 'Used for manual and bulk generation. Autopilot uses its own length.';
+
 const TITLE_MAX = { compact: 50, standard: 60, rich: 65 };
 const META_MAX  = { brief: 130, standard: 160, detailed: 170 };
 
@@ -90,7 +93,7 @@ export const AutopilotScreen = ({ settings, autoOptimise, onAutoToggle, onToast,
 
                     <AutopilotHero on={autoOptimise} onToggle={() => onAutoToggle( !autoOptimise )}/>
 
-                    <SectionTitle eyebrow="Generation" title="How OpptiAI Titles writes" subtitle="These preferences apply to every page — manual and automated."/>
+                    <SectionTitle eyebrow="Generation" title="How OpptiAI Titles writes" subtitle="Tone and brand name apply to Autopilot and manual generation. Title and meta length apply to manual and bulk generation."/>
 
                     <>
                         <Card padding={0} style={{ marginBottom: 12 }}>
@@ -101,9 +104,11 @@ export const AutopilotScreen = ({ settings, autoOptimise, onAutoToggle, onToast,
                                 </div>
                             </div>
                             <Divider/>
-                            <LengthRow label="Title length"            options={TITLE_LENGTHS} value={titleLen}  onChange={setTitleLen}/>
+                            {/* Title length drives manual + bulk generation (GenerateController).
+                                Autopilot does not apply it (Plugin::autopilot_options sends brand + tone). */}
+                            <LengthRow label="Title length" help={TITLE_LENGTH_HELP} options={TITLE_LENGTHS} value={titleLen} onChange={setTitleLen}/>
                             <Divider/>
-                            <LengthRow label="Meta description length" options={META_LENGTHS}  value={metaLen}   onChange={setMetaLen}/>
+                            <LengthRow label="Meta description length" help={TITLE_LENGTH_HELP} options={META_LENGTHS}  value={metaLen}   onChange={setMetaLen}/>
                             <Divider/>
                             <div style={{ padding: '16px 20px' }}>
                                 <Row align="baseline" justify="between">
@@ -136,7 +141,7 @@ export const AutopilotScreen = ({ settings, autoOptimise, onAutoToggle, onToast,
                     <div
                         role="button"
                         tabIndex={0}
-                        aria-label="Autopilot requires a Starter or Growth subscription. Activate to upgrade."
+                        aria-label="Autopilot is included with Starter, Growth and Agency. Activate to upgrade."
                         onClick={openUpgrade}
                         onKeyDown={ ( e ) => {
                             if ( e.key === 'Enter' || e.key === ' ' ) {
@@ -209,9 +214,10 @@ const Label = ({ children }) => (
     <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{children}</div>
 );
 
-const LengthRow = ({ label, options, value, onChange }) => (
+const LengthRow = ({ label, help, options, value, onChange }) => (
     <div style={{ padding: '16px 20px' }}>
         <Label>{label}</Label>
+        {help && <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2, lineHeight: 1.45 }}>{help}</div>}
         <Row gap={3} align="stretch" style={{ marginTop: 8, background: 'var(--bg-sunken)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', padding: 3 }}>
             {options.map( l => {
                 const isOn = value === l.id;
@@ -265,7 +271,7 @@ const SERPPreviewCard = ({ preset, title, meta, instructions }) => (
             {instructions && (
                 <Row align="start" gap={6} style={{ marginTop: 10, fontSize: 12, color: 'var(--text-3)', lineHeight: 1.45 }}>
                     <Icon name="info" size={12} style={{ marginTop: 2, flexShrink: 0 }}/>
-                    <span>Your instructions will be applied: <em style={{ color: 'var(--text-2)' }}>"{instructions}"</em></span>
+                    <span>Instructions are saved for a future update. <em style={{ color: 'var(--text-2)' }}>"{instructions}"</em></span>
                 </Row>
             )}
         </div>

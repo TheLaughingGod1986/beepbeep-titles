@@ -40,7 +40,7 @@ class TelemetryController {
 				$out[ $key ] = $v;
 			} elseif ( is_int( $v ) || ( is_float( $v ) && is_finite( $v ) ) ) {
 				$out[ $key ] = max( 0, min( 1000000, (int) $v ) );
-			} elseif ( is_string( $v ) && self::is_safe_client_string( $v ) ) {
+			} elseif ( is_string( $v ) && self::is_safe_client_string( $v ) && self::is_allowed_value( $key, $v ) ) {
 				$out[ $key ] = $v;
 			}
 		}
@@ -53,6 +53,27 @@ class TelemetryController {
 	 * a dot is only allowed in a version-like number (1.0.29), so host names,
 	 * IPv4 addresses and email domains are dropped.
 	 */
+	/**
+	 * Per-key value rules. session_id is only the browser's own analytics
+	 * session (s_…); a Stripe Checkout session id (cs_…) or any other Stripe
+	 * object id never reaches PostHog under any key.
+	 */
+	public static function is_allowed_value( string $key, string $v ): bool {
+		if ( self::looks_like_stripe_id( $v ) ) {
+			return false;
+		}
+		if ( 'session_id' === $key ) {
+			return 1 === preg_match( '/^s_[A-Za-z0-9]+(_[A-Za-z0-9]+)?$/', $v );
+		}
+		return true;
+	}
+
+	/** cs_live_…, cs_test_…, cus_…, sub_…, pi_… and similar Stripe ids. */
+	public static function looks_like_stripe_id( string $v ): bool {
+		return 1 === preg_match( '/^(cs|cus|sub|pi|seti|pm|in|ch|price|prod|bps)_[A-Za-z0-9_]+$/', $v )
+			|| 1 === preg_match( '/_(live|test)_/', $v );
+	}
+
 	public static function is_safe_client_string( string $v ): bool {
 		if ( '' === $v || strlen( $v ) > 64 ) {
 			return false;

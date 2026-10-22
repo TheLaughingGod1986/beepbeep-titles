@@ -205,6 +205,14 @@ export async function createCheckout( { plan, priceId } = {} ) {
     return request( 'POST', '/billing/checkout', body );
 }
 
+/**
+ * Email the open checkout link to the account's own email on file.
+ * Only the Checkout Session id is sent; the backend chooses the recipient.
+ */
+export async function emailCheckoutLink( sessionId ) {
+    return request( 'POST', '/billing/checkout/email-link', { session_id: sessionId } );
+}
+
 /** Open the Stripe billing portal for managing an existing plan. Resolves to { url }. */
 export async function createBillingPortal() {
     return request( 'POST', '/billing/portal', {} );
@@ -277,6 +285,12 @@ export async function submitSupport( { name, email, message } = {} ) {
     return request( 'POST', '/support/contact', { name, email, message } );
 }
 
+// ── Review prompt ───────────────────────────────────────────────────
+/** Store the user's answer (review | dismiss) so the prompt never shows again. Local only. */
+export async function recordReviewPrompt( choice ) {
+    return request( 'POST', '/review-prompt', { choice } );
+}
+
 // ── Settings ────────────────────────────────────────────────────────
 export async function fetchSettings() {
     return request( 'GET', '/settings' );
@@ -321,6 +335,8 @@ export function getInitialData() {
         siteUrl:    data.siteUrl    ?? ( typeof window !== 'undefined' ? window.location?.origin : '' ),
         altTextCompanion: data.altTextCompanion ?? { state: 'missing', label: 'Install ALT Text', icon: 'upload', url: '' },
         internalLinkingCompanion: data.internalLinkingCompanion ?? { state: 'missing', label: 'Install Internal Linking', icon: 'upload', url: '' },
+        // WordPress.org review ask: eligible after the first applied title/meta; done once answered.
+        reviewPrompt: data.reviewPrompt ?? { eligible: false, done: true, url: '' },
         // US paywall (visitor country=US from PHP CDN headers): USD amounts + Stripe price IDs.
         billing:   data.billing ?? { isUs: false, usdPriceIds: {}, usdAmounts: {} },
         // Seeded from PHP so Home/Audit first paint has real coverage numbers.

@@ -6,20 +6,40 @@ export const QUOTA_DEFAULTS = {
 };
 
 /**
- * Continuous Optimisation enable is Growth-plan-only (billing id `pro`).
- * Matches Settings billing UI (`plan === 'pro'`); Free and Starter are gated.
+ * Continuous Optimisation is Growth or Agency only. It is not the Autopilot
+ * auto-generate toggle: automatic titles on new posts are on every paid plan
+ * (see canUseAutopilot / autopilotToggleGate below).
+ * Billing id `pro` is Growth (`growth` accepted as an alias); `agency` is a
+ * higher tier and keeps the feature. Free, guest and Starter are gated.
  */
 export function isProPlan( plan ) {
-    return String( plan || '' ).toLowerCase() === 'pro';
+    const p = String( plan || '' ).trim().toLowerCase();
+    return p === 'pro' || p === 'growth' || p === 'agency';
 }
 
 /**
- * Autopilot screen (preferences + auto-generate UI) requires any paid plan.
- * Free / unpaid users are gated; Starter and Growth get full access to the page.
+ * Autopilot (preferences + automatic titles/meta on new posts, the
+ * `auto_generate` setting) requires any paid plan: Starter, Growth (`pro`,
+ * alias `growth`) or Agency. Free / unpaid users are gated.
  */
 export function isPaidPlan( plan ) {
-    const p = String( plan || '' ).toLowerCase();
+    const p = String( plan || '' ).trim().toLowerCase();
     return p === 'starter' || p === 'pro' || p === 'agency' || p === 'growth';
+}
+
+/** Autopilot auto-generate on publish: included on Starter, Growth and Agency. */
+export function canUseAutopilot( plan ) {
+    return isPaidPlan( plan );
+}
+
+/**
+ * Gate for the auto-generate (Autopilot) toggle. Returns the paywall trigger
+ * to open, or null when the change may be saved. Turning it off is always
+ * allowed so a site whose plan lapsed can still pause it.
+ */
+export function autopilotToggleGate( enable, plan ) {
+    if ( ! enable ) return null;
+    return canUseAutopilot( plan ) ? null : 'autopilot';
 }
 
 /**
@@ -60,6 +80,33 @@ export function altTextCrossSell( companion ) {
         cta: active ? 'Open Alt Text' : 'Get OpptiAI Alt Text',
         url: active ? ( companion?.url || '' ) : ALT_TEXT_WPORG_URL,
     };
+}
+
+/** WordPress.org listing for OpptiAI Internal Linking. */
+export const INTERNAL_LINKING_WPORG_URL = 'https://wordpress.org/plugins/opptiai-internal-linking/';
+
+/**
+ * "Next free audit" card on the generation done screen. Hidden once Internal
+ * Linking is active on this site.
+ */
+export function internalLinkingNextAudit( companion ) {
+    const active = companion?.state === 'active';
+    return {
+        show: ! active,
+        url: INTERNAL_LINKING_WPORG_URL,
+    };
+}
+
+/**
+ * Dashboard Internal Linking banner target: the sibling page when active,
+ * the Plugins screen when installed, otherwise the WordPress.org listing.
+ */
+export function internalLinkingBannerCompanion( companion ) {
+    const state = companion?.state || 'missing';
+    if ( state === 'missing' ) {
+        return { ...( companion || {} ), state, url: INTERNAL_LINKING_WPORG_URL, external: true };
+    }
+    return { ...( companion || {} ), state };
 }
 
 /**

@@ -118,6 +118,7 @@ class Admin {
             'lastScan'   => (string) get_option( 'beepti_last_scan', '' ),
             'altTextCompanion' => $alt_text_companion,
             'internalLinkingCompanion' => $internal_linking_companion,
+            'reviewPrompt' => ReviewPrompt::client_config(),
             'telemetry'  => Telemetry::client_config(),
             // US Titles paywall: visitor country === US (same CDN header list as AltText) → USD.
             // Missing/unknown (XX/T1/ZZ/empty) → GBP. Not WordPress locale / browser lang.
@@ -175,35 +176,11 @@ class Admin {
      * Does not call a geo API.
      */
     private function get_request_country(): string {
-        // Keep in lockstep with AltText (same keys, same order).
-        $header_keys = [
-            'HTTP_CF_IPCOUNTRY',              // Cloudflare
-            'CF-IPCountry',
-            'HTTP_CLOUDFRONT_VIEWER_COUNTRY', // CloudFront
-            'HTTP_X_COUNTRY_CODE',
-            'HTTP_X_APPENGINE_COUNTRY',       // App Engine
-            'HTTP_X_VERCEL_IP_COUNTRY',       // Vercel
-        ];
-
-        foreach ( $header_keys as $key ) {
-            if ( empty( $_SERVER[ $key ] ) ) {
-                continue;
-            }
-            $raw  = wp_unslash( (string) $_SERVER[ $key ] );
-            $code = strtoupper( preg_replace( '/[^A-Za-z]/', '', $raw ) );
-            if ( strlen( $code ) !== 2 ) {
-                continue;
-            }
-            // CDN placeholders for unknown / Tor / other — treat as missing.
-            if ( in_array( $code, [ 'XX', 'T1', 'ZZ' ], true ) ) {
-                continue;
-            }
-            return $code;
-        }
-
-        return '';
+        // CDN header on the admin's request, then site timezone, then admin
+        // locale region (see includes/AdminCountry.php). The same value is sent
+        // to the backend as X-Admin-Country so price IDs and currency agree.
+        return AdminCountry::country();
     }
-
 
     /**
      * Both companion detections below delegate to OptiAI Core's
@@ -234,8 +211,18 @@ class Admin {
      * how the Alt Text companion started before it had its own dashboard.
      */
     private function get_internal_linking_companion(): array {
+        // WordPress.org installs use the opptiai-internal-linking/ folder;
+        // earlier manual installs used oppti-internal-linking/.
+        $basename = 'opptiai-internal-linking/oppti-internal-linking.php';
+        if ( ! function_exists( 'is_plugin_active' ) ) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+        if ( ! is_plugin_active( $basename ) && ! file_exists( WP_PLUGIN_DIR . '/' . $basename )
+            && ( is_plugin_active( 'oppti-internal-linking/oppti-internal-linking.php' ) || file_exists( WP_PLUGIN_DIR . '/oppti-internal-linking/oppti-internal-linking.php' ) ) ) {
+            $basename = 'oppti-internal-linking/oppti-internal-linking.php';
+        }
         $companion = \OptiAI\Core\Module_Registry::detect(
-            'oppti-internal-linking/oppti-internal-linking.php',
+            $basename,
             admin_url( 'admin.php?page=oppti-internal-linking' ),
             'OpptiAI Internal Linking'
         );

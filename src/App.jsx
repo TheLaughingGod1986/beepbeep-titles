@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { WPChrome } from './chrome';
 import { Dashboard } from './screens/Dashboard';
 import { AuditSignedOutScreen } from './screens/Audit';
@@ -6,14 +6,14 @@ import { PagesLibrary } from './screens/Library';
 import { AutopilotScreen } from './screens/Autopilot';
 import { BillingScreen } from './screens/Billing';
 import { SettingsScreen } from './screens/Settings';
-import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal, ConnectModal, BulkConfirm } from './modals/index';
+import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal, ConnectModal, BulkConfirm, CheckoutContinue } from './modals/index';
 import { SignOutConfirm } from './auth';
 import { getUsdPriceId } from './billingPlansCatalog';
-import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, normalizeStats, createCheckout, createBillingPortal, clearLicense, saveSettings, fetchSettings, fetchHealth, fetchPriorities, fetchHealthItems, runHealthScan, undoPage, fetchAeo, resetGenerated } from './api';
+import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, normalizeStats, createCheckout, createBillingPortal, clearLicense, saveSettings, fetchSettings, fetchHealth, fetchPriorities, fetchHealthItems, runHealthScan, undoPage, fetchAeo, resetGenerated, recordReviewPrompt } from './api';
 import { paywallTrigger, errorToast, checkoutErrorToast } from './errors';
-import { hasDailyCap } from './quota';
+import { createCheckoutFlow } from './checkoutFlow';
+import { hasDailyCap, isPaidPlan, autopilotToggleGate } from './quota';
 import { usePaywallGate } from './hooks/usePaywallGate';
-import { isProPlan, isPaidPlan } from './quota';
 import { resolveAllowedTab } from './navigation';
 import { recordCheckoutAttempt, recordCheckoutSuccess, recordCheckoutFailure } from './billingTelemetry';
 import { track, trackPluginOpened, trackScreen, trackPaywallShown } from './telemetry';
@@ -44,10 +44,20 @@ export default function App() {
     const isAdmin = !! initial.isAdmin;
 
     const [tab, setTab]       = useState( 'dashboard' );
+    const [checkoutPanel, setCheckoutPanel] = useState( null );
     const [user, setUser]     = useState( initial.user );
     const [quota, setQuota]   = useState( initial.quota );
     const [settings, setSettings] = useState( initial.settings );
     const [stats, setStats]   = useState( () => initial.stats ?? null );
+    const [reviewPrompt, setReviewPrompt] = useState( () => ( {
+        eligible: !! initial.reviewPrompt?.eligible,
+        done:     !! initial.reviewPrompt?.done,
+        url:      initial.reviewPrompt?.url || '',
+    } ) );
+    const answerReviewPrompt = ( choice ) => {
+        setReviewPrompt( r => ( { ...r, done: true } ) );
+        recordReviewPrompt( choice ).catch( () => {} );
+    };
     const [quotaReady, setQuotaReady] = useState( false );
     const [activity, setActivity] = useState( [] );
     const [queuePages, setQueuePages] = useState( [] );
@@ -523,6 +533,9 @@ export default function App() {
         const total = summary.total ?? drawer.pages?.length ?? 0;
         const successfulCount = summary.successfulCount ?? total;
         const failedCount = summary.failedCount ?? 0;
+        if ( successfulCount > 0 ) {
+            setReviewPrompt( r => ( r.eligible ? r : { ...r, eligible: true } ) );
+        }
         setDrawer( { open: false, pages: null } );
         setToast( failedCount > 0
             ? {
@@ -547,11 +560,13 @@ export default function App() {
     };
 
     const handleAutoToggle = async ( val ) => {
-        // Continuous Optimisation is Pro-only — Free and Starter open the paywall.
-        // Turning off stays allowed so a previously enabled site can pause.
-        if ( val && ! isProPlan( plan ) ) {
-            setPaywall( { open: true, trigger: 'continuous-optimisation', entitlement: quota } );
-            trackPaywallShown( 'continuous-optimisation' );
+        // Autopilot (auto-generate on publish) is included on Starter, Growth and
+        // Agency; Free opens the paywall. Turning off stays allowed so a
+        // previously enabled site can pause.
+        const gate = autopilotToggleGate( val, plan );
+        if ( gate ) {
+            setPaywall( { open: true, trigger: gate, entitlement: quota } );
+            trackPaywallShown( gate );
             return;
         }
         try {
@@ -639,20 +654,40 @@ export default function App() {
             } );
             return;
         }
-        openInNewTab( () => createCheckout( args ), {
-            onResolved: () => {
-                // Stash the intent so the success handler can name the plan on
-                // return (localStorage survives the new-tab round-trip).
-                persistPendingCheckout( args.plan, args.priceId );
-                recordCheckoutAttempt( { plan: args.plan, priceId: args.priceId } );
-                track( 'upgrade_cta_clicked', { plan: args.plan || 'pro', feature_name: 'billing' } );
-                track( 'checkout_started', { plan: args.plan || 'pro' } );
-            },
-            onFailed: ( reason ) => {
-                recordCheckoutFailure( { plan: args.plan, priceId: args.priceId, reason } );
-            },
-        } );
+        startCheckout( args );
     };
+
+    // Same-tab Stripe Checkout, one click = one session, visible recovery
+    // panel — see src/checkoutFlow.js. Created once; deps read live state via refs.
+    const checkoutDeps = useRef( {} );
+    checkoutDeps.current = { handleApiError, setPaywall };
+    const checkoutFlow = useRef( null );
+    if ( ! checkoutFlow.current ) {
+        checkoutFlow.current = createCheckoutFlow( {
+            createCheckout,
+            track,
+            navigate: ( url ) => window.location.assign( url ),
+            showPanel: ( panel ) => setCheckoutPanel( panel ),
+            onRouteError: ( e ) => {
+                // License / quota errors still route to the connect modal or paywall.
+                if ( e?.code === 'INVALID_LICENSE' || paywallTrigger( e ) ) {
+                    checkoutDeps.current.handleApiError( e );
+                    return true;
+                }
+                return false;
+            },
+            closePaywall: () => checkoutDeps.current.setPaywall( ( p ) => ( { ...p, open: false } ) ),
+            onAttempt: ( { plan: chosenPlan, priceId } ) => {
+                // Stash the intent so the success handler can name the plan on return.
+                persistPendingCheckout( chosenPlan, priceId );
+                recordCheckoutAttempt( { plan: chosenPlan, priceId } );
+                track( 'upgrade_cta_clicked', { plan: chosenPlan || 'pro', feature_name: 'billing' } );
+                track( 'checkout_started', { plan: chosenPlan || 'pro' } );
+            },
+            onFailure: ( failure ) => recordCheckoutFailure( failure ),
+        } );
+    }
+    const startCheckout = ( args ) => checkoutFlow.current.start( args );
 
     const handleUpgrade      = () => goToCheckout( 'pro' );
     const handleBuyCredits   = () => goToCheckout( 'credits' );
@@ -691,6 +726,8 @@ export default function App() {
                     onView={selectTab}
                     altTextCompanion={initial.altTextCompanion}
                     internalLinkingCompanion={initial.internalLinkingCompanion}
+                    reviewPrompt={reviewPrompt}
+                    onReviewAnswer={answerReviewPrompt}
                     health={health}
                     healthReady={healthReady}
                     previousScore={previousScore}
@@ -874,6 +911,7 @@ export default function App() {
                 pages={drawer.pages}
                 onClose={() => setDrawer( { open: false, pages: null } )}
                 onComplete={completeGen}
+                internalLinkingCompanion={initial.internalLinkingCompanion}
                 onPaywall={( trigger, entitlement, err ) => {
                     setPaywall( {
                         open: true,
@@ -905,6 +943,14 @@ export default function App() {
             />
 
             {toast && <Toast {...toast} onDismiss={() => setToast( null )}/>}
+            {checkoutPanel && (
+                <CheckoutContinue
+                    url={checkoutPanel.url || ''}
+                    sessionId={checkoutPanel.sessionId || ''}
+                    message={checkoutPanel.message || ''}
+                    onClose={() => setCheckoutPanel( null )}
+                />
+            )}
         </>
     );
 }

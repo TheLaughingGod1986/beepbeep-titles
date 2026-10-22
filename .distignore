@@ -26,3 +26,9 @@ jest.config.js
 blogs
 social
 outreach
+HANDOVER*.md
+AGENTS.md
+*BRIEF*.md
+*brief*.md
+.cursor
+.vscode

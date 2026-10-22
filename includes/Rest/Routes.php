@@ -224,6 +224,15 @@ class Routes {
             ],
         ] );
 
+        register_rest_route( $ns, '/billing/checkout/email-link', [
+            'methods'             => 'POST',
+            'callback'            => [ $b, 'billing_checkout_email_link' ],
+            'permission_callback' => [ $this, 'require_admin' ],
+            'args'                => [
+                'session_id' => [ 'type' => 'string', 'required' => true, 'sanitize_callback' => 'sanitize_text_field' ],
+            ],
+        ] );
+
         register_rest_route( $ns, '/billing/portal', [
             'methods'             => 'POST',
             'callback'            => [ $b, 'billing_portal' ],
@@ -286,6 +295,16 @@ class Routes {
                 'name'    => [ 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ],
                 'email'   => [ 'type' => 'string', 'sanitize_callback' => 'sanitize_email' ],
                 'message' => [ 'required' => true, 'type' => 'string', 'sanitize_callback' => 'sanitize_textarea_field' ],
+            ],
+        ] );
+
+        // ── Review prompt (stores the user's answer locally; no outbound call) ──
+        register_rest_route( $ns, '/review-prompt', [
+            'methods'             => 'POST',
+            'callback'            => [ \BeepBeep_Titles\ReviewPrompt::class, 'rest_record' ],
+            'permission_callback' => [ $this, 'require_editor' ],
+            'args'                => [
+                'choice' => [ 'type' => 'string', 'required' => true, 'enum' => [ 'review', 'dismiss' ] ],
             ],
         ] );
 

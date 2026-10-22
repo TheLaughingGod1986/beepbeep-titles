@@ -368,6 +368,7 @@ const PLAN_COPY = {
         features: [
             '100 AI generations per month',
             'Credits usable manually or in bulk',
+            'Autopilot: automatic titles on new posts',
             'AI titles and descriptions',
             'Shared service credits',
         ],
@@ -377,7 +378,7 @@ const PLAN_COPY = {
     pro: {
         features: [
             '1000 AI generations per month',
-            'Continuous Optimisation for new pages',
+            'Autopilot for new posts',
             'Larger service allowance',
             'Priority processing',
             'Agency-friendly usage limits',

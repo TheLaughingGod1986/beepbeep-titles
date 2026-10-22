@@ -233,7 +233,7 @@ class Plugin {
 
         // Only fill gaps — never overwrite copy that already exists.
         $current = MetaWriter::read( $post_id );
-        if ( $current['title'] !== '' && $current['meta'] !== '' ) {
+        if ( ! AutopilotFill::is_empty( $current['title'] ) && ! AutopilotFill::is_empty( $current['meta'] ) ) {
             return;
         }
 
@@ -242,10 +242,29 @@ class Plugin {
             return;
         }
 
+        // Out of credits: stay quiet until a quota read shows credits again.
+        if ( AutopilotGuard::is_paused() ) {
+            return;
+        }
+
         $result = $client->generate(
             $this->autopilot_page_envelope( $post, $current ),
-            $this->autopilot_options( $settings )
+            $this->autopilot_options( $settings ),
+            null,
+            Client::SOURCE_AUTOPILOT
         );
+
+        if ( is_wp_error( $result ) && AutopilotGuard::is_credit_error( $result ) ) {
+            // One notice and one event per pause, not one per publish.
+            if ( AutopilotGuard::pause_for_credits() ) {
+                $this->queue_admin_notice( AutopilotGuard::paused_notice(), 'warning' );
+                Telemetry::capture( 'autopilot_failed', [
+                    'error_code'         => 'quota_exceeded',
+                    'generation_surface' => 'autopilot',
+                ] );
+            }
+            return;
+        }
 
         if ( is_wp_error( $result ) ) {
             $this->queue_admin_notice(
@@ -264,7 +283,11 @@ class Plugin {
             return;
         }
 
-        MetaWriter::write( $post_id, (string) ( $result['title'] ?? '' ), (string) ( $result['meta'] ?? '' ) );
+        // Fill only the empty fields: an existing SEO title survives when only
+        // the meta description is missing (and vice versa).
+        $writes = AutopilotFill::writes( $current, $result );
+        $after  = AutopilotFill::after( $current, $result );
+        MetaWriter::write( $post_id, $writes['title'], $writes['meta'] );
         ActivityLog::record( $post_id, 'auto' );
         Telemetry::capture( 'autopilot_generated', [
             'generation_surface' => 'autopilot',
@@ -280,10 +303,7 @@ class Plugin {
         ( new History_Repository( 'titles' ) )->record(
             (string) $post_id,
             wp_json_encode( [ 'title' => $current['title'], 'meta' => $current['meta'] ] ),
-            wp_json_encode( [
-                'title' => (string) ( $result['title'] ?? '' ),
-                'meta'  => (string) ( $result['meta'] ?? '' ),
-            ] ),
+            wp_json_encode( $after ),
             null,
             null,
             1
@@ -347,6 +367,11 @@ class Plugin {
     private function queue_admin_notice( string $message, string $type = 'info' ): void {
         $notices   = get_transient( 'beepti_admin_notices' );
         $notices   = is_array( $notices ) ? $notices : [];
+        foreach ( $notices as $existing ) {
+            if ( ( $existing['message'] ?? '' ) === $message ) {
+                return; // Same notice already queued; never stack duplicates.
+            }
+        }
         $notices[] = [ 'message' => $message, 'type' => $type ];
         set_transient( 'beepti_admin_notices', $notices, 5 * MINUTE_IN_SECONDS );
     }

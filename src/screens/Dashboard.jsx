@@ -179,7 +179,7 @@ export const Dashboard = ({
                 icon="link"
                 iconBg="#EFF6FF" iconColor="#2563EB" iconBorder="#BFDBFE"
                 title="Your credits also work on Internal Linking"
-                body={<>The same shared credit pool powers <strong style={{ color: 'var(--text)', fontWeight: 600 }}>OpptiAI Internal Linking</strong> — find and fix missing links between your own pages. No extra subscription.</>}
+                body={<>The same shared credit pool powers <strong style={{ color: 'var(--text)', fontWeight: 600 }}>OpptiAI Internal Linking</strong>, so you can find and fix missing links between your own pages. No extra subscription.</>}
             />
             <ActivityStrip onView={onView} newSince={newSince} activity={activity} onUndo={onUndo}/>
             <FooterMetrics

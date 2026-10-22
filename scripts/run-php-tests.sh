@@ -104,3 +104,4 @@ php tests/php/telemetry-browser-strip-test.php
 php tests/php/telemetry-identify-test.php
 php tests/php/review-prompt-test.php
 php tests/php/admin-country-test.php
+php tests/php/support-inbox-test.php

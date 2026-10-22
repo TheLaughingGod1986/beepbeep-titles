@@ -289,6 +289,16 @@ class Routes {
             ],
         ] );
 
+        // ── Review prompt (stores the user's answer locally; no outbound call) ──
+        register_rest_route( $ns, '/review-prompt', [
+            'methods'             => 'POST',
+            'callback'            => [ \BeepBeep_Titles\ReviewPrompt::class, 'rest_record' ],
+            'permission_callback' => [ $this, 'require_editor' ],
+            'args'                => [
+                'choice' => [ 'type' => 'string', 'required' => true, 'enum' => [ 'review', 'dismiss' ] ],
+            ],
+        ] );
+
         // ── Settings ───────────────────────────────────────────────
         register_rest_route( $ns, '/settings', [
             [

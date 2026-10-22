@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Icon, Card, Pill, Button, Progress, Ring, PageAvatar } from '../components';
-import { QUOTA_DEFAULTS, CREDITS_PER_PAGE, isInsufficientCredits, insufficientCreditsMessage, creditsPerPage, canSeeAltTextCrossSell, altTextCrossSell } from '../quota';
+import { QUOTA_DEFAULTS, CREDITS_PER_PAGE, isInsufficientCredits, insufficientCreditsMessage, creditsPerPage, canSeeAltTextCrossSell, altTextCrossSell, internalLinkingBannerCompanion } from '../quota';
+import { ReviewPromptCard, shouldShowReviewPrompt } from '../reviewPrompt';
 import { PageShell } from '../ui';
 import { capPriorityEstimates } from '../priorityEstimates';
 
@@ -100,6 +101,7 @@ const ISSUE_TITLES = {
 
 export const Dashboard = ({
     quota, quotaReady, stats, activity, queuePages, autoOptimise, onAutoToggle, onGenerate, onUpgrade, onView, altTextCompanion, internalLinkingCompanion,
+    reviewPrompt, onReviewAnswer,
     health, healthReady, previousScore, priorities, aeo,
     onQuickScan, onFullScan, onOptimiseCritical, onOptimiseIssue, onLoadIssueItems, onOptimiseSingleItem, onUndo,
 }) => {
@@ -131,6 +133,10 @@ export const Dashboard = ({
 
     return (
         <PageShell style={{ paddingTop: 24, paddingBottom: 48 }}>
+            {shouldShowReviewPrompt( reviewPrompt ) && onReviewAnswer && (
+                <ReviewPromptCard url={reviewPrompt.url} onAnswer={onReviewAnswer}/>
+            )}
+
             <TodaysPriorities
                 ready={healthReady}
                 scanned={scanned}
@@ -169,12 +175,11 @@ export const Dashboard = ({
             </div>
 
             <CompanionBanner
-                companion={internalLinkingCompanion}
+                companion={internalLinkingBannerCompanion( internalLinkingCompanion )}
                 icon="link"
                 iconBg="#EFF6FF" iconColor="#2563EB" iconBorder="#BFDBFE"
                 title="Your credits also work on Internal Linking"
                 body={<>The same shared credit pool powers <strong style={{ color: 'var(--text)', fontWeight: 600 }}>OpptiAI Internal Linking</strong> — find and fix missing links between your own pages. No extra subscription.</>}
-                comingSoon
             />
             <ActivityStrip onView={onView} newSince={newSince} activity={activity} onUndo={onUndo}/>
             <FooterMetrics
@@ -684,6 +689,10 @@ const CompanionBanner = ({ companion, icon: fallbackIcon = 'image', iconBg = '#E
     const icon = companion?.icon || ( state === 'active' ? 'external' : state === 'installed' ? 'play' : 'upload' );
     const openCompanion = () => {
         if ( comingSoon || ! url ) return;
+        if ( companion?.external ) {
+            window.open( url, '_blank', 'noopener,noreferrer' );
+            return;
+        }
         window.location.href = url;
     };
 

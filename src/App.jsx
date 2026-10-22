@@ -9,7 +9,7 @@ import { SettingsScreen } from './screens/Settings';
 import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal, ConnectModal, BulkConfirm } from './modals/index';
 import { SignOutConfirm } from './auth';
 import { getUsdPriceId } from './billingPlansCatalog';
-import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, normalizeStats, createCheckout, createBillingPortal, clearLicense, saveSettings, fetchSettings, fetchHealth, fetchPriorities, fetchHealthItems, runHealthScan, undoPage, fetchAeo, resetGenerated } from './api';
+import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, normalizeStats, createCheckout, createBillingPortal, clearLicense, saveSettings, fetchSettings, fetchHealth, fetchPriorities, fetchHealthItems, runHealthScan, undoPage, fetchAeo, resetGenerated, recordReviewPrompt } from './api';
 import { paywallTrigger, errorToast, checkoutErrorToast } from './errors';
 import { hasDailyCap } from './quota';
 import { usePaywallGate } from './hooks/usePaywallGate';
@@ -48,6 +48,15 @@ export default function App() {
     const [quota, setQuota]   = useState( initial.quota );
     const [settings, setSettings] = useState( initial.settings );
     const [stats, setStats]   = useState( () => initial.stats ?? null );
+    const [reviewPrompt, setReviewPrompt] = useState( () => ( {
+        eligible: !! initial.reviewPrompt?.eligible,
+        done:     !! initial.reviewPrompt?.done,
+        url:      initial.reviewPrompt?.url || '',
+    } ) );
+    const answerReviewPrompt = ( choice ) => {
+        setReviewPrompt( r => ( { ...r, done: true } ) );
+        recordReviewPrompt( choice ).catch( () => {} );
+    };
     const [quotaReady, setQuotaReady] = useState( false );
     const [activity, setActivity] = useState( [] );
     const [queuePages, setQueuePages] = useState( [] );
@@ -523,6 +532,9 @@ export default function App() {
         const total = summary.total ?? drawer.pages?.length ?? 0;
         const successfulCount = summary.successfulCount ?? total;
         const failedCount = summary.failedCount ?? 0;
+        if ( successfulCount > 0 ) {
+            setReviewPrompt( r => ( r.eligible ? r : { ...r, eligible: true } ) );
+        }
         setDrawer( { open: false, pages: null } );
         setToast( failedCount > 0
             ? {
@@ -691,6 +703,8 @@ export default function App() {
                     onView={selectTab}
                     altTextCompanion={initial.altTextCompanion}
                     internalLinkingCompanion={initial.internalLinkingCompanion}
+                    reviewPrompt={reviewPrompt}
+                    onReviewAnswer={answerReviewPrompt}
                     health={health}
                     healthReady={healthReady}
                     previousScore={previousScore}
@@ -874,6 +888,7 @@ export default function App() {
                 pages={drawer.pages}
                 onClose={() => setDrawer( { open: false, pages: null } )}
                 onComplete={completeGen}
+                internalLinkingCompanion={initial.internalLinkingCompanion}
                 onPaywall={( trigger, entitlement, err ) => {
                     setPaywall( {
                         open: true,

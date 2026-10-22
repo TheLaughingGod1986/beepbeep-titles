@@ -118,6 +118,7 @@ class Admin {
             'lastScan'   => (string) get_option( 'beepti_last_scan', '' ),
             'altTextCompanion' => $alt_text_companion,
             'internalLinkingCompanion' => $internal_linking_companion,
+            'reviewPrompt' => ReviewPrompt::client_config(),
             'telemetry'  => Telemetry::client_config(),
             // US Titles paywall: visitor country === US (same CDN header list as AltText) → USD.
             // Missing/unknown (XX/T1/ZZ/empty) → GBP. Not WordPress locale / browser lang.
@@ -234,8 +235,18 @@ class Admin {
      * how the Alt Text companion started before it had its own dashboard.
      */
     private function get_internal_linking_companion(): array {
+        // WordPress.org installs use the opptiai-internal-linking/ folder;
+        // earlier manual installs used oppti-internal-linking/.
+        $basename = 'opptiai-internal-linking/oppti-internal-linking.php';
+        if ( ! function_exists( 'is_plugin_active' ) ) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+        if ( ! is_plugin_active( $basename ) && ! file_exists( WP_PLUGIN_DIR . '/' . $basename )
+            && ( is_plugin_active( 'oppti-internal-linking/oppti-internal-linking.php' ) || file_exists( WP_PLUGIN_DIR . '/oppti-internal-linking/oppti-internal-linking.php' ) ) ) {
+            $basename = 'oppti-internal-linking/oppti-internal-linking.php';
+        }
         $companion = \OptiAI\Core\Module_Registry::detect(
-            'oppti-internal-linking/oppti-internal-linking.php',
+            $basename,
             admin_url( 'admin.php?page=oppti-internal-linking' ),
             'OpptiAI Internal Linking'
         );

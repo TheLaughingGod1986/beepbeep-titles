@@ -28,6 +28,13 @@ class Client {
     private const OPT_SITE_ID       = 'beepti_site_id';
     private const ENC_PREFIX        = 'enc:';
 
+    /** X-Request-Source values (stored as usage_logs.request_source). */
+    public const SOURCE_DEFAULT   = 'beepbeep_titles';
+    public const SOURCE_AUTOPILOT = 'beepbeep_titles_autopilot';
+
+    /** Request source for the request in flight; reset after each request. */
+    private string $request_source = self::SOURCE_DEFAULT;
+
     /**
      * License options written by sibling OpptiAI plugins on this site.
      * Plain keys in sibling user data can be adopted. Encrypted sibling values
@@ -51,9 +58,11 @@ class Client {
      * @param array      $page     { url, section, h1, current_title, current_meta, content_excerpt }
      * @param array      $options  { brand_name, tone, title_max_chars, meta_max_chars }
      * @param array|null $previous { title, meta } — only on Regenerate.
+     * @param string     $source   X-Request-Source value; SOURCE_AUTOPILOT for
+     *                             publish-time Autopilot, default otherwise.
      * @return array|\WP_Error Backend body on success.
      */
-    public function generate( array $page, array $options, ?array $previous = null ): array|\WP_Error {
+    public function generate( array $page, array $options, ?array $previous = null, string $source = self::SOURCE_DEFAULT ): array|\WP_Error {
         $body = [
             'page'    => $page,
             'options' => $options,
@@ -61,7 +70,7 @@ class Client {
         if ( $previous !== null ) {
             $body['previous'] = $previous;
         }
-        return $this->request( 'POST', '/api/titles/generate', $body, 90 );
+        return $this->request( 'POST', '/api/titles/generate', $body, 90, $source );
     }
 
     /**
@@ -455,7 +464,7 @@ class Client {
             'X-WP-Version'       => (string) $wp_version,
             'X-PHP-Version'      => PHP_VERSION,
             'X-Plugin-Channel'   => BEEPTI_PLUGIN_CHANNEL,
-            'X-Request-Source'   => 'beepbeep_titles',
+            'X-Request-Source'   => $this->request_source,
             // Billing currency follows the WP admin, not the hosting server's IP.
             'X-Admin-Country'    => \BeepBeep_Titles\AdminCountry::country(),
         ];
@@ -467,7 +476,7 @@ class Client {
      * @return array|\WP_Error Decoded body on 2xx; WP_Error otherwise with
      *                         error_data { status, code, entitlement_state, body }.
      */
-    private function request( string $method, string $path, ?array $body, int $timeout ): array|\WP_Error {
+    private function request( string $method, string $path, ?array $body, int $timeout, string $source = self::SOURCE_DEFAULT ): array|\WP_Error {
         if ( ! $this->has_license() ) {
             return new \WP_Error(
                 'beepti_no_license',
@@ -475,7 +484,12 @@ class Client {
                 [ 'status' => 401, 'code' => 'INVALID_LICENSE' ]
             );
         }
-        return $this->do_request( $method, $path, $body, $timeout );
+        $this->request_source = $source;
+        try {
+            return $this->do_request( $method, $path, $body, $timeout );
+        } finally {
+            $this->request_source = self::SOURCE_DEFAULT;
+        }
     }
 
     /** Same plumbing as request() but without the license guard (auth routes). */

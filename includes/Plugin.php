@@ -249,7 +249,9 @@ class Plugin {
 
         $result = $client->generate(
             $this->autopilot_page_envelope( $post, $current ),
-            $this->autopilot_options( $settings )
+            $this->autopilot_options( $settings ),
+            null,
+            Client::SOURCE_AUTOPILOT
         );
 
         if ( is_wp_error( $result ) && AutopilotGuard::is_credit_error( $result ) ) {

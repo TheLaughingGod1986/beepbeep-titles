@@ -28,6 +28,6 @@ test( 'Title length control is present with the manual/bulk help text (paid or l
 
 test( 'subtitle states what applies where, with no em dash', () => {
 	const html = render( {} );
-	expect( html ).toContain( 'Tone and brand name apply to Autopilot and manual generation. Title length applies to manual and bulk generation.' );
+	expect( html ).toContain( 'Tone and brand name apply to Autopilot and manual generation. Title and meta length apply to manual and bulk generation.' );
 	expect( html ).not.toContain( 'apply to every page' );
 } );

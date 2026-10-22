@@ -93,7 +93,7 @@ export const AutopilotScreen = ({ settings, autoOptimise, onAutoToggle, onToast,
 
                     <AutopilotHero on={autoOptimise} onToggle={() => onAutoToggle( !autoOptimise )}/>
 
-                    <SectionTitle eyebrow="Generation" title="How OpptiAI Titles writes" subtitle="Tone and brand name apply to Autopilot and manual generation. Title length applies to manual and bulk generation."/>
+                    <SectionTitle eyebrow="Generation" title="How OpptiAI Titles writes" subtitle="Tone and brand name apply to Autopilot and manual generation. Title and meta length apply to manual and bulk generation."/>
 
                     <>
                         <Card padding={0} style={{ marginBottom: 12 }}>
@@ -108,7 +108,7 @@ export const AutopilotScreen = ({ settings, autoOptimise, onAutoToggle, onToast,
                                 Autopilot does not apply it (Plugin::autopilot_options sends brand + tone). */}
                             <LengthRow label="Title length" help={TITLE_LENGTH_HELP} options={TITLE_LENGTHS} value={titleLen} onChange={setTitleLen}/>
                             <Divider/>
-                            <LengthRow label="Meta description length" options={META_LENGTHS}  value={metaLen}   onChange={setMetaLen}/>
+                            <LengthRow label="Meta description length" help={TITLE_LENGTH_HELP} options={META_LENGTHS}  value={metaLen}   onChange={setMetaLen}/>
                             <Divider/>
                             <div style={{ padding: '16px 20px' }}>
                                 <Row align="baseline" justify="between">
@@ -271,7 +271,7 @@ const SERPPreviewCard = ({ preset, title, meta, instructions }) => (
             {instructions && (
                 <Row align="start" gap={6} style={{ marginTop: 10, fontSize: 12, color: 'var(--text-3)', lineHeight: 1.45 }}>
                     <Icon name="info" size={12} style={{ marginTop: 2, flexShrink: 0 }}/>
-                    <span>Your instructions will be applied: <em style={{ color: 'var(--text-2)' }}>"{instructions}"</em></span>
+                    <span>Instructions are saved for a future update. <em style={{ color: 'var(--text-2)' }}>"{instructions}"</em></span>
                 </Row>
             )}
         </div>

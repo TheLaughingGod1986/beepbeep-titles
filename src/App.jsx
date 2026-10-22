@@ -561,7 +561,7 @@ export default function App() {
     };
 
     const handleAutoToggle = async ( val ) => {
-        // Continuous Optimisation is Pro-only — Free and Starter open the paywall.
+        // Continuous Optimisation is Growth/Agency only; Free and Starter open the paywall.
         // Turning off stays allowed so a previously enabled site can pause.
         if ( val && ! isProPlan( plan ) ) {
             setPaywall( { open: true, trigger: 'continuous-optimisation', entitlement: quota } );

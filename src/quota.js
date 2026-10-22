@@ -6,11 +6,13 @@ export const QUOTA_DEFAULTS = {
 };
 
 /**
- * Continuous Optimisation enable is Growth-plan-only (billing id `pro`).
- * Matches Settings billing UI (`plan === 'pro'`); Free and Starter are gated.
+ * Continuous Optimisation enable is Growth or Agency only.
+ * Billing id `pro` is Growth (`growth` accepted as an alias); `agency` is a
+ * higher tier and keeps the feature. Free, guest and Starter are gated.
  */
 export function isProPlan( plan ) {
-    return String( plan || '' ).toLowerCase() === 'pro';
+    const p = String( plan || '' ).trim().toLowerCase();
+    return p === 'pro' || p === 'growth' || p === 'agency';
 }
 
 /**

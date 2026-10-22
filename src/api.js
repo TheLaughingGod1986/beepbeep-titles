@@ -205,6 +205,14 @@ export async function createCheckout( { plan, priceId } = {} ) {
     return request( 'POST', '/billing/checkout', body );
 }
 
+/**
+ * Email the open checkout link to the account's own email on file.
+ * Only the Checkout Session id is sent; the backend chooses the recipient.
+ */
+export async function emailCheckoutLink( sessionId ) {
+    return request( 'POST', '/billing/checkout/email-link', { session_id: sessionId } );
+}
+
 /** Open the Stripe billing portal for managing an existing plan. Resolves to { url }. */
 export async function createBillingPortal() {
     return request( 'POST', '/billing/portal', {} );

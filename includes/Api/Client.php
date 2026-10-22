@@ -163,7 +163,19 @@ class Client {
             'cancelUrl'   => $cancel_url,
             'target_plan' => $plan,
             'source_page' => 'beepbeep_titles_admin',
+            'admin_country'        => \BeepBeep_Titles\AdminCountry::country(),
+            'admin_country_source' => \BeepBeep_Titles\AdminCountry::resolve()['source'],
         ], 45, false );
+    }
+
+    /**
+     * Email the account's own open checkout link. The backend always sends to
+     * the email on file; no recipient is ever passed from here.
+     */
+    public function email_checkout_link( string $session_id ): array|\WP_Error {
+        return $this->request( 'POST', '/billing/checkout/email-link', [
+            'session_id' => $session_id,
+        ], 30 );
     }
 
     /** Create a Stripe billing-portal session for managing an existing plan. */
@@ -444,6 +456,8 @@ class Client {
             'X-PHP-Version'      => PHP_VERSION,
             'X-Plugin-Channel'   => BEEPTI_PLUGIN_CHANNEL,
             'X-Request-Source'   => 'beepbeep_titles',
+            // Billing currency follows the WP admin, not the hosting server's IP.
+            'X-Admin-Country'    => \BeepBeep_Titles\AdminCountry::country(),
         ];
     }
 

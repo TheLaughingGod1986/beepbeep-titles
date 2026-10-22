@@ -206,6 +206,19 @@ class BillingController {
         return new \WP_REST_Response( $result, 200 );
     }
 
+    /** Email the open checkout link to the account's own email on file. */
+    public function billing_checkout_email_link( \WP_REST_Request $req ): \WP_REST_Response {
+        $session_id = (string) $req->get_param( 'session_id' );
+        if ( ! preg_match( '/^cs_(live|test)_[A-Za-z0-9]+$/', $session_id ) ) {
+            return new \WP_REST_Response( [ 'success' => false, 'code' => 'INVALID_SESSION_ID', 'message' => __( 'This checkout link is not valid. Please start checkout again.', 'beepbeep-titles' ) ], 400 );
+        }
+        $result = $this->client->email_checkout_link( $session_id );
+        if ( is_wp_error( $result ) ) {
+            return ErrorResponder::from_wp_error( $result );
+        }
+        return new \WP_REST_Response( [ 'success' => true, 'sent' => true ], 200 );
+    }
+
     public function billing_portal( \WP_REST_Request $req ): \WP_REST_Response {
         $return = admin_url( 'admin.php?page=' . BEEPTI_SLUG );
         $result = $this->client->billing_portal( $return );

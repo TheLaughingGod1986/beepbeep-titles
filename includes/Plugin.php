@@ -233,7 +233,7 @@ class Plugin {
 
         // Only fill gaps — never overwrite copy that already exists.
         $current = MetaWriter::read( $post_id );
-        if ( $current['title'] !== '' && $current['meta'] !== '' ) {
+        if ( ! AutopilotFill::is_empty( $current['title'] ) && ! AutopilotFill::is_empty( $current['meta'] ) ) {
             return;
         }
 
@@ -283,7 +283,11 @@ class Plugin {
             return;
         }
 
-        MetaWriter::write( $post_id, (string) ( $result['title'] ?? '' ), (string) ( $result['meta'] ?? '' ) );
+        // Fill only the empty fields: an existing SEO title survives when only
+        // the meta description is missing (and vice versa).
+        $writes = AutopilotFill::writes( $current, $result );
+        $after  = AutopilotFill::after( $current, $result );
+        MetaWriter::write( $post_id, $writes['title'], $writes['meta'] );
         ActivityLog::record( $post_id, 'auto' );
         Telemetry::capture( 'autopilot_generated', [
             'generation_surface' => 'autopilot',
@@ -299,10 +303,7 @@ class Plugin {
         ( new History_Repository( 'titles' ) )->record(
             (string) $post_id,
             wp_json_encode( [ 'title' => $current['title'], 'meta' => $current['meta'] ] ),
-            wp_json_encode( [
-                'title' => (string) ( $result['title'] ?? '' ),
-                'meta'  => (string) ( $result['meta'] ?? '' ),
-            ] ),
+            wp_json_encode( $after ),
             null,
             null,
             1

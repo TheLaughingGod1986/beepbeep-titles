@@ -6,7 +6,7 @@
  * (wp_remote_request is stubbed and records the headers).
  */
 namespace BeepBeep_Titles {
-	final class AdminCountry { public static function country(): string { return 'GB'; } }
+	final class AdminCountry { public static function country(): string { return 'GB'; } public static function resolve(): array { return [ 'country' => 'GB', 'source' => 'test' ]; } }
 }
 namespace {
 	define( 'ABSPATH', '/tmp/' );
@@ -57,11 +57,25 @@ namespace {
 	$client->generate( $page, $opts, [ 'title' => 't', 'meta' => 'm' ] );
 	rs_assert( 'beepbeep_titles' === rs_last_source(), 'regenerate sends beepbeep_titles' );
 
+	// Billing calls send the default source header (a stale `false` here used to
+	// land in the source slot and send no X-Request-Source at all).
+	$client->create_checkout( 'price_x', 'https://site.example/ok', 'https://site.example/cancel', 'starter' );
+	rs_assert( str_ends_with( end( $GLOBALS['rs_calls'] )[0], '/billing/checkout' ), 'checkout hits /billing/checkout' );
+	rs_assert( 'beepbeep_titles' === rs_last_source(), '/billing/checkout sends X-Request-Source beepbeep_titles' );
+
+	$client->billing_portal( 'https://site.example/back' );
+	rs_assert( str_ends_with( end( $GLOBALS['rs_calls'] )[0], '/billing/portal' ), 'portal hits /billing/portal' );
+	rs_assert( 'beepbeep_titles' === rs_last_source(), '/billing/portal sends X-Request-Source beepbeep_titles' );
+
+	// No request() call passes a bool into the source slot.
+	$client_src = (string) file_get_contents( $root . '/includes/Api/Client.php' );
+	rs_assert( 0 === preg_match( '/\$this->request\([^;]*,\s*(false|true)\s*\);/s', $client_src ), 'no request() call passes a bool as source' );
+
 	// The publish-time Autopilot call site passes the autopilot source; the manual REST path does not.
 	$plugin = (string) file_get_contents( $root . '/includes/Plugin.php' );
 	rs_assert( 1 === preg_match( '/\$client->generate\(\s*\$this->autopilot_page_envelope\([^;]*Client::SOURCE_AUTOPILOT\s*\);/s', $plugin ), 'Plugin autopilot generate passes SOURCE_AUTOPILOT' );
 	$rest = (string) file_get_contents( $root . '/includes/Rest/GenerateController.php' );
 	rs_assert( false === strpos( $rest, 'SOURCE_AUTOPILOT' ), 'manual GenerateController does not use SOURCE_AUTOPILOT' );
 
-	echo "OK: request source (manual, autopilot, reset, bulk, regenerate, call sites)\n";
+	echo "OK: request source (manual, autopilot, reset, bulk, regenerate, checkout, portal, call sites)\n";
 }

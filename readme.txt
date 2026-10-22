@@ -4,7 +4,7 @@ Tags: seo, ai seo, meta description, title tag, site audit
 Requires at least: 6.3
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.0.30
+Stable tag: 1.0.29
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -51,9 +51,9 @@ Edit titles and meta descriptions yourself from one list, without opening each p
 
 Select many pages, generate suggestions in one run and approve them individually or in batches. Bulk works within your free allowance once your account is connected, and paid plans raise the allowance.
 
-**Autopilot and Continuous Optimisation (paid)**
+**Autopilot (paid)**
 
-Autopilot writes titles and meta descriptions for new posts when they're published, using your tone and length preferences. Included in Starter, Growth and Agency. Continuous Optimisation (Growth or Agency) keeps newly published pages covered.
+Autopilot writes titles and meta descriptions for new posts when they're published, in the tone you choose. Included in Starter, Growth and Agency.
 
 **Lightweight**
 
@@ -67,7 +67,7 @@ Autopilot writes titles and meta descriptions for new posts when they're publish
 2. Run the free health check to find missing titles, missing meta descriptions and pages needing review. No account required.
 3. Fix pages by hand, or connect a free OpptiAI account when you want AI suggestions.
 4. Generate suggestions one page at a time or in bulk, then review and apply them from the Dashboard or Advanced Library.
-5. Optionally upgrade for a higher allowance, **Autopilot** (Starter, Growth or Agency) or **Continuous Optimisation** (Growth or Agency).
+5. Optionally upgrade for a higher allowance and **Autopilot** (Starter, Growth or Agency).
 
 = SEO plugin compatibility =
 
@@ -81,7 +81,7 @@ Autopilot writes titles and meta descriptions for new posts when they're publish
 * **Free, no account:** the SEO health check, full reports, manual metadata editing and settings.
 * **Free account:** a monthly allowance of AI generations, used one page at a time or in bulk, performed by the external OpptiAI service.
 * **Starter:** a higher allowance and **Autopilot** for newly published posts.
-* **Growth or Agency:** higher allowances, **Autopilot** and **Continuous Optimisation** for newly published pages.
+* **Growth or Agency:** higher allowances and **Autopilot** for newly published posts.
 
 See [plans](https://oppti.dev/docs/titles/plans).
 
@@ -164,7 +164,7 @@ Yes, with Autopilot on a **Starter, Growth or Agency** plan. Autopilot requests 
 
 = Do I need a paid plan to use the plugin? =
 
-No. Scanning, full reports, manual metadata editing and settings are free with no account. AI generation, including bulk, is free to try with a free OpptiAI account. Autopilot needs Starter, Growth or Agency, and Continuous Optimisation needs Growth or Agency.
+No. Scanning, full reports, manual metadata editing and settings are free with no account. AI generation, including bulk, is free to try with a free OpptiAI account. Autopilot needs Starter, Growth or Agency.
 
 = Will this guarantee better Google rankings? =
 
@@ -185,9 +185,9 @@ Yes, two more free audits. [OpptiAI Alt Text](https://wordpress.org/plugins/beep
 == Screenshots ==
 
 1. Free SEO health check result before you connect an account: health score, missing and duplicate titles and meta descriptions, and the pages to fix first.
-2. OpptiAI Titles Home: metadata health score, today's priorities, coverage stats and continuous optimisation controls.
+2. OpptiAI Titles Home: metadata health score, today's priorities, coverage stats and optimisation controls.
 3. OpptiAI Titles Advanced Library: filter pages needing attention and generate SEO titles or meta descriptions in bulk.
-4. OpptiAI Titles Autopilot: configure tone, title length and auto-generate on publish (Starter, Growth or Agency).
+4. OpptiAI Titles Autopilot: choose a tone and auto-generate on publish (Starter, Growth or Agency).
 5. OpptiAI Titles Settings: account connection, shared OpptiAI credit wallet, notifications and support.
 
 == Development Notes ==
@@ -196,16 +196,6 @@ Non-minified React source files and the npm build configuration are included in 
 WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, REST namespace, and internal admin slug remain `beepbeep-titles` for backwards compatibility with existing installs, options, and translations.
 
 == Changelog ==
-= 1.0.30 - 2026-10-22 =
-* New: automatic titles on new posts are now included in Starter.
-* New: a short, optional prompt to leave a review on WordPress.org. You can dismiss it.
-* Fixed: upgrade checkout opens in the same tab, with a way to continue if the payment page does not load.
-* Fixed: plan prices show in the currency for your country.
-* Fixed: Continuous Optimisation is available on Agency.
-* Fixed: sign-up errors stay on screen.
-* Changed: automatic titles pause with one notice when you run out of credits, and resume when credits are back.
-* Changed: support requests go to support@oppti.dev.
-
 = 1.0.29 - 2026-10-12 =
 * Privacy: usage stats are only sent after you opt in.
 
@@ -314,9 +304,6 @@ WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, R
 * Plugin Check and WordPress.org packaging readiness.
 
 == Upgrade Notice ==
-= 1.0.30 =
-Starter now includes automatic titles on new posts. Also fixes upgrade checkout and sign-up errors.
-
 = 1.0.24 =
 Signed-out first open now shows the free health-check wizard when onboarding is incomplete. Free allowance and plan ids unchanged.
 

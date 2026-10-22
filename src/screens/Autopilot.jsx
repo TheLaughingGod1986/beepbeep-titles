@@ -26,6 +26,9 @@ const META_LENGTHS = [
     { id: 'detailed', label: 'Detailed', range: '160–170 chars' },
 ];
 
+// Autopilot ignores title length, so the control is hidden on this screen.
+export const SHOW_TITLE_LENGTH = false;
+
 const TITLE_MAX = { compact: 50, standard: 60, rich: 65 };
 const META_MAX  = { brief: 130, standard: 160, detailed: 170 };
 
@@ -101,8 +104,15 @@ export const AutopilotScreen = ({ settings, autoOptimise, onAutoToggle, onToast,
                                 </div>
                             </div>
                             <Divider/>
-                            <LengthRow label="Title length"            options={TITLE_LENGTHS} value={titleLen}  onChange={setTitleLen}/>
-                            <Divider/>
+                            {/* Title length is not rendered here: Autopilot does not apply it
+                                (Plugin::autopilot_options sends brand + tone only). The stored
+                                title_length value is kept and still saved unchanged. */}
+                            {SHOW_TITLE_LENGTH && (
+                                <>
+                                    <LengthRow label="Title length" options={TITLE_LENGTHS} value={titleLen} onChange={setTitleLen}/>
+                                    <Divider/>
+                                </>
+                            )}
                             <LengthRow label="Meta description length" options={META_LENGTHS}  value={metaLen}   onChange={setMetaLen}/>
                             <Divider/>
                             <div style={{ padding: '16px 20px' }}>

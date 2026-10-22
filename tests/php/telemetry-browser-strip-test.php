@@ -82,6 +82,21 @@ namespace {
 	$p = $GLOBALS['http'][0]['properties'];
 	check( ! isset( $p['post_id'] ) && ! isset( $p['url'] ), 'server capture strips post_id/url' );
 
+	// A Stripe Checkout session id (cs_live_/cs_test_) never reaches PostHog,
+	// under session_id or any other key; the browser's own s_ session id does.
+	$GLOBALS['http'] = [];
+	$c->ingest( new WP_REST_Request( [ 'events' => [
+		[ 'event' => 'checkout_session_returned', 'properties' => [ 'plan' => 'starter', 'session_id' => 'cs_live_a1B2c3D4e5' ] ],
+		[ 'event' => 'checkout_redirected', 'properties' => [ 'plan' => 'pro', 'session_id' => 'cs_test_abc', 'journey_id' => 'cs_test_abc', 'source' => 'cus_ABC123' ] ],
+		[ 'event' => 'library_viewed', 'properties' => [ 'session_id' => 's_lq2x9_ab12cd34' ] ],
+	] ] ) );
+	check( 3 === count( $GLOBALS['http'] ), 'checkout events still captured' );
+	$blob = json_encode( $GLOBALS['http'] );
+	check( 0 === preg_match( '/cs_(live|test)_|cus_/', $blob ), 'no telemetry payload contains a cs_/cus_ id' );
+	check( ! isset( $GLOBALS['http'][0]['properties']['session_id'] ), 'cs_live_ session_id dropped' );
+	check( 'starter' === ( $GLOBALS['http'][0]['properties']['plan'] ?? null ), 'plan kept on checkout event' );
+	check( 's_lq2x9_ab12cd34' === ( $GLOBALS['http'][2]['properties']['session_id'] ?? null ), 'browser s_ session_id kept' );
+
 	if ( $fail ) { exit( 1 ); }
 	echo "OK: browser telemetry properties are allowlisted\n";
 }

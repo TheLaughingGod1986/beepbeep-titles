@@ -378,7 +378,7 @@ const PLAN_COPY = {
     pro: {
         features: [
             '1000 AI generations per month',
-            'Continuous Optimisation',
+            'Autopilot for new posts',
             'Larger service allowance',
             'Priority processing',
             'Agency-friendly usage limits',

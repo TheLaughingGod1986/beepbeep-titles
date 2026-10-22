@@ -174,7 +174,7 @@ class Client {
             'source_page' => 'beepbeep_titles_admin',
             'admin_country'        => \BeepBeep_Titles\AdminCountry::country(),
             'admin_country_source' => \BeepBeep_Titles\AdminCountry::resolve()['source'],
-        ], 45, false );
+        ], 45 );
     }
 
     /**
@@ -191,7 +191,7 @@ class Client {
     public function billing_portal( string $return_url ): array|\WP_Error {
         return $this->request( 'POST', '/billing/portal', [
             'returnUrl' => $return_url,
-        ], 45, false );
+        ], 45 );
     }
 
     /** Send a support/contact request through the OpptiAI backend mailer. */

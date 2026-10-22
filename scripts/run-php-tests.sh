@@ -106,3 +106,4 @@ php tests/php/admin-country-test.php
 php tests/php/support-inbox-test.php
 php tests/php/telemetry-anonymous-test.php
 php tests/php/request-source-test.php
+php tests/php/autopilot-fill-test.php

@@ -35,7 +35,12 @@ test( 'rapid clicks create exactly one checkout for the chosen plan and navigate
 	expect( createCheckout ).toHaveBeenCalledWith( { plan: 'starter' } );
 	expect( navigated ).toEqual( [ STRIPE ] );
 	expect( events.map( ( e ) => e[ 0 ] ) ).toEqual( [ 'checkout_clicked', 'checkout_session_returned', 'checkout_redirected' ] );
-	expect( events[ 1 ][ 1 ] ).toMatchObject( { plan: 'starter', session_id: 'cs_test_abc' } );
+	expect( events[ 1 ][ 1 ] ).toMatchObject( { plan: 'starter' } );
+	// The Stripe Checkout session id never reaches telemetry.
+	expect( JSON.stringify( events ) ).not.toMatch( /cs_(test|live)_/ );
+	for ( const [ , props ] of events ) {
+		expect( props ).not.toHaveProperty( 'session_id' );
+	}
 } );
 
 test( 'no navigation within the grace period shows Continue panel with url + session and unlocks', async () => {
@@ -71,4 +76,16 @@ test( 'license / quota errors are routed and no panel is shown', async () => {
 	const { flow } = setup( jest.fn().mockRejectedValue( err ), { onRouteError: () => true, showPanel: ( p ) => panels.push( p ) } );
 	expect( await flow.start( { plan: 'pro' } ) ).toBe( 'routed' );
 	expect( panels.filter( Boolean ) ).toEqual( [] );
+} );
+
+test( 'no telemetry payload carries a cs_ id (sessionId or session_id, live or test)', async () => {
+	for ( const res of [ { url: STRIPE, session_id: 'cs_live_a1B2c3' }, { url: STRIPE, sessionId: 'cs_test_zz9', reused: true } ] ) {
+		const { flow, events, fireTimer, panels } = setup( jest.fn().mockResolvedValue( res ) );
+		await flow.start( { plan: 'pro' } );
+		fireTimer();
+		expect( events.length ).toBeGreaterThan( 0 );
+		expect( JSON.stringify( events ) ).not.toMatch( /cs_/ );
+		// The id stays local for the Continue panel / email-link fallback.
+		expect( panels[ panels.length - 1 ].sessionId ).toMatch( /^cs_/ );
+	}
 } );

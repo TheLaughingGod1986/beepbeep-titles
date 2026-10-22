@@ -74,13 +74,15 @@ export function createCheckoutFlow( deps ) {
 
         const sessionId = res.sessionId || res.session_id || '';
         onAttempt( { plan: args.plan, priceId: args.priceId } );
+        // Never send the Stripe Checkout session id (cs_…) to telemetry: it would
+        // tie an anonymous install to a Stripe customer. It stays local, for the
+        // Continue panel and the email-link fallback only.
         track( 'checkout_session_returned', {
             plan,
-            session_id: sessionId,
             reused: res.reused === true,
             currency: typeof res.currency === 'string' ? res.currency : '',
         } );
-        track( 'checkout_redirected', { plan, session_id: sessionId, redirect_kind: 'checkout_session' } );
+        track( 'checkout_redirected', { plan, redirect_kind: 'checkout_session' } );
 
         timer = setTimer( () => {
             timer = null;

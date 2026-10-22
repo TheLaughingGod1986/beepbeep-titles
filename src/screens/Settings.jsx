@@ -6,7 +6,7 @@ import { Input, PageShell, Textarea, Row } from '../ui';
 import { Modal } from '../modals/Modal';
 import { saveSettings, setLicense, clearLicense, submitSupport } from '../api';
 import { creditUsageRows } from '../usage';
-import { QUOTA_DEFAULTS, usageCreditsLabel, USAGE_CREDITS_FOOTNOTE } from '../quota';
+import { QUOTA_DEFAULTS, usageCreditsLabel, USAGE_CREDITS_FOOTNOTE, isPaidPlan, planDisplayName } from '../quota';
 
 // Copy: swap here when Marketing sends new wording.
 const USAGE_STATS_LABEL = () => __( 'Share anonymous usage stats to help improve OpptiAI Titles', 'beepbeep-titles' );
@@ -35,7 +35,10 @@ export const SettingsScreen = ({
     onSignOut,
     onReset,
 }) => {
-    const isPro = plan === 'pro';
+    // Any paid plan (Starter, Growth/pro, Agency) gets Manage billing and its own
+    // plan name; only Free/unknown sees the Free service card and the upgrade CTA.
+    const isPro = isPaidPlan( plan );
+    const planName = planDisplayName( plan );
     const [advancedOpen, setAdvancedOpen] = useState( false );
     const [notifFresh, setNotifFresh]     = useState( settings?.notify_new_pages ?? true );
     const [notifDigest, setNotifDigest]   = useState( settings?.weekly_digest ?? false );
@@ -133,7 +136,7 @@ export const SettingsScreen = ({
                 <p style={{ fontSize: 13, color: 'var(--text-2)', margin: '4px 0 0', lineHeight: 1.5 }}>Manage your account, notifications, and advanced options.</p>
             </div>
 
-            <PlanCard isPro={isPro} monthlyUsed={monthlyUsed} monthlyLimit={monthlyLimit} pct={pct} resetDate={resetDate} onUpgrade={onUpgrade} onBuyCredits={onBuyCredits} onManageBilling={onManageBilling}/>
+            <PlanCard isPro={isPro} planName={planName} monthlyUsed={monthlyUsed} monthlyLimit={monthlyLimit} pct={pct} resetDate={resetDate} onUpgrade={onUpgrade} onBuyCredits={onBuyCredits} onManageBilling={onManageBilling}/>
 
             <CreditUsageCard quota={quota} used={monthlyUsed} limit={monthlyLimit} resetDate={resetDate}/>
 
@@ -296,7 +299,7 @@ const ResetConfirm = ({ open, resetting, onCancel, onConfirm }) => (
     </Modal>
 );
 
-const PlanCard = ({ isPro, monthlyUsed, monthlyLimit, pct, resetDate, onUpgrade, onBuyCredits, onManageBilling }) => (
+const PlanCard = ({ isPro, planName = 'Growth', monthlyUsed, monthlyLimit, pct, resetDate, onUpgrade, onBuyCredits, onManageBilling }) => (
     <Card padding={0} style={{ marginBottom: 18, overflow: 'hidden', ...( isPro ? { background: 'var(--primary-soft)', borderColor: 'var(--primary-border)' } : {} ) }}>
         <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'flex-start', gap: 14 }}>
             <div style={{ width: 36, height: 36, borderRadius: 9, background: isPro ? 'var(--primary)' : 'var(--bg-sunken)', color: isPro ? '#fff' : 'var(--text-2)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: isPro ? 'none' : '1px solid var(--border)' }}>
@@ -304,8 +307,8 @@ const PlanCard = ({ isPro, monthlyUsed, monthlyLimit, pct, resetDate, onUpgrade,
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-                    <span style={{ fontSize: 14, fontWeight: 600 }}>{isPro ? 'OpptiAI Growth service' : 'OpptiAI Free service'}</span>
-                    <Pill tone={isPro ? 'primary' : 'neutral'}>{isPro ? 'Growth' : 'Free'}</Pill>
+                    <span style={{ fontSize: 14, fontWeight: 600 }}>{isPro ? `OpptiAI ${ planName } service` : 'OpptiAI Free service'}</span>
+                    <Pill tone={isPro ? 'primary' : 'neutral'}>{isPro ? planName : 'Free'}</Pill>
                 </div>
                 <div style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.45 }}>
                     {monthlyLimit} AI service credits per cycle · shared across your OpptiAI plugins · usable manually, in bulk, or with Autopilot.

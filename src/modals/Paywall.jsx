@@ -102,11 +102,11 @@ export const Paywall = ({ open, onClose, trigger = 'default', entitlement, stats
     // Free allowance comes from the live entitlement (currently 25), never hard-coded.
     const freeLimit    = Number.isFinite( entitlement?.token_limit ) ? entitlement.token_limit : QUOTA_DEFAULTS.monthly_limit;
 
-    // Feature gates: Continuous Optimisation is Growth/Agency only; Autopilot
-    // (incl. auto-generate on publish) is on every paid plan (Starter/Growth/Agency).
-    const continuousOptGate = trigger === 'continuous-optimisation';
-    const autopilotGate     = trigger === 'autopilot';
-    const featureGate       = continuousOptGate || autopilotGate;
+    // Feature gate: Autopilot (incl. auto-generate on publish) is on every paid
+    // plan (Starter/Growth/Agency). A legacy 'continuous-optimisation' trigger
+    // shows the same Autopilot copy.
+    const autopilotGate = trigger === 'autopilot' || trigger === 'continuous-optimisation';
+    const featureGate   = autopilotGate;
 
     // Quota-triggered paywall: distinguish "out of credits" from "not enough for
     // this action" (e.g. 1 remaining when each page costs 2 for title + meta).
@@ -165,26 +165,19 @@ export const Paywall = ({ open, onClose, trigger = 'default', entitlement, stats
     const R = 16; // card / surface radius
 
     // ROI framing — users buy time saved, not generations.
-    const why = continuousOptGate
+    const why = autopilotGate
         ? [
-            'Continuous Optimisation on Growth and Agency',
-            'A much larger monthly generation allowance',
-            'Save hours of manual editing',
-            'Priority processing on Growth',
+            'Configure tone, length, and custom instructions',
+            'Auto-generate titles and meta on publish',
+            'Hands-off SEO for every new post',
+            'Included on Starter, Growth and Agency',
         ]
-        : autopilotGate
-            ? [
-                'Configure tone, length, and custom instructions',
-                'Auto-generate titles and meta on publish',
-                'Hands-off SEO for every new post',
-                'Included on Starter, Growth and Agency',
-            ]
-            : [
-                'Generate SEO titles and descriptions in seconds',
-                'Save hours of manual editing',
-                'Improve search visibility',
-                'Use credits manually, in bulk, or with Autopilot',
-            ];
+        : [
+            'Generate SEO titles and descriptions in seconds',
+            'Save hours of manual editing',
+            'Improve search visibility',
+            'Use credits manually, in bulk, or with Autopilot',
+        ];
     // Risk reducers kept beside the purchase button.
     const trust = [
         'Secure Stripe checkout',
@@ -203,9 +196,7 @@ export const Paywall = ({ open, onClose, trigger = 'default', entitlement, stats
                 {/* ── Section 1: Headline → Issue Summary → SEO Impact → CTA (above the fold) ── */}
                 <div className="beepti-pw__section" style={{ padding: '36px 40px 4px' }}>
                     <h2 style={{ fontSize: 25, fontWeight: 600, letterSpacing: '-0.025em', lineHeight: 1.15, margin: '0 0 8px', maxWidth: 560 }}>
-                        {continuousOptGate
-                            ? 'Continuous Optimisation is on Growth and Agency'
-                            : autopilotGate
+                        {autopilotGate
                                 ? 'Autopilot is included from Starter'
                                 : showInsufficient
                                     ? 'Not enough credits for this page'
@@ -214,9 +205,7 @@ export const Paywall = ({ open, onClose, trigger = 'default', entitlement, stats
                                         : 'Add OpptiAI service credits'}
                     </h2>
                     <p style={{ fontSize: 14.5, color: 'var(--text-2)', lineHeight: 1.5, margin: '0 0 16px', maxWidth: 580 }}>
-                        {continuousOptGate
-                            ? <>Continuous Optimisation is included with Growth and Agency. Autopilot (automatic titles and meta on new posts) is already included with Starter.</>
-                            : autopilotGate
+                        {autopilotGate
                                 ? <>Hands-off page SEO — tone, length, custom instructions, and automatic titles and meta on new posts — is included with every paid plan, from Starter up.</>
                                 : showInsufficient
                                     ? insufficientCreditsMessage( remainingCredits, pageCost )
@@ -360,7 +349,7 @@ export const Paywall = ({ open, onClose, trigger = 'default', entitlement, stats
                                 For only {monthlyExtra} more than Starter
                             </div>
                             <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 9 }}>
-                                {[ `${ capacityMult }× more SEO generations (${ fmtCount( proQuota ) }/mo)`, 'Continuous Optimisation', 'Priority processing', 'Shared across all OpptiAI plugins' ].map( ( f, i ) => (
+                                {[ `${ capacityMult }× more SEO generations (${ fmtCount( proQuota ) }/mo)`, 'Autopilot for new posts', 'Priority processing', 'Shared across all OpptiAI plugins' ].map( ( f, i ) => (
                                     <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12.5, color: 'var(--text)', fontWeight: i === 0 ? 600 : 500, lineHeight: 1.4 }}>
                                         <Icon name="check" size={13} strokeWidth={2.6} style={{ color: 'var(--primary-ink)', flexShrink: 0, marginTop: 1 }}/> {f}
                                     </div>

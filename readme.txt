@@ -16,7 +16,7 @@ https://www.youtube.com/watch?v=zUo5rRgYCZ4
 
 **Free SEO health check, no account needed: find missing, duplicate and wrong-length titles and meta descriptions. Works next to Yoast, Rank Math and AIOSEO.**
 
-OpptiAI Titles scans your published pages inside WordPress and gives you a metadata health score, a list of the pages that need attention, and the order to fix them in. The scan is local and does not need an account. When you want help writing, connect a free OpptiAI account and generate SEO titles and meta descriptions that you review before anything changes. Approved metadata is written through the SEO plugin you already use.
+OpptiAI Titles scans your published pages inside WordPress and gives you a metadata health score, a list of the pages that need attention, and the order to fix them in. The scan is local and does not need an account. When you want help writing, connect a free OpptiAI account and generate SEO titles and meta descriptions. They're saved through the SEO plugin you already use, and you can edit or undo them.
 
 **Two more free audits from OpptiAI:** [OpptiAI Alt Text](https://wordpress.org/plugins/beepbeep-ai-alt-text-generator/) shows how many of your images have no alt text, and [OpptiAI Internal Linking](https://wordpress.org/plugins/opptiai-internal-linking/) finds orphan pages that no other page links to. Both scan your site before you sign up.
 
@@ -35,9 +35,9 @@ Find pages with:
 
 You also get an overall health score, priority recommendations and progress tracking as issues are resolved.
 
-**AI titles and meta descriptions you review**
+**AI titles and meta descriptions you can edit**
 
-Generate search-friendly SEO titles and meta descriptions from the Dashboard or Advanced Library. Every suggestion can be edited or rejected before it is applied.
+Generate search-friendly SEO titles and meta descriptions from the Dashboard or Advanced Library. Each result is saved straight away, and you can edit or undo it.
 
 **Works with your SEO plugin**
 
@@ -49,7 +49,7 @@ Edit titles and meta descriptions yourself from one list, without opening each p
 
 **Bulk optimisation**
 
-Select many pages, generate suggestions in one run and approve them individually or in batches. Bulk works within your free allowance once your account is connected, and paid plans raise the allowance.
+Select many pages, and generate titles and meta descriptions in one run. You can edit any of them afterwards. Bulk works within your free allowance once your account is connected, and paid plans raise the allowance.
 
 **Autopilot (paid)**
 
@@ -66,7 +66,7 @@ Autopilot writes titles and meta descriptions for new posts when they're publish
 1. Install and activate OpptiAI Titles.
 2. Run the free health check to find missing titles, missing meta descriptions and pages needing review. No account required.
 3. Fix pages by hand, or connect a free OpptiAI account when you want AI suggestions.
-4. Generate suggestions one page at a time or in bulk, then review and apply them from the Dashboard or Advanced Library.
+4. Generate titles and meta one page at a time or in bulk from the Dashboard or Advanced Library, then edit any you want to change.
 5. Optionally upgrade for a higher allowance and **Autopilot** (Starter, Growth or Agency).
 
 = SEO plugin compatibility =
@@ -142,9 +142,9 @@ No. The health check, reports and manual editing run in WordPress without an acc
 
 No. OpptiAI Titles works alongside Yoast SEO, Rank Math or AIOSEO and writes through them. It helps you find and fix SEO title and meta description issues faster.
 
-= Can I review AI suggestions before applying them? =
+= Can I undo AI changes? =
 
-Yes. Every AI-generated title and description can be reviewed before your website is updated.
+Yes. Every generated title and description can be edited, and a generated change can be undone.
 
 = Can I optimise existing content? =
 
@@ -152,7 +152,7 @@ Yes. The plugin analyses existing metadata and suggests improvements rather than
 
 = Is bulk optimisation supported? =
 
-Yes. Generate improvements across many pages and approve them individually or in batches. Bulk works on the free plan within your monthly allowance; if a selection needs more than you have left, you can run part of it now or upgrade for a higher allowance.
+Yes. Generate improvements across many pages in one run, then edit any you want to change. Bulk works on the free plan within your monthly allowance; if a selection needs more than you have left, you can run part of it now or upgrade for a higher allowance.
 
 = Is this an AI title generator for WordPress? =
 

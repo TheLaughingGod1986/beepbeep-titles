@@ -103,3 +103,4 @@ php tests/php/telemetry-optin-toggle-test.php
 php tests/php/telemetry-browser-strip-test.php
 php tests/php/telemetry-identify-test.php
 php tests/php/review-prompt-test.php
+php tests/php/admin-country-test.php

@@ -224,6 +224,15 @@ class Routes {
             ],
         ] );
 
+        register_rest_route( $ns, '/billing/checkout/email-link', [
+            'methods'             => 'POST',
+            'callback'            => [ $b, 'billing_checkout_email_link' ],
+            'permission_callback' => [ $this, 'require_admin' ],
+            'args'                => [
+                'session_id' => [ 'type' => 'string', 'required' => true, 'sanitize_callback' => 'sanitize_text_field' ],
+            ],
+        ] );
+
         register_rest_route( $ns, '/billing/portal', [
             'methods'             => 'POST',
             'callback'            => [ $b, 'billing_portal' ],

@@ -16,6 +16,7 @@ function apply_filters( $name, $value, ...$args ) {
     }
     return $value;
 }
+function wp_generate_uuid4() { return '00000000-0000-4000-8000-000000000000'; }
 function sanitize_key( $v ) { return strtolower( preg_replace( '/[^a-zA-Z0-9_\-]/', '', $v ) ); }
 function get_post_meta( $id, $key, $single ) { return $GLOBALS['metadata'][$id][$key] ?? ''; }
 function update_post_meta( $id, $key, $v ) {

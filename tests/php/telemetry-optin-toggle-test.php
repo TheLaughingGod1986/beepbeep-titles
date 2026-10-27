@@ -79,12 +79,15 @@ namespace {
 	check( 2 === count( $GLOBALS['http'] ), 'opted-in captures sent' );
 	$p = json_decode( $GLOBALS['http'][0], true );
 	$all = $GLOBALS['http'][0];
+	check( $p['properties']['site_install_id'] === $p['distinct_id'], 'safe anonymous installation attribution' );
+	check( true === $p['properties']['telemetry_consent'], 'consent tagged' );
+	check( 'title_meta' === $p['properties']['product'], 'canonical product' );
 	check( 1 === preg_match( '/^anon_[0-9a-f-]{36}$/', $p['distinct_id'] ), 'distinct_id is anon UUID' );
 	check( $p['distinct_id'] === json_decode( $GLOBALS['http'][1], true )['distinct_id'], 'distinct_id stable per install' );
 	foreach ( [ 'customer-site.example', 'person@qa.oppti.dev', hash( 'sha256', 'person@qa.oppti.dev' ), substr( hash( 'sha256', 'person@qa.oppti.dev' ), 0, 32 ), '11111111-2222-3333-4444-555555555555', hash( 'sha256', '11111111-2222-3333-4444-555555555555' ) ] as $needle ) {
 		check( false === strpos( $all, $needle ), "payload has no $needle" );
 	}
-	foreach ( [ 'host', 'site_host', 'site_hash', 'site_id', 'site_install_id', 'email' ] as $k ) {
+	foreach ( [ 'host', 'site_host', 'site_hash', 'site_id', 'email' ] as $k ) {
 		check( ! array_key_exists( $k, $p['properties'] ), "payload has no $k key" );
 	}
 	foreach ( [ 'wp_version', 'php_version', 'plugin_version', 'is_logged_in' ] as $k ) {

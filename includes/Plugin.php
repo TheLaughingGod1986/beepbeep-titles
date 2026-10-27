@@ -283,18 +283,20 @@ class Plugin {
             return;
         }
 
-        // Fill only the empty fields: an existing SEO title survives when only
-        // the meta description is missing (and vice versa).
+        // Preserve fields already owned by the site when Autopilot fills gaps.
         $writes = AutopilotFill::writes( $current, $result );
         $after  = AutopilotFill::after( $current, $result );
-        MetaWriter::write( $post_id, $writes['title'], $writes['meta'] );
+        if ( ! MetaWriter::write_verified( $post_id, $writes['title'], $writes['meta'], true ) ) {
+            Telemetry::capture( 'autopilot_failed', [ 'error_code' => 'write_failed', 'generation_surface' => 'autopilot' ] );
+            return;
+        }
         ActivityLog::record( $post_id, 'auto' );
         Telemetry::capture( 'autopilot_generated', [
             'generation_surface' => 'autopilot',
             'generation_mode'    => 'auto',
             'page_count'         => 1,
         ] );
-        Telemetry::capture( 'title_meta_generated', [
+        Telemetry::generation_saved( [
             'generation_surface' => 'autopilot',
             'generation_mode'    => 'auto',
             'page_count'         => 1,

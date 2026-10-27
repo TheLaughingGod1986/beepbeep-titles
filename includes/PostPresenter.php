@@ -72,6 +72,8 @@ class PostPresenter {
         }
 
         return [
+            // Local post identity distinguishes plain permalinks with the same path.
+            'id'              => (string) $post->ID,
             'url'             => self::permalink_path( $post ),
             'section'         => self::section_for( $post ),
             'h1'              => $post->post_title,

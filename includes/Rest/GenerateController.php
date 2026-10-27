@@ -58,7 +58,10 @@ class GenerateController {
         // Persist into the active SEO plugin.
         $title = (string) ( $result['title'] ?? '' );
         $meta  = (string) ( $result['meta'] ?? '' );
-        MetaWriter::write( $post->ID, $title, $meta );
+        if ( ! MetaWriter::write_verified( $post->ID, $title, $meta ) ) {
+            Telemetry::capture( 'generation_failed', [ 'error_code' => 'write_failed', 'generation_surface' => 'dashboard' ] );
+            return new \WP_REST_Response( [ 'success' => false, 'code' => 'WRITE_FAILED', 'message' => __( 'Could not save generated metadata.', 'beepbeep-titles' ) ], 500 );
+        }
         ActivityLog::record( $post->ID, 'generated' );
         Telemetry::capture( 'generation_completed', [
             'generation_surface' => 'dashboard',
@@ -66,7 +69,7 @@ class GenerateController {
             'page_count'         => 1,
             'is_regenerate'      => ! empty( $previous ),
         ] );
-        Telemetry::capture( 'title_meta_generated', [
+        Telemetry::generation_saved( [
             'generation_surface' => 'dashboard',
             'generation_mode'    => 'single',
             'page_count'         => 1,
@@ -153,6 +156,7 @@ class GenerateController {
         $ordered = is_array( $ordered ) ? $ordered : [];
         $items   = isset( $result['items'] ) && is_array( $result['items'] ) ? $result['items'] : [];
         $wrote   = false;
+        $write_failed = false;
 
         foreach ( $items as $i => &$item ) {
             $post_id = $this->resolve_item_post_id( $item, $ordered, $i );
@@ -176,7 +180,21 @@ class GenerateController {
                         $meta_out     = (string) ( $item['meta'] ?? '' );
                         $before       = MetaWriter::read( $post_id );
                         $score_before = $this->current_item_score( $post_id );
-                        MetaWriter::write( $post_id, $title_out, $meta_out );
+                        if ( ! MetaWriter::write_verified( $post_id, $title_out, $meta_out ) ) {
+                            $write_failed = true;
+                            $guard = $this->job_item_guard_key( $job_id, $post_id );
+                            delete_option( $guard );
+                            delete_transient( $guard );
+                            $item['status'] = 'failed';
+                            $item['code'] = 'WRITE_FAILED';
+                            Telemetry::capture( 'generation_failed', [ 'error_code' => 'write_failed', 'generation_surface' => 'bulk_generation' ] );
+                            continue;
+                        }
+                        Telemetry::generation_saved( [
+                            'generation_surface' => 'bulk_generation',
+                            'generation_mode' => 'batch',
+                            'page_count' => 1,
+                        ] );
                         ActivityLog::record( $post_id, 'generated' );
                         if ( $post ) {
                             ( new Scan_Repository( 'titles' ) )->mark_optimised( (string) $post_id, $post->post_type );
@@ -197,6 +215,9 @@ class GenerateController {
         unset( $item );
 
         $result['items'] = $items;
+        if ( $write_failed ) {
+            $result['persistence_failed'] = true;
+        }
 
         if ( $wrote ) {
             $this->bust_stats();
@@ -207,7 +228,7 @@ class GenerateController {
         // dashboard's "before / after" celebration reflects the new scores.
         // Keep per-item write guards (option + transient) so a late / overlapping
         // poll cannot re-persist activity + history for the same job items.
-        if ( in_array( $result['status'] ?? '', [ 'completed', 'failed' ], true ) ) {
+        if ( ! $write_failed && in_array( $result['status'] ?? '', [ 'completed', 'failed' ], true ) ) {
             delete_transient( 'beepti_job_' . $job_id );
             $this->release_job_item_option_guards( $job_id, $ordered );
             if ( $wrote ) {
@@ -232,13 +253,7 @@ class GenerateController {
                     'completed_count'    => $completed_count,
                     'job_id'             => $job_id,
                 ] );
-                if ( $completed_count > 0 ) {
-                    Telemetry::capture( 'title_meta_generated', [
-                        'generation_surface' => 'bulk_generation',
-                        'generation_mode'    => 'batch',
-                        'page_count'         => $completed_count,
-                    ] );
-                }
+
             }
         }
 

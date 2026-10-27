@@ -20,8 +20,5 @@
   },
   "devDependencies": {
     "@wordpress/scripts": "^30.0.0"
-  },
-  "dependencies": {
-    "posthog-js": "^1.418.13"
   }
 }

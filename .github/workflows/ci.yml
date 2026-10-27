@@ -36,3 +36,4 @@ jobs:
         run: |
           bash scripts/run-php-tests.sh
           php tests/php/first-value-test.php
+          php tests/php/generation-persistence-test.php

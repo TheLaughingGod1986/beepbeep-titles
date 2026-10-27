@@ -37,7 +37,7 @@ namespace {
 
 	// Plugin.php writes through AutopilotFill, not the raw generated result.
 	$plugin = (string) file_get_contents( $root . '/includes/Plugin.php' );
-	$ok( str_contains( $plugin, "MetaWriter::write_verified( \$post_id, \$writes['title'], \$writes['meta'], true )" ), 'Plugin autopilot verifies only AutopilotFill output with preserve-empty semantics' );
+	$ok( str_contains( $plugin, "MetaWriter::write_verified( \$post_id, \$writes['title'], \$writes['meta'], true )" ), 'Plugin autopilot verifies only AutopilotFill writes while preserving existing fields' );
 	$ok( false === strpos( $plugin, "MetaWriter::write( \$post_id, (string) ( \$result['title']" ), 'no raw result write left in Plugin' );
 
 	if ( $fail ) { exit( 1 ); }

@@ -261,14 +261,17 @@ class Plugin {
             return;
         }
 
-        MetaWriter::write( $post_id, (string) ( $result['title'] ?? '' ), (string) ( $result['meta'] ?? '' ) );
+        if ( ! MetaWriter::write_verified( $post_id, (string) ( $result['title'] ?? '' ), (string) ( $result['meta'] ?? '' ) ) ) {
+            Telemetry::capture( 'autopilot_failed', [ 'error_code' => 'write_failed', 'generation_surface' => 'autopilot' ] );
+            return;
+        }
         ActivityLog::record( $post_id, 'auto' );
         Telemetry::capture( 'autopilot_generated', [
             'generation_surface' => 'autopilot',
             'generation_mode'    => 'auto',
             'page_count'         => 1,
         ] );
-        Telemetry::capture( 'title_meta_generated', [
+        Telemetry::generation_saved( [
             'generation_surface' => 'autopilot',
             'generation_mode'    => 'auto',
             'page_count'         => 1,

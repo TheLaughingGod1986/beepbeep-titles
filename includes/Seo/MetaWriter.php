@@ -137,6 +137,18 @@ class MetaWriter {
      * Persist a generated title + meta. Empty strings are treated as
      * "leave unchanged" so a single-field edit doesn't wipe the other.
      */
+    /** Write and read back; false includes empty or unpersisted output. */
+    public static function write_verified( int $post_id, string $title, string $meta ): bool {
+        $title = trim( $title );
+        $meta = trim( $meta );
+        if ( '' === $title || '' === $meta ) {
+            return false;
+        }
+        self::write( $post_id, $title, $meta );
+        $stored = self::read( $post_id );
+        return $stored['title'] === $title && $stored['meta'] === $meta;
+    }
+
     public static function write( int $post_id, string $title, string $meta ): void {
         $title = trim( $title );
         $meta  = trim( $meta );

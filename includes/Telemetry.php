@@ -115,6 +115,22 @@ class Telemetry {
 		return (bool) apply_filters( 'beepti_telemetry_consent_granted', $granted );
 	}
 
+	/** Record value only after callers have verified persistence. */
+	public static function generation_saved( array $properties ): void {
+		// Require a saved opt-in for new first-value tracking even on legacy bases.
+		if ( ! self::has_consent() || ! in_array( get_option( self::CONSENT_OPTION, false ), [ 'yes', '1', 1, true ], true ) ) {
+			return;
+		}
+		$now = time();
+		$is_first = add_option( 'beepti_first_successful_generation_at', $now, '', false );
+		$properties['is_first_generation'] = $is_first;
+		$activated_at = (int) get_option( self::ACTIVATION_MARKER, 0 );
+		if ( $is_first && $activated_at > 0 ) {
+			$properties['time_to_first_value_seconds'] = max( 0, $now - $activated_at );
+		}
+		self::capture( 'title_meta_generated', $properties );
+	}
+
 	public static function get_api_key(): string {
 		return (string) apply_filters( 'beepti_posthog_api_key', self::POSTHOG_API_KEY );
 	}

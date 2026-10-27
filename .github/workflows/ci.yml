@@ -33,4 +33,6 @@ jobs:
         run: npx wp-scripts test-unit-js --ci
 
       - name: PHP smoke tests
-        run: bash scripts/run-php-tests.sh
+        run: |
+          bash scripts/run-php-tests.sh
+          php tests/php/first-value-test.php

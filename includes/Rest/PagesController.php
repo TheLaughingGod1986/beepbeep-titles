@@ -129,6 +129,7 @@ class PagesController {
         $settings               = SettingsSanitizer::normalize_settings( $settings );
         $settings['seo_plugin'] = MetaWriter::active();
         $settings['connected']  = $this->client->has_license();
+        $settings['usage_stats_opt_in'] = 'yes' === get_option( Telemetry::CONSENT_OPTION, '' );
         $settings['available_post_types'] = array_map(
             static function ( string $slug ): array {
                 $object = get_post_type_object( $slug );
@@ -155,6 +156,12 @@ class PagesController {
 
         $current = SettingsSanitizer::normalize_settings( $current );
         update_option( 'beepti_settings', $current );
+        // Usage-stats consent lives in its own option; stored only when the user saves the toggle.
+        if ( array_key_exists( 'usage_stats_opt_in', $incoming ) ) {
+            $opt_in = filter_var( $incoming['usage_stats_opt_in'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE );
+            update_option( Telemetry::CONSENT_OPTION, true === $opt_in ? 'yes' : 'no', false );
+        }
+        $current['usage_stats_opt_in'] = 'yes' === get_option( Telemetry::CONSENT_OPTION, '' );
         // Immediately reconcile the scheduled-scan cron if scan_daily changed,
         // rather than waiting for the next request's init to notice the drift.
         \BeepBeep_Titles\Plugin::sync_scheduled_scan();
@@ -162,6 +169,10 @@ class PagesController {
             'keys' => array_keys( SettingsSanitizer::sanitize_patch( $incoming ) ),
         ] );
         if ( array_key_exists( 'auto_generate', $incoming ) ) {
+            // A fresh switch-on retries straight away rather than waiting out a pause.
+            if ( ! empty( $current['auto_generate'] ) ) {
+                \BeepBeep_Titles\AutopilotGuard::resume();
+            }
             Telemetry::capture( 'autopilot_toggled', [
                 'enabled' => ! empty( $current['auto_generate'] ),
             ] );

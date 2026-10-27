@@ -1,9 +1,9 @@
 <?php
 /**
- * Plugin Name:       OpptiAI Titles
+ * Plugin Name:       OpptiAI Titles – AI SEO Titles and Meta Descriptions
  * Plugin URI:        https://oppti.dev
  * Description:       AI-powered title tag and meta description generation for WordPress. Keeps your site's page SEO coverage climbing in the background.
- * Version:           1.0.26
+ * Version:           1.0.30
  * Author:            OpptiAI
  * Author URI:        https://oppti.dev
  * License:           GPL-2.0-or-later
@@ -14,13 +14,19 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'BEEPTI_VERSION', '1.0.26' );
+define( 'BEEPTI_VERSION', '1.0.30' );
 define( 'BEEPTI_FILE',    __FILE__ );
 define( 'BEEPTI_DIR',     plugin_dir_path( __FILE__ ) );
 define( 'BEEPTI_URL',     plugin_dir_url( __FILE__ ) );
 define( 'BEEPTI_SLUG',    'beepbeep-titles' );
 define( 'BEEPTI_PLUGIN_ID', 'titles' );
 define( 'BEEPTI_PLUGIN_TITLE', 'OpptiAI Titles' );
+
+// Support inbox for the Settings contact form. Override in wp-config.php, or
+// filter with 'beepti_contact_support_recipient' (mirrors Alt Text's BBAI_SUPPORT_EMAIL).
+if ( ! defined( 'BEEPTI_SUPPORT_EMAIL' ) ) {
+    define( 'BEEPTI_SUPPORT_EMAIL', 'support@oppti.dev' );
+}
 
 // Backend API base. Override in wp-config.php with BEEPBEEP_TITLES_API_URL
 // for local/staging backends (mirrors the alt-text plugin's BEEPBEEP_AI_API_URL).

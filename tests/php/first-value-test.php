@@ -22,6 +22,8 @@ function update_post_meta( $id, $key, $v ) {
     if ( $GLOBALS['fail_write'] ) { return false; }
     $GLOBALS['metadata'][$id][$key] = $v; return true;
 }
+class RegressionReviewPrompt { public static function mark_first_success(): void {} }
+class_alias( RegressionReviewPrompt::class, 'BeepBeep_Titles\\ReviewPrompt' );
 require dirname( __DIR__, 2 ) . '/includes/Telemetry.php';
 require dirname( __DIR__, 2 ) . '/includes/Seo/MetaWriter.php';
 use BeepBeep_Titles\Telemetry;
@@ -44,6 +46,8 @@ foreach ( [ 'fallback', 'yoast', 'rank_math' ] as $provider ) {
     $GLOBALS['options']['beepti_seo_plugin'] = $provider;
     check( MetaWriter::write_verified( 1, 'Title', 'Description' ), "$provider saves and verifies" );
     check( MetaWriter::write_verified( 1, 'Title', 'Description' ), "$provider unchanged metadata is successful" );
+    check( MetaWriter::write_verified( 1, '', 'Updated meta', true ), "$provider autopilot preserves existing title" );
+    check( 'Title' === MetaWriter::read( 1 )['title'], "$provider title remains unchanged" );
     $GLOBALS['fail_write'] = true;
     check( ! MetaWriter::write_verified( 1, 'Changed', 'Changed description' ), "$provider failed persistence rejected" );
     $GLOBALS['fail_write'] = false;

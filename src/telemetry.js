@@ -1,3 +1,4 @@
+import { restUrl } from './restUrl';
 /**
  * OpptiAI Titles — client telemetry helper.
  *
@@ -45,10 +46,16 @@ function randomId( prefix ) {
 	return `${ prefix }_${ Date.now().toString( 36 ) }_${ Math.random().toString( 36 ).slice( 2, 10 ) }`;
 }
 
+// The only session id telemetry ever sends: this browser's anonymous s_… id.
+// Never a Stripe Checkout session (cs_…) from a return URL or checkout state.
+const ANON_SESSION_RE = /^s_[A-Za-z0-9]+(_[A-Za-z0-9]+)?$/;
+// Stripe object ids (cs_live_…, cus_…, sub_…, pi_…) are dropped from any property.
+const STRIPE_ID_RE = /(^|[^A-Za-z0-9])(cs|cus|sub|pi|seti|pm|in|ch|bps)_[A-Za-z0-9_]+|_(live|test)_/;
+
 function sessionId() {
 	try {
 		let id = sessionStorage.getItem( SESSION_KEY );
-		if ( ! id ) {
+		if ( ! id || ! ANON_SESSION_RE.test( id ) ) {
 			id = randomId( 's' );
 			sessionStorage.setItem( SESSION_KEY, id );
 		}
@@ -94,8 +101,15 @@ function resolveLifecycle() {
 
 const lifecycle = resolveLifecycle();
 
-function enabled() {
-	return cfg.enabled !== false;
+// Opt-in only: anything other than an explicit `true` from PHP means no consent.
+export function enabled() {
+	return cfg.enabled === true;
+}
+
+/** Apply a just-saved consent choice without a reload. */
+export function setTelemetryEnabled( on ) {
+	cfg.enabled = on === true;
+	if ( ! cfg.enabled ) queue = [];
 }
 
 function baseProps() {
@@ -106,7 +120,6 @@ function baseProps() {
 		plugin_id: cfg.pluginId || 'titles',
 		product: cfg.product || 'title_meta',
 		plugin_version: cfg.pluginVersion || data.version || '',
-		site_install_id: cfg.siteInstallId || '',
 		environment: cfg.environment || 'production',
 		user_state: cfg.connected ? 'connected' : 'guest',
 		is_logged_in: !! cfg.connected,
@@ -116,8 +129,6 @@ function baseProps() {
 	if ( lifecycle.inactivityMs !== null ) {
 		props.inactivity_hours = Math.round( lifecycle.inactivityMs / ( 60 * 60 * 1000 ) );
 	}
-	if ( cfg.accountId ) props.account_id = cfg.accountId;
-	if ( cfg.userId ) props.user_id = cfg.userId;
 
 	return props;
 }
@@ -178,7 +189,7 @@ async function flush() {
 	}
 	const batch = queue.splice( 0, 40 );
 	try {
-		await fetch( `${ BASE }/telemetry`, {
+		await fetch( restUrl( BASE, '/telemetry' ), {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
@@ -209,9 +220,16 @@ function scheduleFlush() {
  */
 export function track( event, properties = {} ) {
 	if ( ! enabled() || ! event ) return;
+	const safe = {};
+	for ( const [ k, v ] of Object.entries( properties || {} ) ) {
+		if ( k === 'session_id' ) continue; // only baseProps() sets it
+		if ( typeof v === 'string' && STRIPE_ID_RE.test( v ) ) continue;
+		safe[ k ] = v;
+	}
+	const base = baseProps();
 	queue.push( {
 		event: String( event ),
-		properties: { ...baseProps(), ...properties },
+		properties: { ...base, ...safe, session_id: base.session_id },
 	} );
 	scheduleFlush();
 }

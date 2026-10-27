@@ -71,7 +71,7 @@ export const Onboarding = ({ open, onClose, onComplete, onScan, availablePostTyp
                         {[
                             { icon: 'shield', text: 'Free health score — scanning never uses credits' },
                             { icon: 'zap',    text: 'Priority Action Centre shows what to fix first' },
-                            { icon: 'flame',  text: 'Continuous optimisation keeps new pages covered' },
+                            { icon: 'flame',  text: 'Autopilot keeps new posts covered on paid plans' },
                         ].map( ( f, i ) => (
                             <Row key={i} gap={10} style={{ fontSize: 13, color: 'var(--text)' }}>
                                 <Icon name={f.icon} size={15} style={{ color: 'var(--primary)' }}/>

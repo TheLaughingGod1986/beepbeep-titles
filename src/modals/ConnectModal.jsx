@@ -182,8 +182,10 @@ export const ConnectModal = ({ open, onClose, onSuccess, initialMode = 'register
             const code = String( err?.code || '' ).toLowerCase();
             setError( authErrorMessage( err, mode, fallback ) );
             if ( mode === 'register' && ( err?.status === 409 || ['user_exists', 'site_has_license'].includes( code ) ) ) {
+                // Switch to sign-in but keep a visible reason; clearing it made the
+                // "already exists" message vanish before anyone could read it.
                 setMode( 'password' );
-                setError( null );
+                setError( 'An account with this email already exists. Enter your password to sign in.' );
             }
             setConnecting( false );
         }

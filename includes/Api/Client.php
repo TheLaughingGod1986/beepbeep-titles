@@ -28,6 +28,13 @@ class Client {
     private const OPT_SITE_ID       = 'beepti_site_id';
     private const ENC_PREFIX        = 'enc:';
 
+    /** X-Request-Source values (stored as usage_logs.request_source). */
+    public const SOURCE_DEFAULT   = 'beepbeep_titles';
+    public const SOURCE_AUTOPILOT = 'beepbeep_titles_autopilot';
+
+    /** Request source for the request in flight; reset after each request. */
+    private string $request_source = self::SOURCE_DEFAULT;
+
     /**
      * License options written by sibling OpptiAI plugins on this site.
      * Plain keys in sibling user data can be adopted. Encrypted sibling values
@@ -51,9 +58,11 @@ class Client {
      * @param array      $page     { url, section, h1, current_title, current_meta, content_excerpt }
      * @param array      $options  { brand_name, tone, title_max_chars, meta_max_chars }
      * @param array|null $previous { title, meta } — only on Regenerate.
+     * @param string     $source   X-Request-Source value; SOURCE_AUTOPILOT for
+     *                             publish-time Autopilot, default otherwise.
      * @return array|\WP_Error Backend body on success.
      */
-    public function generate( array $page, array $options, ?array $previous = null ): array|\WP_Error {
+    public function generate( array $page, array $options, ?array $previous = null, string $source = self::SOURCE_DEFAULT ): array|\WP_Error {
         $body = [
             'page'    => $page,
             'options' => $options,
@@ -61,7 +70,7 @@ class Client {
         if ( $previous !== null ) {
             $body['previous'] = $previous;
         }
-        return $this->request( 'POST', '/api/titles/generate', $body, 90 );
+        return $this->request( 'POST', '/api/titles/generate', $body, 90, $source );
     }
 
     /**
@@ -163,14 +172,26 @@ class Client {
             'cancelUrl'   => $cancel_url,
             'target_plan' => $plan,
             'source_page' => 'beepbeep_titles_admin',
-        ], 45, false );
+            'admin_country'        => \BeepBeep_Titles\AdminCountry::country(),
+            'admin_country_source' => \BeepBeep_Titles\AdminCountry::resolve()['source'],
+        ], 45 );
+    }
+
+    /**
+     * Email the account's own open checkout link. The backend always sends to
+     * the email on file; no recipient is ever passed from here.
+     */
+    public function email_checkout_link( string $session_id ): array|\WP_Error {
+        return $this->request( 'POST', '/billing/checkout/email-link', [
+            'session_id' => $session_id,
+        ], 30 );
     }
 
     /** Create a Stripe billing-portal session for managing an existing plan. */
     public function billing_portal( string $return_url ): array|\WP_Error {
         return $this->request( 'POST', '/billing/portal', [
             'returnUrl' => $return_url,
-        ], 45, false );
+        ], 45 );
     }
 
     /** Send a support/contact request through the OpptiAI backend mailer. */
@@ -284,7 +305,7 @@ class Client {
     }
 
     /** Allowed values for the optional "How did you find us?" answer. */
-    public const SIGNUP_SOURCE_VALUES = [ 'wporg_search', 'google', 'ai_assistant', 'oppti_site', 'friend_colleague', 'social', 'other' ];
+    public const SIGNUP_SOURCE_VALUES = [ 'wporg', 'search', 'x', 'facebook_group', 'friend', 'other' ];
 
     /**
      * Sanitize the optional sign-up source fields. Blank or unknown values
@@ -317,6 +338,9 @@ class Client {
      */
     public function register( string $email, string $password, array $signup = [] ): array|\WP_Error {
         $signup = self::sanitize_signup_source( $signup['signup_source'] ?? '', $signup['signup_source_other'] ?? '' );
+        // Website Auditor deep-link attribution (account data, not telemetry:
+        // sent regardless of usage-stats consent, never to PostHog).
+        $signup += \BeepBeep_Titles\AuditorAttribution::signup_fields();
         $result = $this->do_request( 'POST', '/auth/register', $signup + [
             'email'             => $email,
             'password'          => $password,
@@ -440,7 +464,9 @@ class Client {
             'X-WP-Version'       => (string) $wp_version,
             'X-PHP-Version'      => PHP_VERSION,
             'X-Plugin-Channel'   => BEEPTI_PLUGIN_CHANNEL,
-            'X-Request-Source'   => 'beepbeep_titles',
+            'X-Request-Source'   => $this->request_source,
+            // Billing currency follows the WP admin, not the hosting server's IP.
+            'X-Admin-Country'    => \BeepBeep_Titles\AdminCountry::country(),
         ];
     }
 
@@ -450,7 +476,7 @@ class Client {
      * @return array|\WP_Error Decoded body on 2xx; WP_Error otherwise with
      *                         error_data { status, code, entitlement_state, body }.
      */
-    private function request( string $method, string $path, ?array $body, int $timeout ): array|\WP_Error {
+    private function request( string $method, string $path, ?array $body, int $timeout, string $source = self::SOURCE_DEFAULT ): array|\WP_Error {
         if ( ! $this->has_license() ) {
             return new \WP_Error(
                 'beepti_no_license',
@@ -458,7 +484,12 @@ class Client {
                 [ 'status' => 401, 'code' => 'INVALID_LICENSE' ]
             );
         }
-        return $this->do_request( $method, $path, $body, $timeout );
+        $this->request_source = $source;
+        try {
+            return $this->do_request( $method, $path, $body, $timeout );
+        } finally {
+            $this->request_source = self::SOURCE_DEFAULT;
+        }
     }
 
     /** Same plumbing as request() but without the license guard (auth routes). */

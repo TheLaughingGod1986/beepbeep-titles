@@ -185,6 +185,10 @@ class MetaWriter {
                 }
                 break;
         }
+
+        if ( $title !== '' || $meta !== '' ) {
+            \BeepBeep_Titles\ReviewPrompt::mark_first_success();
+        }
     }
 
     /**

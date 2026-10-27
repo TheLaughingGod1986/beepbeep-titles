@@ -23,6 +23,7 @@ class Telemetry {
 	public const ACTIVATION_MARKER       = 'beepti_telemetry_plugin_activated';
 	public const CURRENT_VERSION_OPTION  = 'beepti_telemetry_current_plugin_version';
 	public const PREVIOUS_VERSION_OPTION = 'beepti_telemetry_previous_plugin_version';
+	public const ANON_ID_OPTION          = 'beepti_telemetry_anon_id';
 
 	private const POSTHOG_API_KEY  = 'phc_6L7JzpjYRC8Gk4Br3YevTmjZnJsJPvoy9GK7RFdo72s';
 	private const POSTHOG_API_HOST = 'https://us.i.posthog.com';
@@ -76,6 +77,10 @@ class Telemetry {
 		'quota_exhausted_state_shown',
 		'upgrade_cta_clicked',
 		'checkout_started',
+		'checkout_clicked',
+		'checkout_session_returned',
+		'checkout_redirected',
+		'checkout_failed',
 		'checkout_completed',
 		'checkout_cancelled',
 		'billing_portal_opened',
@@ -98,7 +103,7 @@ class Telemetry {
 
 	/**
 	 * Whether external PostHog capture is allowed.
-	 * Default: granted when the option is unset (same as Alt Text).
+	 * Opt-in only: a missing or unsaved consent option means NO consent.
 	 */
 	public static function has_consent(): bool {
 		if ( defined( 'BEEPTI_TELEMETRY_CONSENT' ) ) {
@@ -106,11 +111,7 @@ class Telemetry {
 		}
 
 		$stored = get_option( self::CONSENT_OPTION, false );
-		if ( false === $stored ) {
-			$granted = true;
-		} else {
-			$granted = in_array( $stored, [ 'yes', '1', 1, true ], true );
-		}
+		$granted = in_array( $stored, [ 'yes', '1', 1, true ], true );
 
 		return (bool) apply_filters( 'beepti_telemetry_consent_granted', $granted );
 	}
@@ -205,6 +206,10 @@ class Telemetry {
 		if ( ! in_array( $event_name, [ 'plugin_activated', 'plugin_deactivated', 'plugin_updated' ], true ) ) {
 			return;
 		}
+		// Never store events for later delivery when the user has not opted in.
+		if ( ! self::has_consent() ) {
+			return;
+		}
 
 		$queue   = get_option( self::LIFECYCLE_QUEUE_OPTION, [] );
 		$queue   = is_array( $queue ) ? $queue : [];
@@ -220,6 +225,10 @@ class Telemetry {
 	/** Flush queued lifecycle events to PostHog. */
 	public static function flush_lifecycle_queue(): void {
 		if ( ! self::has_consent() ) {
+			// Drop anything queued before consent (e.g. by an older version).
+			if ( false !== get_option( self::LIFECYCLE_QUEUE_OPTION, false ) ) {
+				delete_option( self::LIFECYCLE_QUEUE_OPTION );
+			}
 			return;
 		}
 
@@ -293,53 +302,32 @@ class Telemetry {
 	/**
 	 * Config blob localised into the React app.
 	 *
-	 * When consent is granted, includes the project API key so the admin SPA can
-	 * init posthog-js (session replay + exception autocapture) for self-driving.
-	 * The key is write-only (same pattern as Alt Text); never localise when consent
-	 * is off.
-	 *
 	 * @return array<string,mixed>
 	 */
 	public static function client_config(): array {
-		$client  = new Client();
-		$consent = self::has_consent();
-		$config  = [
-			'enabled'                 => $consent,
-			'pluginSlug'              => self::PLUGIN_SLUG,
-			'pluginId'                => defined( 'BEEPTI_PLUGIN_ID' ) ? BEEPTI_PLUGIN_ID : 'titles',
-			'product'                 => self::PRODUCT,
-			'pluginVersion'           => BEEPTI_VERSION,
-			'siteInstallId'           => $client->install_hash(),
-			'connected'               => $client->has_license(),
-			'environment'             => defined( 'BEEPTI_PLUGIN_ENV' ) ? BEEPTI_PLUGIN_ENV : 'production',
-			'distinctId'              => self::distinct_id(),
-			'apiKey'                  => '',
-			'apiHost'                 => '',
-			'sessionRecordingEnabled' => false,
-			'captureExceptions'       => false,
+		$client = new Client();
+		return [
+			'enabled'        => self::has_consent(),
+			'pluginSlug'     => self::PLUGIN_SLUG,
+			'pluginId'       => defined( 'BEEPTI_PLUGIN_ID' ) ? BEEPTI_PLUGIN_ID : 'titles',
+			'product'        => self::PRODUCT,
+			'pluginVersion'  => BEEPTI_VERSION,
+			'connected'      => $client->has_license(),
+			'environment'    => defined( 'BEEPTI_PLUGIN_ENV' ) ? BEEPTI_PLUGIN_ENV : 'production',
 		];
-
-		if ( $consent ) {
-			$config['apiKey']                  = self::get_api_key();
-			$config['apiHost']                 = self::get_api_host();
-			$config['sessionRecordingEnabled'] = (bool) apply_filters( 'beepti_posthog_session_recording_enabled', true );
-			$config['captureExceptions']       = (bool) apply_filters( 'beepti_posthog_capture_exceptions_enabled', true );
-		}
-
-		return $config;
 	}
 
 	/**
-	 * Stable PostHog distinct id — prefer account email hash when connected,
-	 * otherwise the install hash.
+	 * Anonymous PostHog distinct id: a random per-install UUID used only for
+	 * telemetry. Not the email, not host-derived, not the backend install id.
 	 */
 	public static function distinct_id(): string {
-		$client = new Client();
-		$email  = $client->get_account_email();
-		if ( is_string( $email ) && $email !== '' ) {
-			return 'acct_' . substr( hash( 'sha256', strtolower( trim( $email ) ) ), 0, 32 );
+		$id = get_option( self::ANON_ID_OPTION, '' );
+		if ( ! is_string( $id ) || ! preg_match( '/^[0-9a-f-]{36}$/', $id ) ) {
+			$id = wp_generate_uuid4();
+			update_option( self::ANON_ID_OPTION, $id, false );
 		}
-		return 'site_' . $client->install_hash();
+		return 'anon_' . $id;
 	}
 
 	/**
@@ -358,9 +346,6 @@ class Telemetry {
 			'wp_version'        => (string) $wp_version,
 			'wordpress_version' => (string) $wp_version,
 			'php_version'       => PHP_VERSION,
-			'site_install_id'   => $client->install_hash(),
-			'site_id'           => $client->install_hash(),
-			'site_hash'         => hash( 'sha256', $client->install_hash() ),
 			'is_logged_in'      => $client->has_license(),
 			'user_state'        => $client->has_license() ? 'connected' : 'guest',
 			'environment'       => defined( 'BEEPTI_PLUGIN_ENV' ) ? BEEPTI_PLUGIN_ENV : 'production',
@@ -369,16 +354,14 @@ class Telemetry {
 			'$lib_version'      => BEEPTI_VERSION,
 		];
 
-		$host = wp_parse_url( home_url(), PHP_URL_HOST );
-		if ( is_string( $host ) && $host !== '' ) {
-			$base['site_host'] = $host;
-			$base['host']      = $host;
+		// Caller props can never reintroduce identifying keys.
+		foreach ( [ 'site_host', 'host', 'hostname', 'site_hash', 'site_id', 'site_install_id', 'site_url', 'email_hash', 'account_id', 'user_id', 'post_id', 'post_ids', 'url', 'page_url', '$current_url', '$pathname', '$host', 'referrer', '$referrer', '$referring_domain', 'current_url', 'pathname', 'referring_domain', 'search', 'search_term', 'query', 'error_message', 'error' ] as $k ) {
+			unset( $props[ $k ] );
 		}
-
 		$merged = array_merge( $base, $props );
 		if ( empty( $merged['$insert_id'] ) ) {
 			$merged['$insert_id'] = substr(
-				sanitize_key( $event_name ) . ':' . $client->install_hash() . ':' . wp_generate_uuid4(),
+				sanitize_key( $event_name ) . ':' . wp_generate_uuid4(),
 				0,
 				180
 			);

@@ -1,10 +1,15 @@
 import { useState } from 'react';
+import { __ } from '@wordpress/i18n';
+import { enabled as telemetryEnabled, setTelemetryEnabled } from '../telemetry';
 import { Icon, Card, Pill, Button, Progress, Toggle, Divider } from '../components';
 import { Input, PageShell, Textarea, Row } from '../ui';
 import { Modal } from '../modals/Modal';
 import { saveSettings, setLicense, clearLicense, submitSupport } from '../api';
 import { creditUsageRows } from '../usage';
-import { QUOTA_DEFAULTS, usageCreditsLabel, USAGE_CREDITS_FOOTNOTE } from '../quota';
+import { QUOTA_DEFAULTS, usageCreditsLabel, USAGE_CREDITS_FOOTNOTE, isPaidPlan, planDisplayName } from '../quota';
+
+// Copy: swap here when Marketing sends new wording.
+const USAGE_STATS_LABEL = () => __( 'Share anonymous usage stats to help improve OpptiAI Titles', 'beepbeep-titles' );
 
 const formatResetDate = value => {
     if ( ! value ) return 'Not available';
@@ -30,12 +35,16 @@ export const SettingsScreen = ({
     onSignOut,
     onReset,
 }) => {
-    const isPro = plan === 'pro';
+    // Any paid plan (Starter, Growth/pro, Agency) gets Manage billing and its own
+    // plan name; only Free/unknown sees the Free service card and the upgrade CTA.
+    const isPro = isPaidPlan( plan );
+    const planName = planDisplayName( plan );
     const [advancedOpen, setAdvancedOpen] = useState( false );
     const [notifFresh, setNotifFresh]     = useState( settings?.notify_new_pages ?? true );
     const [notifDigest, setNotifDigest]   = useState( settings?.weekly_digest ?? false );
     const [notifLimit, setNotifLimit]     = useState( settings?.notify_quota_warning ?? true );
     const [uninstallData, setUninstallData] = useState( settings?.delete_on_uninstall ?? false );
+    const [usageStats, setUsageStats] = useState( () => settings?.usage_stats_opt_in === true || telemetryEnabled() );
     const [licenseInput, setLicenseInput] = useState( '' );
     const [connecting, setConnecting]     = useState( false );
     const [saving, setSaving]             = useState( false );
@@ -93,6 +102,20 @@ export const SettingsScreen = ({
     const pct = monthlyLimit > 0 ? ( monthlyUsed / monthlyLimit ) * 100 : 0;
     const resetDate = formatResetDate( quota?.reset_date );
 
+    const handleUsageStats = async ( on ) => {
+        const prev = usageStats;
+        setUsageStats( on );
+        try {
+            const saved = await saveSettings( { usage_stats_opt_in: on } );
+            const stored = saved?.usage_stats_opt_in === true;
+            setUsageStats( stored );
+            setTelemetryEnabled( stored );
+        } catch ( e ) {
+            setUsageStats( prev );
+            if ( onToast ) onToast( { message: __( 'Failed to save preferences', 'beepbeep-titles' ), icon: 'alert', tone: 'warn' } );
+        }
+    };
+
     const handleSaveNotifs = async () => {
         setSaving( true );
         try {
@@ -113,7 +136,7 @@ export const SettingsScreen = ({
                 <p style={{ fontSize: 13, color: 'var(--text-2)', margin: '4px 0 0', lineHeight: 1.5 }}>Manage your account, notifications, and advanced options.</p>
             </div>
 
-            <PlanCard isPro={isPro} monthlyUsed={monthlyUsed} monthlyLimit={monthlyLimit} pct={pct} resetDate={resetDate} onUpgrade={onUpgrade} onBuyCredits={onBuyCredits} onManageBilling={onManageBilling}/>
+            <PlanCard isPro={isPro} planName={planName} monthlyUsed={monthlyUsed} monthlyLimit={monthlyLimit} pct={pct} resetDate={resetDate} onUpgrade={onUpgrade} onBuyCredits={onBuyCredits} onManageBilling={onManageBilling}/>
 
             <CreditUsageCard quota={quota} used={monthlyUsed} limit={monthlyLimit} resetDate={resetDate}/>
 
@@ -228,6 +251,15 @@ export const SettingsScreen = ({
 
             <ContactSupport user={user} onToast={onToast}/>
 
+            <SettingsSection title={__( 'Privacy', 'beepbeep-titles' )} eyebrow={__( 'Usage stats', 'beepbeep-titles' )}>
+                <SettingsRow
+                    label={USAGE_STATS_LABEL()}
+                    desc={__( 'Off by default. Sends anonymous feature usage only, never content or personal data.', 'beepbeep-titles' )}
+                    right={<Toggle on={usageStats} onChange={handleUsageStats}/>}
+                    last
+                />
+            </SettingsSection>
+
             <SettingsSection title="Danger zone" eyebrow="Destructive">
                 <SettingsRow
                     label="Reset generated title & meta"
@@ -267,7 +299,7 @@ const ResetConfirm = ({ open, resetting, onCancel, onConfirm }) => (
     </Modal>
 );
 
-const PlanCard = ({ isPro, monthlyUsed, monthlyLimit, pct, resetDate, onUpgrade, onBuyCredits, onManageBilling }) => (
+const PlanCard = ({ isPro, planName = 'Growth', monthlyUsed, monthlyLimit, pct, resetDate, onUpgrade, onBuyCredits, onManageBilling }) => (
     <Card padding={0} style={{ marginBottom: 18, overflow: 'hidden', ...( isPro ? { background: 'var(--primary-soft)', borderColor: 'var(--primary-border)' } : {} ) }}>
         <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'flex-start', gap: 14 }}>
             <div style={{ width: 36, height: 36, borderRadius: 9, background: isPro ? 'var(--primary)' : 'var(--bg-sunken)', color: isPro ? '#fff' : 'var(--text-2)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: isPro ? 'none' : '1px solid var(--border)' }}>
@@ -275,8 +307,8 @@ const PlanCard = ({ isPro, monthlyUsed, monthlyLimit, pct, resetDate, onUpgrade,
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-                    <span style={{ fontSize: 14, fontWeight: 600 }}>{isPro ? 'OpptiAI Growth service' : 'OpptiAI Free service'}</span>
-                    <Pill tone={isPro ? 'primary' : 'neutral'}>{isPro ? 'Growth' : 'Free'}</Pill>
+                    <span style={{ fontSize: 14, fontWeight: 600 }}>{isPro ? `OpptiAI ${ planName } service` : 'OpptiAI Free service'}</span>
+                    <Pill tone={isPro ? 'primary' : 'neutral'}>{isPro ? planName : 'Free'}</Pill>
                 </div>
                 <div style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.45 }}>
                     {monthlyLimit} AI service credits per cycle · shared across your OpptiAI plugins · usable manually, in bulk, or with Autopilot.

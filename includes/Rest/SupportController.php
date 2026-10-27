@@ -22,8 +22,8 @@ defined( 'ABSPATH' ) || exit;
 
 class SupportController {
 
-    /** Where contact-form messages are delivered. */
-    private const SUPPORT_INBOX = 'benoats86@gmail.com';
+    /** Default inbox for contact-form messages (see BEEPTI_SUPPORT_EMAIL). */
+    public const DEFAULT_SUPPORT_INBOX = 'support@oppti.dev';
 
     public function __construct( private readonly Client $client ) {}
 
@@ -89,6 +89,17 @@ class SupportController {
      *
      * @return array<string,mixed>
      */
+    /**
+     * Where contact-form messages are delivered: BEEPTI_SUPPORT_EMAIL, then the
+     * 'beepti_contact_support_recipient' filter. Falls back to the default
+     * inbox if the result is not a valid address.
+     */
+    public static function support_inbox(): string {
+        $inbox = defined( 'BEEPTI_SUPPORT_EMAIL' ) ? (string) BEEPTI_SUPPORT_EMAIL : self::DEFAULT_SUPPORT_INBOX;
+        $inbox = sanitize_email( (string) apply_filters( 'beepti_contact_support_recipient', $inbox ) );
+        return is_email( $inbox ) ? $inbox : self::DEFAULT_SUPPORT_INBOX;
+    }
+
     private function diagnostics( string $reply_email ): array {
         global $wp_version;
 
@@ -163,7 +174,7 @@ class SupportController {
         // default From handle the envelope sender (avoids SPF/DMARC spoofing).
         $headers = [ sprintf( 'Reply-To: %s <%s>', $name, $email ) ];
 
-        return (bool) wp_mail( self::SUPPORT_INBOX, $subject, $body, $headers );
+        return (bool) wp_mail( self::support_inbox(), $subject, $body, $headers );
     }
 
     private function send_backend_contact( string $name, string $email, string $message, array $diagnostics ): array|\WP_Error {
@@ -181,7 +192,7 @@ class SupportController {
             'message'           => $body_message,
             'wp_version'        => (string) $wp_version,
             'plugin_version'    => BEEPTI_VERSION,
-            'support_recipient' => self::SUPPORT_INBOX,
+            'support_recipient' => self::support_inbox(),
             'include_logs'      => '1',
             'diagnostic_bundle' => $this->diagnostic_bundle( $diagnostics ),
         ] );

@@ -1,48 +1,30 @@
-=== OpptiAI Titles ===
+=== OpptiAI Titles – AI SEO Titles and Meta Descriptions ===
 Contributors: beepbeepv2
 Tags: seo, ai seo, meta description, title tag, site audit
 Requires at least: 6.3
-Tested up to: 7.0
+Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.0.26
+Stable tag: 1.0.30
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-AI SEO Health Check for WordPress. Scan missing titles and meta descriptions, get a health score, and fix metadata with AI.
+Free SEO health check, no account: missing, duplicate and wrong-length titles and meta. Works next to Yoast, Rank Math and AIOSEO.
 
 == Description ==
 
-**Improve your WordPress SEO with an AI-powered SEO Health Check.**
+https://www.youtube.com/watch?v=zUo5rRgYCZ4
 
-**OpptiAI Titles** analyses your website, identifies SEO issues affecting visibility, prioritises the most important problems, and helps you fix them using AI.
+**Free SEO health check, no account needed: find missing, duplicate and wrong-length titles and meta descriptions. Works next to Yoast, Rank Math and AIOSEO.**
 
-Rather than simply generating titles and meta descriptions, the plugin gives you a clear picture of your site's SEO health and guides you towards the improvements that will have the greatest impact.
+OpptiAI Titles scans your published pages inside WordPress and gives you a metadata health score, a list of the pages that need attention, and the order to fix them in. The scan is local and does not need an account. When you want help writing, connect a free OpptiAI account and generate SEO titles and meta descriptions. They're saved through the SEO plugin you already use, and you can edit or undo them.
 
-Whether you manage a small business website or hundreds of pages, OpptiAI Titles helps you discover opportunities and optimise your content in minutes.
+**Two more free audits from OpptiAI:** [OpptiAI Alt Text](https://wordpress.org/plugins/beepbeep-ai-alt-text-generator/) shows how many of your images have no alt text, and [OpptiAI Internal Linking](https://wordpress.org/plugins/opptiai-internal-linking/) finds orphan pages that no other page links to. Both scan your site before you sign up.
 
 = Features =
 
-**SEO Health Dashboard**
+**Free SEO health check (no account)**
 
-Get an instant overview of your website's SEO health, including:
-
-* Overall SEO Health Score
-* Number of issues detected
-* Priority recommendations
-* Progress tracking as issues are resolved
-
-**AI Metadata Optimisation**
-
-Generate high-quality, search-friendly:
-
-* SEO Titles
-* Meta Descriptions
-
-Each suggestion is written using AI and designed to improve relevance, readability, and click-through potential.
-
-**Site-wide SEO Audit**
-
-Automatically identify pages with:
+Find pages with:
 
 * Missing SEO titles
 * Missing meta descriptions
@@ -51,93 +33,61 @@ Automatically identify pages with:
 * Titles that are too short or too long
 * Meta descriptions outside recommended lengths
 
-**Bulk Optimisation**
+You also get an overall health score, priority recommendations and progress tracking as issues are resolved.
 
-Optimise many pages in just a few clicks.
+**AI titles and meta descriptions you can edit**
 
-Instead of editing each page individually, generate AI suggestions in bulk and review them before applying changes. Free includes a monthly generation allowance (25 credits); Starter and Growth unlock higher limits and Autopilot workflows.
+Generate search-friendly SEO titles and meta descriptions from the Dashboard or Advanced Library. Each result is saved straight away, and you can edit or undo it.
 
-**Smart Recommendations**
+**Works with your SEO plugin**
 
-Receive actionable recommendations including:
+OpptiAI Titles does not replace your SEO suite. It detects which SEO plugin is active and writes metadata through it.
 
-* Improve title length
-* Increase keyword relevance
-* Remove duplicate metadata
-* Improve click-through potential
-* Complete missing metadata
+**Manual editing, free**
 
-**Fast & Lightweight**
+Edit titles and meta descriptions yourself from one list, without opening each page.
 
-Designed specifically for WordPress.
+**Bulk optimisation**
+
+Select many pages, and generate titles and meta descriptions in one run. You can edit any of them afterwards. Bulk works within your free allowance once your account is connected, and paid plans raise the allowance.
+
+**Autopilot (paid)**
+
+Autopilot writes titles and meta descriptions for new posts when they're published, in the tone you choose. Included in Starter, Growth and Agency.
+
+**Lightweight**
 
 * Minimal performance impact
 * Simple setup
-* Modern interface
-* Works alongside existing SEO plugins (Yoast SEO, Rank Math, All in One SEO)
-
-= Why use OpptiAI Titles? =
-
-Most SEO tools simply tell you that something is wrong.
-
-OpptiAI Titles shows you:
-
-* what needs fixing
-* why it matters
-* how important it is
-* and helps fix it with AI
-
-Instead of manually reviewing hundreds of pages, your SEO improvements become a guided workflow.
-
-= Perfect for =
-
-* Website owners
-* Bloggers
-* Agencies
-* Freelancers
-* WooCommerce stores
-* Publishers
-* Marketing teams
+* Local system fonts, no remote font loading
 
 = How it works =
 
 1. Install and activate OpptiAI Titles.
-2. Run a local scan to find missing titles, missing meta descriptions, and pages needing review — no account required to audit.
-3. Connect your OpptiAI account when you want AI generation (no credit card required to start on Free).
-4. Generate metadata from the Dashboard or Advanced Library.
-5. Optionally upgrade to enable **Autopilot** (Starter or Growth) or **Continuous Optimisation** (Growth) for newly published content.
+2. Run the free health check to find missing titles, missing meta descriptions and pages needing review. No account required.
+3. Fix pages by hand, or connect a free OpptiAI account when you want AI suggestions.
+4. Generate titles and meta one page at a time or in bulk from the Dashboard or Advanced Library, then edit any you want to change.
+5. Optionally upgrade for a higher allowance and **Autopilot** (Starter, Growth or Agency).
 
 = SEO plugin compatibility =
 
-OpptiAI Titles detects which SEO plugin is active and writes metadata through it:
+* **Yoast SEO:** `_yoast_wpseo_title`, `_yoast_wpseo_metadesc`
+* **Rank Math:** `rank_math_title`, `rank_math_description`
+* **All in One SEO (AIOSEO):** native AIOSEO tables
+* **No SEO plugin:** stores fallback title and meta in post meta
 
-* **Yoast SEO** — `_yoast_wpseo_title`, `_yoast_wpseo_metadesc`
-* **Rank Math** — `rank_math_title`, `rank_math_description`
-* **All in One SEO (AIOSEO)** — native AIOSEO tables
-* **No SEO plugin** — stores fallback title and meta in post meta
+= Free to try, then paid plans =
 
-= What is free vs paid =
+* **Free, no account:** the SEO health check, full reports, manual metadata editing and settings.
+* **Free account:** a monthly allowance of AI generations, used one page at a time or in bulk, performed by the external OpptiAI service.
+* **Starter:** a higher allowance and **Autopilot** for newly published posts.
+* **Growth or Agency:** higher allowances and **Autopilot** for newly published posts.
 
-* **Included locally (no paid plan required):** scanning, reporting, manual metadata editing, settings, and reviewing opportunities.
-* **AI generation:** performed by the external OpptiAI service; requires a connected account and available service credits. **Free includes 25 monthly credits.**
-* **Autopilot** (auto-generate on publish + writing preferences): requires a **Starter or Growth** subscription.
-* **Continuous Optimisation** for newly published pages: requires **Growth**.
+See [plans](https://oppti.dev/docs/titles/plans).
 
-= Future SEO Health Checks =
+= Part of OpptiAI =
 
-OpptiAI Titles is evolving into a broader WordPress SEO Health platform.
-
-Upcoming health checks may include:
-
-* Image Alt Text
-* Heading structure
-* Internal linking (listed in-product as coming soon — not a live feature of this plugin today)
-* Broken links
-* Image optimisation
-* Accessibility improvements
-* Schema recommendations
-* Content quality analysis
-* SEO performance trends
+OpptiAI Titles shares one OpptiAI account and credit wallet with [OpptiAI Alt Text](https://wordpress.org/plugins/beepbeep-ai-alt-text-generator/) and [OpptiAI Internal Linking](https://wordpress.org/plugins/opptiai-internal-linking/). Each plugin runs its own free audit first.
 
 = Privacy =
 
@@ -147,20 +97,7 @@ Only the content required to generate suggestions is processed. Page titles and 
 
 No personal visitor information is collected. See the External Services section for details.
 
-= Upgrade to Starter or Growth =
-
-Unlock more of OpptiAI Titles:
-
-* Higher monthly AI generation allowances (Free includes 25 credits)
-* Bulk optimisation workflows at scale
-* **Autopilot** on Starter or Growth
-* **Continuous Optimisation** on Growth
-* Priority AI models where available on paid plans
-* Access to future OpptiAI optimisation modules as they ship
-* Agency-oriented features on higher plans
-
 == External Services ==
-
 This plugin connects to the OpptiAI API to generate SEO titles and meta descriptions. AI generation is performed by the external service and is not performed locally by this plugin.
 
 Service: OpptiAI API
@@ -172,12 +109,19 @@ Data sent: Site URL; WordPress, PHP, and plugin versions; a pseudonymous install
 Privacy Policy: https://oppti.dev/privacy
 Terms of Use: https://oppti.dev/terms
 
-== Installation ==
+Service: PostHog (anonymous usage stats, opt-in only)
+Service URL: https://us.i.posthog.com
+Purpose: Help us understand which features are used so we can improve OpptiAI Titles.
+When data is sent: Only after an administrator turns on "Share anonymous usage stats to help improve OpptiAI Titles" in Settings. It is off by default, and nothing is sent or queued before you opt in. Turning it off stops sending immediately.
+Data sent: Anonymous feature usage events (for example, which screen was opened or that a generation finished), the plugin, WordPress and PHP versions, and a pseudonymous installation identifier. Never page content, titles, meta descriptions, URLs, post IDs, search terms or personal data.
+Privacy Policy: https://posthog.com/privacy
+Terms of Use: https://posthog.com/terms
 
+== Installation ==
 1. Upload the `opptiai-titles` folder to `/wp-content/plugins/` or install from **Plugins → Add New** (WordPress.org slug: `opptiai-titles`).
 2. Activate **OpptiAI Titles** through the **Plugins** menu in WordPress.
 3. Open **OpptiAI Titles** in the admin sidebar.
-4. Run your first SEO Health Check / site scan to review missing SEO titles and meta descriptions.
+4. Run your first free SEO health check to review missing SEO titles and meta descriptions.
 5. Connect your OpptiAI account when you want to request AI generation.
 6. Review recommendations and generate AI improvements.
 7. Apply changes individually or in bulk.
@@ -190,33 +134,37 @@ To point the plugin at a staging or self-hosted backend, add this to `wp-config.
 
 == Frequently Asked Questions ==
 
+= Do I need an account to run the SEO health check? =
+
+No. The health check, reports and manual editing run in WordPress without an account. An OpptiAI account is only needed when you ask for AI suggestions.
+
 = Does this replace my SEO plugin? =
 
-No. OpptiAI Titles complements popular SEO plugins by helping you identify and improve SEO title and meta description issues more efficiently. It works alongside Yoast SEO, Rank Math, or AIOSEO rather than replacing them.
+No. OpptiAI Titles works alongside Yoast SEO, Rank Math or AIOSEO and writes through them. It helps you find and fix SEO title and meta description issues faster.
 
-= Can I review AI suggestions before applying them? =
+= Can I undo AI changes? =
 
-Yes. Every AI-generated title and description can be reviewed before updating your website.
+Yes. Every generated title and description can be edited, and a generated change can be undone.
 
 = Can I optimise existing content? =
 
-Yes. The plugin analyses existing metadata and suggests improvements rather than simply replacing everything.
+Yes. The plugin analyses existing metadata and suggests improvements rather than replacing everything.
 
 = Is bulk optimisation supported? =
 
-Yes. Generate improvements across multiple pages and approve them individually or in batches. AI generation uses your available OpptiAI credits (Free includes 25 monthly credits).
+Yes. Generate improvements across many pages in one run, then edit any you want to change. Bulk works on the free plan within your monthly allowance; if a selection needs more than you have left, you can run part of it now or upgrade for a higher allowance.
 
 = Is this an AI title generator for WordPress? =
 
-Yes. You can request AI-generated SEO titles and meta descriptions from the Dashboard or Advanced Library. Generation uses the OpptiAI service and available credits.
+Yes. You can request AI-generated SEO titles and meta descriptions from the Dashboard or Advanced Library. Generation uses the OpptiAI service and your available credits.
 
 = Can it generate meta descriptions automatically? =
 
-Yes, with Autopilot on a **Starter or Growth** plan. Autopilot can request titles and descriptions from the external service when new content is published. Free users can still scan, edit manually, and use their monthly AI generation allowance on demand.
+Yes, with Autopilot on a **Starter, Growth or Agency** plan. Autopilot requests titles and descriptions from the external service when new content is published. Free users can still scan, edit manually and generate on demand, one page at a time or in bulk.
 
 = Do I need a paid plan to use the plugin? =
 
-No paid plan is required for scanning, full reports, manual metadata editing, or settings. External AI generation requires a connected OpptiAI account and available service credits. Autopilot requires Starter or Growth; Continuous Optimisation requires Growth.
+No. Scanning, full reports, manual metadata editing and settings are free with no account. AI generation, including bulk, is free to try with a free OpptiAI account. Autopilot needs Starter, Growth or Agency.
 
 = Will this guarantee better Google rankings? =
 
@@ -224,27 +172,45 @@ No plugin can guarantee rankings. Better titles and descriptions can help improv
 
 = What data is removed on uninstall? =
 
-Plugin options and transients are removed. Data written through Yoast, Rank Math, or AIOSEO is never deleted. Optional "Delete data on uninstall" removes the plugin's own fallback post meta.
+Plugin options and transients are removed. Data written through Yoast, Rank Math or AIOSEO is never deleted. The optional "Delete data on uninstall" setting removes the plugin's own fallback post meta.
 
 = What PHP and WordPress versions are supported? =
 
-Requires **WordPress 6.3+**, **PHP 8.1+**, and was tested up to **WordPress 7.0**.
+Requires **WordPress 6.3+** and **PHP 8.1+**, tested up to **WordPress 7.1**.
+
+= Are there other OpptiAI plugins? =
+
+Yes, two more free audits. [OpptiAI Alt Text](https://wordpress.org/plugins/beepbeep-ai-alt-text-generator/) shows how many of your images have no alt text, free to try, before you sign up. [OpptiAI Internal Linking](https://wordpress.org/plugins/opptiai-internal-linking/) finds every orphan page in one scan, in WordPress, with no account and no credits.
 
 == Screenshots ==
 
-1. OpptiAI Titles signed-out audit — scan your WordPress site for missing SEO titles and meta descriptions before connecting an account.
-2. OpptiAI Titles Home — metadata health score, today's priorities, coverage stats, and continuous optimisation controls.
-3. OpptiAI Titles Advanced Library — filter pages needing attention and generate SEO titles or meta descriptions in bulk.
-4. OpptiAI Titles Autopilot — configure tone, title length, and auto-generate on publish (Starter or Growth).
-5. OpptiAI Titles Settings — account connection, shared OpptiAI credit wallet, notifications, and support.
+1. Free SEO health check result before you connect an account: health score, missing and duplicate titles and meta descriptions, and the pages to fix first.
+2. OpptiAI Titles Home: metadata health score, today's priorities, coverage stats and optimisation controls.
+3. OpptiAI Titles Advanced Library: filter pages needing attention and generate SEO titles or meta descriptions in bulk.
+4. OpptiAI Titles Autopilot: choose a tone and auto-generate on publish (Starter, Growth or Agency).
+5. OpptiAI Titles Settings: account connection, shared OpptiAI credit wallet, notifications and support.
 
 == Development Notes ==
-
 Non-minified React source files and the npm build configuration are included in this plugin package. Production assets are compiled into `build/` with `@wordpress/scripts` using `npm run build`.
 
 WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, REST namespace, and internal admin slug remain `beepbeep-titles` for backwards compatibility with existing installs, options, and translations.
 
 == Changelog ==
+= 1.0.30 - 2026-10-22 =
+* New: Autopilot for new posts is now included in Starter, as well as Growth and Agency.
+* Fixed: Autopilot no longer replaces an SEO title you already have when only the meta description is missing.
+* Fixed: Starter and Agency accounts see their own plan and Manage billing in Settings.
+* Fixed: sign-up errors stay on screen so you can read them.
+* Security hardening.
+
+= 1.0.29 - 2026-10-12 =
+* Privacy: usage stats are only sent after you opt in.
+
+= 1.0.28 - 2026-10-12 =
+* **Improved**: Sign-up question options.
+
+= 1.0.27 - 2026-10-12 =
+* **Added**: An optional "How did you find us?" question on the sign-up form. You can skip it.
 
 = 1.0.26 - 2026-09-02 =
 * US visitors (Cloudflare CF-IPCountry) see USD Titles paywall amounts and check out with USD Stripe price IDs; non-US / unknown country unchanged (GBP).
@@ -256,7 +222,7 @@ WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, R
 * Signed-out first open shows the free health-check onboarding wizard when `onboarding_complete` is false (no longer gated on a connected account). Quotas, billing id `pro`, and Guest Library behaviour are unchanged.
 
 = 1.0.23 - 2026-08-18 =
-* Add a quiet Home Alt Text cross-sell for signed-in Free, Starter, and Growth: locked copy with CTA “Open Alt Text” when installed or “Get OpptiAI Alt Text” when not; links to the sibling admin page or WordPress.org. Hidden from guests and Agency. Plan grid and Free allowance (25) are unchanged.
+* Add a quiet Home Alt Text cross-sell for signed-in Free, Starter, and Growth: locked copy with CTA “Open Alt Text” when installed or “Get OpptiAI Alt Text” when not; links to the sibling admin page or WordPress.org. Hidden from guests and Agency. Plan grid and Free allowance are unchanged.
 * Credit usage card: remaining 0 → “No credits left this month”; remaining 1 → “Only 1 credit left this month”; remaining 2–5 → “Only X credits left this month”; above 5 → used/limit. Quiet footnote: “Credits count generations, including retries and alt text. Pages count what you applied.”
 * Settings plan CTA: “View Growth plan” (billing id `pro` unchanged). Credit Wallet keeps usage_by_feature split; AltText row shows Open when installed; Internal Linking and Schema stay Not installed with no Get / Install / WP.org.
 
@@ -290,7 +256,7 @@ WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, R
 * Tighten the activity REST endpoint so returned activity entries are filtered by `current_user_can( 'edit_post', $post_id )`.
 
 = 1.0.14 - 2026-07-10 =
-* Rebrand: BeepBeep Titles is now **OpptiAI Titles**, part of the OpptiAI platform. Display naming only — plugin slug, settings, accounts, licenses, and data are unchanged and existing installs are unaffected.
+* Rebrand: BeepBeep Titles is now **OpptiAI Titles**, part of the OpptiAI platform. Display naming only: plugin slug, settings, accounts, licenses, and data are unchanged and existing installs are unaffected.
 * The shared credit balance is now presented as the OpptiAI Credit Wallet.
 
 = 1.0.13 - 2026-07-08 =
@@ -329,7 +295,7 @@ WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, R
 = 1.0.1 - 2026-06-24 =
 * Release package refresh for WordPress.org resubmission.
 
-= 1.0.0 — 2026-06-16 =
+= 1.0.0 - 2026-06-16 =
 * **Initial public release** of OpptiAI Titles for WordPress.
 * SEO Health Dashboard with coverage stats and progress tracking.
 * AI-powered SEO **title tag** and **meta description** generation.
@@ -345,9 +311,11 @@ WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, R
 * Plugin Check and WordPress.org packaging readiness.
 
 == Upgrade Notice ==
+= 1.0.30 =
+Starter now includes Autopilot for new posts, Autopilot keeps any SEO title you already have, and paid plans show correctly in Settings. Includes security hardening.
 
 = 1.0.24 =
-Signed-out first open now shows the free health-check wizard when onboarding is incomplete. Free allowance (25) and plan ids unchanged.
+Signed-out first open now shows the free health-check wizard when onboarding is incomplete. Free allowance and plan ids unchanged.
 
 = 1.0.23 =
 Adds a quiet Home cross-sell to OpptiAI Alt Text for Free, Starter, and Growth (CTAs “Open Alt Text” / “Get OpptiAI Alt Text”); clearer low-balance usage copy; and Settings Growth plan / wallet alignment. No plan ids, slug, or Free allowance changes.
@@ -371,7 +339,7 @@ Removes remote Google Fonts loading and tightens support diagnostics permissions
 Filters activity REST responses by per-post edit permissions.
 
 = 1.0.14 =
-BeepBeep Titles is now OpptiAI Titles — new name, same plugin. No action needed; settings, accounts, and licenses carry over unchanged.
+BeepBeep Titles is now OpptiAI Titles: new name, same plugin. No action needed; settings, accounts, and licenses carry over unchanged.
 
 = 1.0.13 =
 Removes all bundled analytics and session replay, completes uninstall cleanup, and prefixes the plugin's site identifier option.

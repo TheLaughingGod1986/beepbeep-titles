@@ -34,6 +34,9 @@ class Plugin {
             Telemetry::flush_lifecycle_queue();
         }, 5 );
 
+        // Remember a Website Auditor deep-link (source/finding) for sign-up attribution.
+        add_action( 'admin_init', [ AuditorAttribution::class, 'remember' ] );
+
         // Let sibling OptiAI plugins (and, later, a shared Hub) detect this
         // module the same way this plugin already detects Alt Text.
         Module_Registry::register( 'titles', BEEPTI_SLUG . '/' . basename( BEEPTI_FILE ), admin_url( 'admin.php?page=beepbeep-titles' ), BEEPTI_PLUGIN_TITLE );
@@ -230,7 +233,7 @@ class Plugin {
 
         // Only fill gaps — never overwrite copy that already exists.
         $current = MetaWriter::read( $post_id );
-        if ( $current['title'] !== '' && $current['meta'] !== '' ) {
+        if ( ! AutopilotFill::is_empty( $current['title'] ) && ! AutopilotFill::is_empty( $current['meta'] ) ) {
             return;
         }
 
@@ -239,10 +242,29 @@ class Plugin {
             return;
         }
 
+        // Out of credits: stay quiet until a quota read shows credits again.
+        if ( AutopilotGuard::is_paused() ) {
+            return;
+        }
+
         $result = $client->generate(
             $this->autopilot_page_envelope( $post, $current ),
-            $this->autopilot_options( $settings )
+            $this->autopilot_options( $settings ),
+            null,
+            Client::SOURCE_AUTOPILOT
         );
+
+        if ( is_wp_error( $result ) && AutopilotGuard::is_credit_error( $result ) ) {
+            // One notice and one event per pause, not one per publish.
+            if ( AutopilotGuard::pause_for_credits() ) {
+                $this->queue_admin_notice( AutopilotGuard::paused_notice(), 'warning' );
+                Telemetry::capture( 'autopilot_failed', [
+                    'error_code'         => 'quota_exceeded',
+                    'generation_surface' => 'autopilot',
+                ] );
+            }
+            return;
+        }
 
         if ( is_wp_error( $result ) ) {
             $this->queue_admin_notice(
@@ -261,7 +283,10 @@ class Plugin {
             return;
         }
 
-        if ( ! MetaWriter::write_verified( $post_id, (string) ( $result['title'] ?? '' ), (string) ( $result['meta'] ?? '' ) ) ) {
+        // Preserve fields already owned by the site when Autopilot fills gaps.
+        $writes = AutopilotFill::writes( $current, $result );
+        $after  = AutopilotFill::after( $current, $result );
+        if ( ! MetaWriter::write_verified( $post_id, $writes['title'], $writes['meta'], true ) ) {
             Telemetry::capture( 'autopilot_failed', [ 'error_code' => 'write_failed', 'generation_surface' => 'autopilot' ] );
             return;
         }
@@ -280,10 +305,7 @@ class Plugin {
         ( new History_Repository( 'titles' ) )->record(
             (string) $post_id,
             wp_json_encode( [ 'title' => $current['title'], 'meta' => $current['meta'] ] ),
-            wp_json_encode( [
-                'title' => (string) ( $result['title'] ?? '' ),
-                'meta'  => (string) ( $result['meta'] ?? '' ),
-            ] ),
+            wp_json_encode( $after ),
             null,
             null,
             1
@@ -347,6 +369,11 @@ class Plugin {
     private function queue_admin_notice( string $message, string $type = 'info' ): void {
         $notices   = get_transient( 'beepti_admin_notices' );
         $notices   = is_array( $notices ) ? $notices : [];
+        foreach ( $notices as $existing ) {
+            if ( ( $existing['message'] ?? '' ) === $message ) {
+                return; // Same notice already queued; never stack duplicates.
+            }
+        }
         $notices[] = [ 'message' => $message, 'type' => $type ];
         set_transient( 'beepti_admin_notices', $notices, 5 * MINUTE_IN_SECONDS );
     }

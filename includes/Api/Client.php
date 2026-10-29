@@ -332,12 +332,42 @@ class Client {
     }
 
     /**
+     * Normalise the sign-up "Don't send me product tips and plan emails"
+     * checkbox. Null = not sent (older UI), so nothing is forwarded.
+     *
+     * @param mixed $value Raw value.
+     */
+    public static function sanitize_product_emails_opt_out( $value ): ?bool {
+        if ( null === $value ) {
+            return null;
+        }
+        if ( is_bool( $value ) ) {
+            return $value;
+        }
+        if ( ! is_scalar( $value ) ) {
+            return null;
+        }
+        $value = strtolower( trim( (string) $value ) );
+        if ( in_array( $value, [ '1', 'true', 'on', 'yes' ], true ) ) {
+            return true;
+        }
+        if ( in_array( $value, [ '0', 'false', 'off', 'no', '' ], true ) ) {
+            return false;
+        }
+        return null;
+    }
+
+    /**
      * Create an OpptiAI account and store its returned license key.
      *
      * @return array|\WP_Error Backend user payload on success (license stored).
      */
     public function register( string $email, string $password, array $signup = [] ): array|\WP_Error {
-        $signup = self::sanitize_signup_source( $signup['signup_source'] ?? '', $signup['signup_source_other'] ?? '' );
+        $opt_out = self::sanitize_product_emails_opt_out( $signup['product_emails_opt_out'] ?? null );
+        $signup  = self::sanitize_signup_source( $signup['signup_source'] ?? '', $signup['signup_source_other'] ?? '' );
+        if ( null !== $opt_out ) {
+            $signup['product_emails_opt_out'] = $opt_out;
+        }
         // Website Auditor deep-link attribution (account data, not telemetry:
         // sent regardless of usage-stats consent, never to PostHog).
         $signup += \BeepBeep_Titles\AuditorAttribution::signup_fields();

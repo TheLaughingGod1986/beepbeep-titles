@@ -169,6 +169,17 @@ namespace BeepBeep_Titles\Tests {
 			return $GLOBALS['t_requests'][0]['body'];
 		}
 
+		public function test_register_forwards_product_email_opt_out_only_when_sent(): void {
+			( new Client() )->register( 'a@example.test', 'password123', [ 'product_emails_opt_out' => true ] );
+			$this->assertTrue( $GLOBALS['t_requests'][0]['body']['product_emails_opt_out'] );
+			( new Client() )->register( 'a@example.test', 'password123', [ 'product_emails_opt_out' => '0' ] );
+			$this->assertFalse( $GLOBALS['t_requests'][1]['body']['product_emails_opt_out'] );
+			( new Client() )->register( 'a@example.test', 'password123', [ 'product_emails_opt_out' => [ 'x' ] ] );
+			$this->assertArrayNotHasKey( 'product_emails_opt_out', $GLOBALS['t_requests'][2]['body'] );
+			( new Client() )->register( 'a@example.test', 'password123' );
+			$this->assertArrayNotHasKey( 'product_emails_opt_out', $GLOBALS['t_requests'][3]['body'] );
+		}
+
 		public function test_register_body_has_fields_with_consent_off_and_nothing_to_posthog(): void {
 			$this->assertFalse( Telemetry::has_consent() );
 			$body = $this->register_body();

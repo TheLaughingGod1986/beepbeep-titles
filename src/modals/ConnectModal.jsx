@@ -5,6 +5,7 @@ import { Row } from '../ui';
 import { loginWithPassword, registerAccount } from '../api';
 import { track } from '../telemetry';
 import { SignupSourceField, signupSourcePayload } from '../signupSource';
+import { ProductEmailOptOutField, productEmailOptOutPayload } from '../productEmailOptOut';
 
 const inputStyle = ( error, mono = false ) => ( {
     display: 'block', width: '100%', boxSizing: 'border-box',
@@ -107,6 +108,7 @@ export const ConnectModal = ({ open, onClose, onSuccess, initialMode = 'register
     const [done, setDone]         = useState( false );
     const [signupSource, setSignupSource] = useState( '' );
     const [signupOther, setSignupOther]   = useState( '' );
+    const [productEmailsOptOut, setProductEmailsOptOut] = useState( false );
 
     // Open on the requested tab (e.g. "Sign in" vs "Create account") each time
     // the modal is shown, so the entry point controls which form appears.
@@ -159,7 +161,9 @@ export const ConnectModal = ({ open, onClose, onSuccess, initialMode = 'register
             track( mode === 'register' ? 'signup_started' : 'login_started', {
                 feature_name: mode === 'register' ? 'signup' : 'login',
             } );
-            const signup = mode === 'register' ? signupSourcePayload( signupSource, signupOther ) : {};
+            const signup = mode === 'register'
+                ? { ...signupSourcePayload( signupSource, signupOther ), ...productEmailOptOutPayload( productEmailsOptOut ) }
+                : {};
             const res = mode === 'register'
                 ? await registerAccount( email.trim(), password, signup )
                 : await loginWithPassword( email.trim(), password );
@@ -351,6 +355,7 @@ export const ConnectModal = ({ open, onClose, onSuccess, initialMode = 'register
                                 {mode === 'register' && (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
                                         <SignupSourceField source={signupSource} other={signupOther} onSourceChange={setSignupSource} onOtherChange={setSignupOther} disabled={connecting}/>
+                                        <ProductEmailOptOutField checked={productEmailsOptOut} onChange={setProductEmailsOptOut} disabled={connecting}/>
                                     </div>
                                 )}
 

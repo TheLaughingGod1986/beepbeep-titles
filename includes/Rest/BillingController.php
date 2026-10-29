@@ -114,6 +114,10 @@ class BillingController {
             $req->get_param( 'signup_source' ),
             $req->get_param( 'signup_source_other' )
         );
+        $opt_out = Client::sanitize_product_emails_opt_out( $req->get_param( 'product_emails_opt_out' ) );
+        if ( null !== $opt_out ) {
+            $signup['product_emails_opt_out'] = $opt_out;
+        }
         $user = $this->client->register( $email, $password, $signup );
         if ( is_wp_error( $user ) ) {
             return ErrorResponder::from_wp_error( $user );

@@ -5,6 +5,7 @@ import { Modal } from './modals/Modal';
 import { loginWithPassword, registerAccount, setLicense } from './api';
 import { planDisplayName } from './quota';
 import { SignupSourceField, signupSourcePayload } from './signupSource';
+import { ProductEmailOptOutField, productEmailOptOutPayload } from './productEmailOptOut';
 import { track } from './telemetry';
 
 const isValidEmail = ( value ) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test( value );
@@ -168,6 +169,7 @@ export const SignedOutScreen = ({ lastEmail, onConnected, onToast }) => {
     const [name, setName]         = useState( '' );
     const [signupSource, setSignupSource] = useState( '' );
     const [signupOther, setSignupOther]   = useState( '' );
+    const [productEmailsOptOut, setProductEmailsOptOut] = useState( false );
     const [license, setLicenseKey] = useState( '' );
     const [showPw, setShowPw]     = useState( false );
     const [mode, setMode]         = useState( 'password' ); // 'password' | 'license' | 'signup'
@@ -205,7 +207,7 @@ export const SignedOutScreen = ({ lastEmail, onConnected, onToast }) => {
             setError( validation );
             return;
         }
-        const signup = signupSourcePayload( signupSource, signupOther );
+        const signup = { ...signupSourcePayload( signupSource, signupOther ), ...productEmailOptOutPayload( productEmailsOptOut ) };
         setSubmitting( true );
         setError( null );
         try {
@@ -304,6 +306,7 @@ export const SignedOutScreen = ({ lastEmail, onConnected, onToast }) => {
                             <PasswordInput value={password} onChange={v => { setPassword( v ); setError( null ); }} show={showPw} onToggle={() => setShowPw( s => ! s )} placeholder="Create a password"/>
                         </Field>
                         <SignupSourceField source={signupSource} other={signupOther} onSourceChange={setSignupSource} onOtherChange={setSignupOther} disabled={submitting}/>
+                        <ProductEmailOptOutField checked={productEmailsOptOut} onChange={setProductEmailsOptOut} disabled={submitting}/>
                         {error && <AuthError>{error}</AuthError>}
                         <Button variant="primary" size="md" full type="submit" iconRight={submitting ? null : 'arrow-right'} disabled={! email.trim() || password.length < 8 || submitting} onClick={submitSignup}>
                             {submitting ? 'Creating account…' : 'Create account'}

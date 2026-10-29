@@ -189,6 +189,8 @@ class Routes {
                 // Optional "How did you find us?" answer; validated in Client::sanitize_signup_source() (unknown = dropped, never an error).
                 'signup_source'       => [ 'required' => false, 'type' => 'string', 'sanitize_callback' => 'sanitize_key' ],
                 'signup_source_other' => [ 'required' => false, 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ],
+                // Optional "Don't send me product tips and plan emails" checkbox (unticked by default).
+                'product_emails_opt_out' => [ 'required' => false, 'type' => 'boolean' ],
             ],
         ] );
 

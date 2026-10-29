@@ -196,6 +196,9 @@ Non-minified React source files and the npm build configuration are included in 
 WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, REST namespace, and internal admin slug remain `beepbeep-titles` for backwards compatibility with existing installs, options, and translations.
 
 == Changelog ==
+= Unreleased =
+* New: you can choose not to get product tips and plan emails when you create your account.
+
 = 1.0.30 - 2026-10-22 =
 * New: Autopilot for new posts is now included in Starter, as well as Growth and Agency.
 * Fixed: Autopilot no longer replaces an SEO title you already have when only the meta description is missing.

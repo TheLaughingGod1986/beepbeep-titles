@@ -119,6 +119,25 @@ class Telemetry {
 		return (bool) apply_filters( 'beepti_telemetry_consent_granted', $granted );
 	}
 
+	/** Record value only after callers have verified persistence. */
+	public static function generation_saved( array $properties ): void {
+		// Require a saved opt-in for new first-value tracking even on legacy bases.
+		if ( ! self::has_consent() || ! in_array( get_option( self::CONSENT_OPTION, false ), [ 'yes', '1', 1, true ], true ) ) {
+			return;
+		}
+		$now = time();
+		$is_first = add_option( 'beepti_first_successful_generation_at', $now, '', false );
+		$properties['is_first_generation'] = $is_first;
+		$properties['is_returning_user'] = ! $is_first;
+		$properties['operation_id'] = wp_generate_uuid4();
+		$properties['generation_mode'] = ( $properties['generation_surface'] ?? '' ) === 'autopilot' ? 'autopilot' : ( ( $properties['generation_surface'] ?? '' ) === 'bulk_generation' ? 'bulk' : 'single' );
+		$activated_at = (int) get_option( self::ACTIVATION_MARKER, 0 );
+		if ( $is_first && $activated_at > 0 && $now >= $activated_at ) {
+			$properties['time_to_first_value_seconds'] = max( 0, $now - $activated_at );
+		}
+		self::capture( 'title_meta_generated', $properties );
+	}
+
 	public static function get_api_key(): string {
 		return (string) apply_filters( 'beepti_posthog_api_key', self::POSTHOG_API_KEY );
 	}
@@ -133,7 +152,7 @@ class Telemetry {
 	 *
 	 * @param array<string,mixed> $properties Extra properties (sanitized).
 	 */
-	public static function capture( string $event_name, array $properties = [] ): void {
+	public static function capture( string $event_name, array $properties = [], ?int $occurred_at = null ): void {
 		$event_name = sanitize_key( $event_name );
 		if ( '' === $event_name || ! in_array( $event_name, self::ALLOWED_EVENTS, true ) ) {
 			return;
@@ -160,7 +179,7 @@ class Telemetry {
 				'event'       => $event_name,
 				'distinct_id' => $distinct_id,
 				'properties'  => $properties,
-				'timestamp'   => gmdate( 'c' ),
+				'timestamp'   => gmdate( 'c', $occurred_at ?? time() ),
 			]
 		);
 
@@ -234,7 +253,7 @@ class Telemetry {
 			$props['transport']          = 'wp_lifecycle_server_bridge';
 			$props['lifecycle_delivery'] = 'queued_flush';
 			if ( $event ) {
-				self::capture( $event, $props );
+				self::capture( $event, $props, isset( $entry['queued_at'] ) ? (int) $entry['queued_at'] : null );
 			}
 		}
 	}
@@ -306,8 +325,22 @@ class Telemetry {
 			'product'        => self::PRODUCT,
 			'pluginVersion'  => BEEPTI_VERSION,
 			'connected'      => $client->has_license(),
-			'environment'    => defined( 'BEEPTI_PLUGIN_ENV' ) ? BEEPTI_PLUGIN_ENV : 'production',
+			'environment'    => self::environment(),
 		];
+	}
+
+	public static function environment(): string {
+		if ( function_exists( 'wp_get_environment_type' ) ) {
+			return (string) wp_get_environment_type();
+		}
+		return defined( 'BEEPTI_PLUGIN_ENV' ) ? BEEPTI_PLUGIN_ENV : 'unknown';
+	}
+
+	public static function is_test_site(): bool {
+		$host = function_exists( 'home_url' ) ? (string) wp_parse_url( home_url(), PHP_URL_HOST ) : '';
+		return 'production' !== self::environment()
+			|| (bool) preg_match( '/localhost|127\.0\.0\.1|wpsandbox|tastewp|playground|wp-env|\.local$|\.test$|trycloudflare|instawp|example\.com/i', $host )
+			|| ( defined( 'BEEPTI_TELEMETRY_TEST' ) && BEEPTI_TELEMETRY_TEST );
 	}
 
 	/**
@@ -341,7 +374,13 @@ class Telemetry {
 			'php_version'       => PHP_VERSION,
 			'is_logged_in'      => $client->has_license(),
 			'user_state'        => $client->has_license() ? 'connected' : 'guest',
-			'environment'       => defined( 'BEEPTI_PLUGIN_ENV' ) ? BEEPTI_PLUGIN_ENV : 'production',
+			'environment'       => self::environment(),
+			'telemetry_consent' => true,
+			'telemetry_source'  => 'wordpress',
+			'telemetry_schema'  => 'opptiai_usage_v2',
+			'is_test'           => self::is_test_site(),
+			'site_install_id'   => self::distinct_id(),
+			'journey_id'        => self::distinct_id(),
 			'transport'         => $props['transport'] ?? 'wp_admin_server_bridge',
 			'$lib'              => 'opptiai-titles-php',
 			'$lib_version'      => BEEPTI_VERSION,
@@ -351,7 +390,7 @@ class Telemetry {
 		foreach ( [ 'site_host', 'host', 'hostname', 'site_hash', 'site_id', 'site_install_id', 'site_url', 'email_hash', 'account_id', 'user_id', 'post_id', 'post_ids', 'url', 'page_url', '$current_url', '$pathname', '$host', 'referrer', '$referrer', '$referring_domain', 'current_url', 'pathname', 'referring_domain', 'search', 'search_term', 'query', 'error_message', 'error' ] as $k ) {
 			unset( $props[ $k ] );
 		}
-		$merged = array_merge( $base, $props );
+		$merged = array_merge( $props, $base );
 		if ( empty( $merged['$insert_id'] ) ) {
 			$merged['$insert_id'] = substr(
 				sanitize_key( $event_name ) . ':' . wp_generate_uuid4(),

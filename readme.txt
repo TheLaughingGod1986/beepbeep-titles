@@ -4,7 +4,7 @@ Tags: seo, ai seo, meta description, title tag, site audit
 Requires at least: 6.3
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.0.30
+Stable tag: 1.0.31
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -196,6 +196,11 @@ Non-minified React source files and the npm build configuration are included in 
 WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, REST namespace, and internal admin slug remain `beepbeep-titles` for backwards compatibility with existing installs, options, and translations.
 
 == Changelog ==
+
+= 1.0.31 =
+* Verify generated metadata is saved before reporting success, including bulk and Autopilot.
+* Keep plain-permalink generation requests distinct and preserve anonymous telemetry consent.
+
 = 1.0.30 - 2026-10-22 =
 * New: Autopilot for new posts is now included in Starter, as well as Growth and Agency.
 * Fixed: Autopilot no longer replaces an SEO title you already have when only the meta description is missing.

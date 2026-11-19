@@ -70,6 +70,8 @@ namespace {
 	foreach ( [ 'tab', 'error_code', 'source', 'plan', 'trigger' ] as $k ) {
 		check( ! isset( $p1[ $k ] ), "unsafe value for $k stripped" );
 	}
+	check( $p0['journey_id'] === $p0['site_install_id'] && str_starts_with( $p0['site_install_id'], 'anon_' ), 'server owns anonymous installation linkage' );
+	unset( $good['journey_id'] );
 	foreach ( $good as $k => $v ) {
 		check( ( $p0[ $k ] ?? null ) === $v, "kept $k" );
 	}
@@ -97,6 +99,8 @@ namespace {
 	check( 'starter' === ( $GLOBALS['http'][0]['properties']['plan'] ?? null ), 'plan kept on checkout event' );
 	check( 's_lq2x9_ab12cd34' === ( $GLOBALS['http'][2]['properties']['session_id'] ?? null ), 'browser s_ session_id kept' );
 
+	BeepBeep_Titles\Telemetry::capture( 'plugin_activated', [], 1234567890 );
+	check( gmdate( 'c', 1234567890 ) === end( $GLOBALS['http'] )['timestamp'], 'queued activation keeps event time for first-value timing' );
 	if ( $fail ) { exit( 1 ); }
 	echo "OK: browser telemetry properties are allowlisted\n";
 }

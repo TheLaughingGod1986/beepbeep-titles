@@ -167,6 +167,58 @@ namespace {
 	$GLOBALS['o']       = [];
 	check( [ 'has_alt_text' => false, 'has_titles' => true, 'has_il' => false, 'has_auditor' => false ] === MFO::installed_flags(), 'only Titles installed' );
 
+	// 10. Late opt-in: activated without consent, opts in later -> plugin_activated once, all four flags (false kept).
+	$GLOBALS['plugins'] = $self + [
+		'alt-renamed/beepbeep-ai-alt-text-generator.php' => [ 'TextDomain' => 'beepbeep-ai-alt-text-generator' ],
+	];
+	$GLOBALS['o']    = [ 'active_plugins' => [ 'opptiai-titles/beepbeep-titles.php' ] ];
+	$GLOBALS['http'] = [];
+	$late            = [ 'has_alt_text' => true, 'has_titles' => true, 'has_il' => false, 'has_auditor' => false ];
+	Telemetry::on_activate();
+	Telemetry::flush_lifecycle_queue();
+	Telemetry::record_opt_in_activation();
+	check( [] === $GLOBALS['http'], 'late opt-in: nothing sent without consent' );
+	check( false === get_option( Telemetry::ACTIVATION_SENT_OPTION ), 'late opt-in: no sent marker without consent' );
+	$GLOBALS['o'][ Telemetry::CONSENT_OPTION ] = 'no';
+	Telemetry::record_opt_in_activation();
+	check( [] === $GLOBALS['http'], 'late opt-in: explicit no sends nothing' );
+
+	$GLOBALS['o'][ Telemetry::CONSENT_OPTION ] = 'yes';
+	Telemetry::record_opt_in_activation();
+	check( 1 === count( $GLOBALS['http'] ) && 'plugin_activated' === ( $GLOBALS['http'][0]['event'] ?? '' ), 'late opt-in: plugin_activated sent' );
+	$sent = $GLOBALS['http'][0]['properties'] ?? [];
+	check( 'activation_hook' === ( $sent['source'] ?? '' ), 'late opt-in: source kept' );
+	check( 'opt_in_snapshot' === ( $sent['lifecycle_delivery'] ?? '' ), 'late opt-in: marked as opt-in snapshot' );
+	foreach ( $late as $k => $v ) {
+		check( array_key_exists( $k, $sent ) && $v === $sent[ $k ], "late opt-in: carries $k (false kept)" );
+	}
+	// No duplicate: same call again, or opt out and back in.
+	Telemetry::record_opt_in_activation();
+	$GLOBALS['o'][ Telemetry::CONSENT_OPTION ] = 'no';
+	Telemetry::record_opt_in_activation();
+	$GLOBALS['o'][ Telemetry::CONSENT_OPTION ] = 'yes';
+	Telemetry::record_opt_in_activation();
+	check( 1 === count( $GLOBALS['http'] ), 'late opt-in: sent once per site, no repeat on re-opt-in' );
+
+	// Activated with consent: queued once at activation, a later opt-in sends nothing more.
+	$GLOBALS['o']    = [ 'active_plugins' => [ 'opptiai-titles/beepbeep-titles.php' ], Telemetry::CONSENT_OPTION => 'yes' ];
+	$GLOBALS['http'] = [];
+	Telemetry::on_activate();
+	Telemetry::flush_lifecycle_queue();
+	Telemetry::record_opt_in_activation();
+	check( 1 === count( $GLOBALS['http'] ) && 'queued_flush' === ( $GLOBALS['http'][0]['properties']['lifecycle_delivery'] ?? '' ), 'consent at activation: one plugin_activated, no opt-in repeat' );
+
+	// Install from before the flags existed (no saved flags): nothing sent.
+	$GLOBALS['o']    = [ Telemetry::ACTIVATION_MARKER => time(), Telemetry::CONSENT_OPTION => 'yes' ];
+	$GLOBALS['http'] = [];
+	Telemetry::record_opt_in_activation();
+	check( [] === $GLOBALS['http'], 'no saved flags: nothing sent' );
+
+	// The settings save calls it right after storing the toggle (the only place consent is saved).
+	$pc = (string) file_get_contents( $root . '/includes/Rest/PagesController.php' );
+	check( 1 === preg_match( "/update_option\\( Telemetry::CONSENT_OPTION[^;]+;\\s*Telemetry::record_opt_in_activation\\(\\);/", $pc ), 'settings save calls record_opt_in_activation after storing consent' );
+	$GLOBALS['plugins'] = $self;
+
 	if ( $fail ) { exit( 1 ); }
 	echo "OK: More from Oppti panel data\n";
 }

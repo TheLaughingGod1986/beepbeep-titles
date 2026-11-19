@@ -228,7 +228,7 @@ WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, R
 
 = 1.0.23 - 2026-08-18 =
 * Add a quiet Home Alt Text cross-sell for signed-in Free, Starter, and Growth: locked copy with CTA “Open Alt Text” when installed or “Get OpptiAI Alt Text” when not; links to the sibling admin page or WordPress.org. Hidden from guests and Agency. Plan grid and Free allowance are unchanged.
-* Credit usage card: remaining 0 → “No credits left this month”; remaining 1 → “Only 1 credit left this month”; remaining 2–5 → “Only X credits left this month”; above 5 → used/limit. Quiet footnote: “Credits count generations, including retries and alt text. Pages count what you applied.”
+* Credit usage card: clearer low-balance messages as you near the end of this month's credits. Quiet footnote: “Credits count generations, including retries and alt text. Pages count what you applied.”
 * Settings plan CTA: “View Growth plan” (billing id `pro` unchanged). Credit Wallet keeps usage_by_feature split; AltText row shows Open when installed; Internal Linking and Schema stay Not installed with no Get / Install / WP.org.
 
 = 1.0.22 - 2026-08-18 =
@@ -240,10 +240,10 @@ WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, R
 = 1.0.20 - 2026-08-17 =
 * Correct user-facing branding from “OptiAI” to “OpptiAI” (including the health-score disclaimer). Internal namespaces, text domain, REST slug, and option names are unchanged.
 * Prevent the signed-out Home / Audit screen from flashing a false “No published pages… / 0 scanned” state on first paint after a successful scan. Coverage stats are seeded from PHP and the empty copy only shows once loaded totals are known.
-* Signed-out SEO Health Check / local scanning remains free and account-free. Free monthly AI allowance stays at 25. Paid plans unchanged.
+* Signed-out SEO Health Check / local scanning remains free and account-free. The Free plan monthly AI allowance is unchanged. Paid plans unchanged.
 
 = 1.0.19 - 2026-08-17 =
-* Raise the Free plan monthly AI allowance from 15 to 25 credits (user-facing defaults, paywall, and WordPress.org copy).
+* Raise the Free plan monthly AI allowance (user-facing defaults, paywall, and WordPress.org copy).
 * SEO Health Check / signed-out scanning remains free and does not require an account or consume credits.
 * Paid plan allowances and Autopilot gating are unchanged.
 
@@ -329,10 +329,10 @@ Adds a quiet Home cross-sell to OpptiAI Alt Text for Free, Starter, and Growth (
 WordPress.org directory icons and banners now use original OpptiAI Titles artwork (distinct from OpptiAI AltText). No functional or plan changes.
 
 = 1.0.20 =
-Fixes OpptiAI branding in user-facing copy and stops the Home audit from flashing a false empty/0-scanned state on first paint. Free monthly allowance remains 25; signed-out scans stay account-free.
+Fixes OpptiAI branding in user-facing copy and stops the Home audit from flashing a false empty/0-scanned state on first paint. Free monthly allowance unchanged; signed-out scans stay account-free.
 
 = 1.0.19 =
-Free monthly AI allowance is now 25 credits. Signed-out SEO health scans remain free and account-free.
+The Free plan monthly AI allowance is now higher. Signed-out SEO health scans remain free and account-free.
 
 = 1.0.18 =
 Adds PostHog product analytics for Titles plugin activity in the shared OpptiAI project.

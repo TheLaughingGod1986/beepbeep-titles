@@ -119,6 +119,7 @@ class Admin {
             'altTextCompanion' => $alt_text_companion,
             'internalLinkingCompanion' => $internal_linking_companion,
             'reviewPrompt' => ReviewPrompt::client_config(),
+            'moreFromOppti' => MoreFromOppti::client_config( $client->has_license() ),
             'telemetry'  => Telemetry::client_config(),
             // US Titles paywall: visitor country === US (same CDN header list as AltText) → USD.
             // Missing/unknown (XX/T1/ZZ/empty) → GBP. Not WordPress locale / browser lang.

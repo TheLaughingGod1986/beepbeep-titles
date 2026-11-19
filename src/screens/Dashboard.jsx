@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Icon, Card, Pill, Button, Progress, Ring, PageAvatar } from '../components';
 import { QUOTA_DEFAULTS, CREDITS_PER_PAGE, isInsufficientCredits, insufficientCreditsMessage, creditsPerPage, canSeeAltTextCrossSell, altTextCrossSell, internalLinkingBannerCompanion } from '../quota';
 import { ReviewPromptCard, shouldShowReviewPrompt } from '../reviewPrompt';
+import { MoreFromOpptiCard, shouldShowMoreFromOppti, moreFromOpptiIds } from '../moreFromOppti';
 import { PageShell } from '../ui';
 import { capPriorityEstimates } from '../priorityEstimates';
 
@@ -101,7 +102,7 @@ const ISSUE_TITLES = {
 
 export const Dashboard = ({
     quota, quotaReady, stats, activity, queuePages, autoOptimise, onAutoToggle, onGenerate, onUpgrade, onView, altTextCompanion, internalLinkingCompanion,
-    reviewPrompt, onReviewAnswer,
+    reviewPrompt, onReviewAnswer, moreFromOppti, onMoreFromOpptiDismiss,
     health, healthReady, previousScore, priorities, aeo,
     onQuickScan, onFullScan, onOptimiseCritical, onOptimiseIssue, onLoadIssueItems, onOptimiseSingleItem, onUndo,
 }) => {
@@ -129,6 +130,9 @@ export const Dashboard = ({
         )
         : [];
     const todaysPriorities = topPriorities.slice( 0, 3 );
+    // One cross-plugin panel per screen: while the panel lists a plugin, the older single-plugin card for it stands down.
+    const showMorePanel = shouldShowMoreFromOppti( moreFromOppti ) && !! onMoreFromOpptiDismiss;
+    const morePanelIds = showMorePanel ? moreFromOpptiIds( moreFromOppti ) : [];
     const todaysEstimatedGain = todaysPriorities.reduce( ( sum, p ) => sum + ( p.estimated_gain || 0 ), 0 );
 
     return (
@@ -174,13 +178,13 @@ export const Dashboard = ({
                 <AutopilotActiveCard autoOptimise={autoOptimise} onToggle={onAutoToggle}/>
             </div>
 
-            <CompanionBanner
+            {! morePanelIds.includes( 'linking' ) && <CompanionBanner
                 companion={internalLinkingBannerCompanion( internalLinkingCompanion )}
                 icon="link"
                 iconBg="#EFF6FF" iconColor="#2563EB" iconBorder="#BFDBFE"
                 title="Your credits also work on Internal Linking"
                 body={<>The same shared credit pool powers <strong style={{ color: 'var(--text)', fontWeight: 600 }}>OpptiAI Internal Linking</strong>, so you can find and fix missing links between your own pages. No extra subscription.</>}
-            />
+            />}
             <ActivityStrip onView={onView} newSince={newSince} activity={activity} onUndo={onUndo}/>
             <FooterMetrics
                 streak={streak}
@@ -192,8 +196,12 @@ export const Dashboard = ({
                 autoOptimise={autoOptimise}
             />
 
-            {quotaReady && canSeeAltTextCrossSell( quota?.plan ) && (
+            {quotaReady && canSeeAltTextCrossSell( quota?.plan ) && ! morePanelIds.includes( 'alt' ) && (
                 <AltTextCrossSell companion={altTextCompanion}/>
+            )}
+
+            {showMorePanel && (
+                <MoreFromOpptiCard state={moreFromOppti} onDismiss={onMoreFromOpptiDismiss}/>
             )}
         </PageShell>
     );

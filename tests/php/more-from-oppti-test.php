@@ -3,7 +3,7 @@
  * Dev-only: "More from Oppti" panel data. Eligible only after the first applied
  * title/meta, hidden for good after dismiss, never lists installed plugins,
  * connected vs guest intro, installer vs tagged WordPress.org links, copy rules,
- * consent-gated events and the activation siblings list.
+ * consent-gated events and the installed-plugin booleans on activation.
  * Runs without WordPress; wp_remote_post is a recorder, so no HTTP leaves the box.
  */
 namespace BeepBeep_Titles\Api {
@@ -141,17 +141,31 @@ namespace {
 	Telemetry::capture( 'crosssell_clicked', $props );
 	check( 1 === count( $GLOBALS['http'] ) && 'crosssell_clicked' === $GLOBALS['http'][0]['event'] && 'alt' === $GLOBALS['http'][0]['properties']['to_plugin'], 'consent: crosssell_clicked sent with to_plugin' );
 
-	// 9. Activation siblings: stored locally, sent only with consent.
-	$GLOBALS['o']    = [ 'active_plugins' => [ 'beepbeep-ai-alt-text-generator/beepbeep-ai-alt-text-generator.php', 'opptiai-website-auditor/opptiai-website-auditor.php', 'akismet/akismet.php', 'opptiai-titles/beepbeep-titles.php' ] ];
+	// 9. plugin_activated: four installed booleans, stored locally, sent only with consent.
+	//    Alt Text installed but inactive (renamed folder, matched by text domain), Auditor active, IL absent.
+	$GLOBALS['plugins'] = $self + [
+		'alt-renamed/beepbeep-ai-alt-text-generator.php' => [ 'TextDomain' => 'beepbeep-ai-alt-text-generator' ],
+	];
+	$GLOBALS['o']    = [ 'active_plugins' => [ 'opptiai-website-auditor/opptiai-website-auditor.php', 'akismet/akismet.php', 'opptiai-titles/beepbeep-titles.php' ] ];
 	$GLOBALS['http'] = [];
+	$flags           = [ 'has_alt_text' => true, 'has_titles' => true, 'has_il' => false, 'has_auditor' => true ];
+	check( $flags === MFO::installed_flags(), 'installed flags' );
 	Telemetry::on_activate();
 	Telemetry::flush_lifecycle_queue();
-	check( 'alt,auditor' === get_option( MFO::ACTIVATION_SIBLINGS_OPTION ), 'siblings stored' );
+	check( $flags === get_option( MFO::ACTIVATION_PLUGINS_OPTION ), 'flags stored' );
 	check( [] === $GLOBALS['http'], 'no consent: activation not sent' );
 	$GLOBALS['o'] = [ 'active_plugins' => $GLOBALS['o']['active_plugins'], Telemetry::CONSENT_OPTION => 'yes' ];
 	Telemetry::on_activate();
 	Telemetry::flush_lifecycle_queue();
-	check( 1 === count( $GLOBALS['http'] ) && 'plugin_activated' === $GLOBALS['http'][0]['event'] && 'alt,auditor' === $GLOBALS['http'][0]['properties']['siblings'], 'consent: plugin_activated carries siblings' );
+	$sent = $GLOBALS['http'][0]['properties'] ?? [];
+	check( 1 === count( $GLOBALS['http'] ) && 'plugin_activated' === $GLOBALS['http'][0]['event'], 'consent: plugin_activated sent once' );
+	check( ! array_key_exists( 'siblings', $sent ), 'no joined siblings string' );
+	foreach ( $flags as $k => $v ) {
+		check( array_key_exists( $k, $sent ) && $v === $sent[ $k ], "consent: plugin_activated carries $k" );
+	}
+	$GLOBALS['plugins'] = $self;
+	$GLOBALS['o']       = [];
+	check( [ 'has_alt_text' => false, 'has_titles' => true, 'has_il' => false, 'has_auditor' => false ] === MFO::installed_flags(), 'only Titles installed' );
 
 	if ( $fail ) { exit( 1 ); }
 	echo "OK: More from Oppti panel data\n";

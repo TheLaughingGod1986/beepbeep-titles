@@ -245,15 +245,12 @@ class Telemetry {
 	public static function on_activate(): void {
 		if ( ! get_option( self::ACTIVATION_MARKER ) ) {
 			update_option( self::ACTIVATION_MARKER, time(), false );
-			// Other OpptiAI plugins already active at first activation (ids only, e.g. "alt,auditor").
-			$siblings = class_exists( MoreFromOppti::class ) ? MoreFromOppti::sibling_list() : '';
-			update_option( 'beepti_activation_siblings', $siblings, false );
+			// Which OpptiAI plugins are installed at first activation (four booleans, no names or paths).
+			$oppti_plugins = class_exists( MoreFromOppti::class ) ? MoreFromOppti::installed_flags() : [];
+			update_option( 'beepti_activation_oppti_plugins', $oppti_plugins, false );
 			self::queue_lifecycle(
 				'plugin_activated',
-				[
-					'source'   => 'activation_hook',
-					'siblings' => $siblings,
-				]
+				array_merge( [ 'source' => 'activation_hook' ], $oppti_plugins )
 			);
 		}
 		self::maybe_record_update();

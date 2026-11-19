@@ -27,8 +27,16 @@ class MoreFromOppti {
     /** User meta: set once the user dismissed the panel. */
     public const DISMISS_META = 'beepti_more_from_oppti_dismissed';
 
-    /** Site option: other OpptiAI plugins active at first activation (comma list of ids). */
-    public const ACTIVATION_SIBLINGS_OPTION = 'beepti_activation_siblings';
+    /** Site option: which OpptiAI plugins were installed at first activation (four booleans). */
+    public const ACTIVATION_PLUGINS_OPTION = 'beepti_activation_oppti_plugins';
+
+    /** Event property per plugin id for the installed flags. */
+    public const FLAG_KEYS = [
+        'alt'     => 'has_alt_text',
+        'titles'  => 'has_titles',
+        'linking' => 'has_il',
+        'auditor' => 'has_auditor',
+    ];
 
     /** UTM campaign for WordPress.org fallback links. */
     public const UTM_CAMPAIGN = 'push-nov26';
@@ -281,12 +289,26 @@ class MoreFromOppti {
     }
 
     /**
-     * Other OpptiAI plugins active right now, as a sorted comma list of ids.
+     * Which OpptiAI plugins are installed on this site (for plugin_activated).
+     * Four booleans, checked locally; this plugin always counts as installed.
+     *
+     * @return array{has_alt_text:bool,has_titles:bool,has_il:bool,has_auditor:bool}
      */
-    public static function sibling_list(): string {
-        $ids = array_values( array_diff( self::active_ids( self::active_plugin_files() ), [ self::FROM ] ) );
-        sort( $ids );
-        return implode( ',', $ids );
+    public static function installed_flags(): array {
+        if ( ! function_exists( 'get_plugins' ) && defined( 'ABSPATH' ) && is_readable( ABSPATH . 'wp-admin/includes/plugin.php' ) ) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+        $plugins = function_exists( 'get_plugins' ) ? get_plugins() : [];
+        $ids     = array_merge(
+            self::installed_ids( is_array( $plugins ) ? $plugins : [] ),
+            self::active_ids( self::active_plugin_files() ),
+            [ self::FROM ]
+        );
+        $flags = [];
+        foreach ( self::FLAG_KEYS as $id => $key ) {
+            $flags[ $key ] = in_array( $id, $ids, true );
+        }
+        return $flags;
     }
 
     /**

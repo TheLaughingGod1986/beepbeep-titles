@@ -68,19 +68,19 @@ class MoreFromOppti {
                 'login'        => true,
                 'text_domains' => [ 'beepbeep-titles', 'opptiai-titles' ],
             ],
-            'auditor' => [
-                'slug'         => 'opptiai-website-auditor',
-                'name'         => 'OpptiAI Website Auditor',
-                'kind'         => 'free',
-                'login'        => false,
-                'text_domains' => [ 'opptiai-website-auditor' ],
-            ],
             'linking' => [
                 'slug'         => 'opptiai-internal-linking',
                 'name'         => 'OpptiAI Internal Linking',
                 'kind'         => 'none',
                 'login'        => false,
                 'text_domains' => [ 'opptiai-internal-linking' ],
+            ],
+            'auditor' => [
+                'slug'         => 'opptiai-website-auditor',
+                'name'         => 'OpptiAI Website Auditor',
+                'kind'         => 'free',
+                'login'        => false,
+                'text_domains' => [ 'opptiai-website-auditor' ],
             ],
         ];
     }

@@ -65,7 +65,7 @@ namespace {
 	$GLOBALS['plugins'] = $self;
 	$c = MFO::client_config( true );
 	check( false === $c['eligible'], 'not eligible before first success' );
-	check( [ 'alt', 'auditor', 'linking' ] === array_column( $c['items'], 'id' ), 'suggests every sibling, never itself' );
+	check( [ 'alt', 'linking', 'auditor' ] === array_column( $c['items'], 'id' ), 'suggests every sibling, never itself, rows Alt Text, IL, Auditor' );
 
 	// 2. After the first applied title/meta: eligible.
 	ReviewPrompt::mark_first_success();
@@ -82,16 +82,16 @@ namespace {
 	$GLOBALS['plugins']['opptiai-internal-linking/opptiai-internal-linking.php'] = [ 'TextDomain' => 'opptiai-internal-linking' ];
 	check( [] === MFO::client_config( true )['items'], 'everything installed: no rows (no panel)' );
 	$GLOBALS['o']['active_plugins'] = [];
-	check( [ 'alt', 'auditor', 'linking' ] === MFO::candidate_ids( [], [] ), 'candidate ids' );
-	check( [ 'auditor', 'linking' ] === MFO::candidate_ids( [], [ 'alt' ] ), 'active-only sibling hidden too' );
+	check( [ 'alt', 'linking', 'auditor' ] === MFO::candidate_ids( [], [] ), 'candidate ids (IL before Auditor)' );
+	check( [ 'linking', 'auditor' ] === MFO::candidate_ids( [], [ 'alt' ] ), 'active-only sibling hidden too' );
 
 	// 4. Intro cases.
-	check( 'Your same Oppti login also works with Alt Text.' === MFO::intro_line( true, [ 'alt', 'auditor', 'linking' ] ), 'connected names only Alt Text' );
+	check( 'Your same Oppti login also works with Alt Text.' === MFO::intro_line( true, [ 'alt', 'linking', 'auditor' ] ), 'connected names only Alt Text' );
 	check( 'Your same Oppti login also works with Alt Text.' === MFO::intro_line( true, [ 'alt' ] ), 'connected, Alt Text only' );
-	check( '' === MFO::intro_line( true, [ 'auditor', 'linking' ] ), 'connected, IL + Auditor: no intro' );
+	check( '' === MFO::intro_line( true, [ 'linking', 'auditor' ] ), 'connected, IL + Auditor: no intro' );
 	check( '' === MFO::intro_line( true, [ 'auditor' ] ), 'connected, Auditor only: no intro' );
 	check( '' === MFO::intro_line( true, [ 'linking' ] ), 'connected, IL only: no intro' );
-	foreach ( [ [ 'alt', 'auditor', 'linking' ], [ 'alt' ], [ 'auditor' ], [ 'linking' ] ] as $ids ) {
+	foreach ( [ [ 'alt', 'linking', 'auditor' ], [ 'alt' ], [ 'auditor' ], [ 'linking' ] ] as $ids ) {
 		check( 'More from OpptiAI, for the rest of the job.' === MFO::intro_line( false, $ids ), 'guest plain intro: ' . implode( ',', $ids ) );
 	}
 	check( 'Alt Text and Titles' === MFO::join_names( [ 'Alt Text', 'Titles' ] ), 'join two' );

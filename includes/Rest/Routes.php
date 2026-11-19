@@ -308,6 +308,13 @@ class Routes {
             ],
         ] );
 
+        // ── More from Oppti panel dismissal (stored locally per user; no outbound call) ──
+        register_rest_route( $ns, '/more-from-oppti/dismiss', [
+            'methods'             => 'POST',
+            'callback'            => [ \BeepBeep_Titles\MoreFromOppti::class, 'rest_dismiss' ],
+            'permission_callback' => [ $this, 'require_editor' ],
+        ] );
+
         // ── Settings ───────────────────────────────────────────────
         register_rest_route( $ns, '/settings', [
             [

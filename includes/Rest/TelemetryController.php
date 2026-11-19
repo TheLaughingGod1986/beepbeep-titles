@@ -23,6 +23,7 @@ class TelemetryController {
 		'environment', 'user_state', 'is_logged_in', 'is_returning_user', 'inactivity_hours',
 		'tab', 'feature_name', 'mode', 'source', 'plan', 'generation_mode', 'page_count',
 		'trigger', 'is_first_open', 'lifecycle_state', 'error_code', 'signup_source',
+		'from_plugin', 'to_plugin', 'link_target', 'account_state', 'placement', 'suggested',
 	];
 
 	/**

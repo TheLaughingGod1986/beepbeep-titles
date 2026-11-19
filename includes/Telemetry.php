@@ -99,6 +99,9 @@ class Telemetry {
 		'support_submitted',
 		'help_opened',
 		'documentation_opened',
+		'crosssell_clicked',
+		'crosssell_panel_shown',
+		'crosssell_panel_dismissed',
 	];
 
 	/**
@@ -242,7 +245,16 @@ class Telemetry {
 	public static function on_activate(): void {
 		if ( ! get_option( self::ACTIVATION_MARKER ) ) {
 			update_option( self::ACTIVATION_MARKER, time(), false );
-			self::queue_lifecycle( 'plugin_activated', [ 'source' => 'activation_hook' ] );
+			// Other OpptiAI plugins already active at first activation (ids only, e.g. "alt,auditor").
+			$siblings = class_exists( MoreFromOppti::class ) ? MoreFromOppti::sibling_list() : '';
+			update_option( 'beepti_activation_siblings', $siblings, false );
+			self::queue_lifecycle(
+				'plugin_activated',
+				[
+					'source'   => 'activation_hook',
+					'siblings' => $siblings,
+				]
+			);
 		}
 		self::maybe_record_update();
 		update_option( self::CURRENT_VERSION_OPTION, BEEPTI_VERSION, false );

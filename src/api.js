@@ -291,6 +291,12 @@ export async function recordReviewPrompt( choice ) {
     return request( 'POST', '/review-prompt', { choice } );
 }
 
+// ── More from Oppti panel ───────────────────────────────────────────
+/** Hide the panel for this user for good. Local only. */
+export async function dismissMoreFromOppti() {
+    return request( 'POST', '/more-from-oppti/dismiss', {} );
+}
+
 // ── Settings ────────────────────────────────────────────────────────
 export async function fetchSettings() {
     return request( 'GET', '/settings' );
@@ -337,6 +343,8 @@ export function getInitialData() {
         internalLinkingCompanion: data.internalLinkingCompanion ?? { state: 'missing', label: 'Install Internal Linking', icon: 'upload', url: '' },
         // WordPress.org review ask: eligible after the first applied title/meta; done once answered.
         reviewPrompt: data.reviewPrompt ?? { eligible: false, done: true, url: '' },
+        // More from Oppti: eligible after the first applied title/meta; dismissed for good; rows from PHP.
+        moreFromOppti: data.moreFromOppti ?? { eligible: false, dismissed: true, items: [] },
         // US paywall (visitor country=US from PHP CDN headers): USD amounts + Stripe price IDs.
         billing:   data.billing ?? { isUs: false, usdPriceIds: {}, usdAmounts: {} },
         // Seeded from PHP so Home/Audit first paint has real coverage numbers.

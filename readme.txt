@@ -198,8 +198,9 @@ WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, R
 == Changelog ==
 
 = 1.0.31 =
-* Verify generated metadata is saved before reporting success, including bulk and Autopilot.
-* Keep plain-permalink generation requests distinct and preserve anonymous telemetry consent.
+* New: a "More from Oppti" panel after you have a result, pointing to our other plugins.
+* Improved: if you turn on usage analytics later, the plugin can send a one-time snapshot that it was activated.
+* Fixed: titles and descriptions are confirmed as saved before the plugin shows success, including in bulk and Autopilot, and on sites with plain permalinks.
 
 = 1.0.30 - 2026-10-22 =
 * New: Autopilot for new posts is now included in Starter, as well as Growth and Agency.
@@ -316,6 +317,9 @@ WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, R
 * Plugin Check and WordPress.org packaging readiness.
 
 == Upgrade Notice ==
+= 1.0.31 =
+Confirms titles and descriptions are saved before showing success, and adds a More from Oppti panel after your first result.
+
 = 1.0.30 =
 Starter now includes Autopilot for new posts, Autopilot keeps any SEO title you already have, and paid plans show correctly in Settings. Includes security hardening.
 

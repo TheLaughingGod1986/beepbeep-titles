@@ -198,9 +198,8 @@ WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, R
 == Changelog ==
 
 = 1.0.31 =
-* After you first apply a title or meta description, the dashboard can show a More from Oppti panel with other OpptiAI plugins you do not already have.
-* Generated titles and meta descriptions are checked as saved before the plugin reports success, including bulk updates and Autopilot.
-* Generation requests stay distinct when the site uses plain permalinks.
+* New: a "More from Oppti" panel after you have a result, pointing to our other plugins.
+* Improved: if you turn on usage analytics later, the plugin can send a one-time snapshot that it was activated.
 
 = 1.0.30 - 2026-10-22 =
 * New: Autopilot for new posts is now included in Starter, as well as Growth and Agency.

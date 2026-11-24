@@ -9,7 +9,7 @@ import { SettingsScreen } from './screens/Settings';
 import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal, ConnectModal, BulkConfirm, CheckoutContinue } from './modals/index';
 import { SignOutConfirm } from './auth';
 import { getUsdPriceId } from './billingPlansCatalog';
-import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, normalizeStats, createCheckout, createBillingPortal, clearLicense, saveSettings, fetchSettings, fetchHealth, fetchPriorities, fetchHealthItems, runHealthScan, undoPage, fetchAeo, resetGenerated, recordReviewPrompt } from './api';
+import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, normalizeStats, createCheckout, createBillingPortal, clearLicense, saveSettings, fetchSettings, fetchHealth, fetchPriorities, fetchHealthItems, runHealthScan, undoPage, fetchAeo, resetGenerated, recordReviewPrompt, dismissMoreFromOppti } from './api';
 import { paywallTrigger, errorToast, checkoutErrorToast } from './errors';
 import { createCheckoutFlow } from './checkoutFlow';
 import { hasDailyCap, isPaidPlan, autopilotToggleGate } from './quota';
@@ -57,6 +57,11 @@ export default function App() {
     const answerReviewPrompt = ( choice ) => {
         setReviewPrompt( r => ( { ...r, done: true } ) );
         recordReviewPrompt( choice ).catch( () => {} );
+    };
+    const [moreFromOppti, setMoreFromOppti] = useState( () => ( { ...initial.moreFromOppti } ) );
+    const dismissMorePanel = () => {
+        setMoreFromOppti( m => ( { ...m, dismissed: true } ) );
+        dismissMoreFromOppti().catch( () => {} );
     };
     const [quotaReady, setQuotaReady] = useState( false );
     const [activity, setActivity] = useState( [] );
@@ -535,6 +540,7 @@ export default function App() {
         const failedCount = summary.failedCount ?? 0;
         if ( successfulCount > 0 ) {
             setReviewPrompt( r => ( r.eligible ? r : { ...r, eligible: true } ) );
+            setMoreFromOppti( m => ( m.eligible ? m : { ...m, eligible: true } ) );
         }
         setDrawer( { open: false, pages: null } );
         setToast( failedCount > 0
@@ -728,6 +734,8 @@ export default function App() {
                     internalLinkingCompanion={initial.internalLinkingCompanion}
                     reviewPrompt={reviewPrompt}
                     onReviewAnswer={answerReviewPrompt}
+                    moreFromOppti={moreFromOppti}
+                    onMoreFromOpptiDismiss={dismissMorePanel}
                     health={health}
                     healthReady={healthReady}
                     previousScore={previousScore}

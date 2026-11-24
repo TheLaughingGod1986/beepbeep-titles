@@ -61,6 +61,8 @@ defined( 'WP_UNINSTALL_PLUGIN' ) || exit;
 
     // Review prompt answers (per user).
     delete_metadata( 'user', 0, 'beepti_review_prompt_done', '', true );
+    // More from Oppti panel dismissal (per user).
+    delete_metadata( 'user', 0, 'beepti_more_from_oppti_dismissed', '', true );
 
     // 4. Fallback-mode post meta — only when the user asked for a full wipe.
     if ( $delete_all ) {

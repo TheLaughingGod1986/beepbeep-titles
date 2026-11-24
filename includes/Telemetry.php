@@ -24,6 +24,8 @@ class Telemetry {
 	public const CURRENT_VERSION_OPTION  = 'beepti_telemetry_current_plugin_version';
 	public const PREVIOUS_VERSION_OPTION = 'beepti_telemetry_previous_plugin_version';
 	public const ANON_ID_OPTION          = 'beepti_telemetry_anon_id';
+	/** Set once plugin_activated (with the has_* flags) has been sent or queued for this site. */
+	public const ACTIVATION_SENT_OPTION  = 'beepti_telemetry_activation_sent';
 
 	private const POSTHOG_API_KEY  = 'phc_6L7JzpjYRC8Gk4Br3YevTmjZnJsJPvoy9GK7RFdo72s';
 	private const POSTHOG_API_HOST = 'https://us.i.posthog.com';
@@ -99,6 +101,9 @@ class Telemetry {
 		'support_submitted',
 		'help_opened',
 		'documentation_opened',
+		'crosssell_clicked',
+		'crosssell_panel_shown',
+		'crosssell_panel_dismissed',
 	];
 
 	/**
@@ -261,10 +266,45 @@ class Telemetry {
 	public static function on_activate(): void {
 		if ( ! get_option( self::ACTIVATION_MARKER ) ) {
 			update_option( self::ACTIVATION_MARKER, time(), false );
-			self::queue_lifecycle( 'plugin_activated', [ 'source' => 'activation_hook' ] );
+			// Which OpptiAI plugins are installed at first activation (four booleans, no names or paths).
+			$oppti_plugins = class_exists( MoreFromOppti::class ) ? MoreFromOppti::installed_flags() : [];
+			update_option( 'beepti_activation_oppti_plugins', $oppti_plugins, false );
+			self::queue_lifecycle(
+				'plugin_activated',
+				array_merge( [ 'source' => 'activation_hook' ], $oppti_plugins )
+			);
+			if ( self::has_consent() ) {
+				// Queued with consent: a later opt-in must not send it again.
+				add_option( self::ACTIVATION_SENT_OPTION, time(), '', false );
+			}
 		}
 		self::maybe_record_update();
 		update_option( self::CURRENT_VERSION_OPTION, BEEPTI_VERSION, false );
+	}
+
+	/**
+	 * Late opt-in: a site that activated without consent sends plugin_activated
+	 * once, when usage stats are switched on, with the has_* flags saved at
+	 * activation (false kept). Never without consent, never twice per site.
+	 */
+	public static function record_opt_in_activation(): void {
+		if ( ! self::has_consent() ) {
+			return;
+		}
+		$flags = get_option( 'beepti_activation_oppti_plugins', null );
+		if ( ! is_array( $flags ) || ! get_option( self::ACTIVATION_MARKER ) ) {
+			return;
+		}
+		if ( ! add_option( self::ACTIVATION_SENT_OPTION, time(), '', false ) ) {
+			return;
+		}
+		$props = [ 'source' => 'activation_hook' ];
+		foreach ( [ 'has_alt_text', 'has_titles', 'has_il', 'has_auditor' ] as $key ) {
+			$props[ $key ] = ! empty( $flags[ $key ] );
+		}
+		$props['transport']          = 'wp_lifecycle_server_bridge';
+		$props['lifecycle_delivery'] = 'opt_in_snapshot';
+		self::capture( 'plugin_activated', $props );
 	}
 
 	/** Queue deactivation (flushed next time the plugin runs, if reactivated soon enough — otherwise capture now). */

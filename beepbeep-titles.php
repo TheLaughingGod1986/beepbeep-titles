@@ -3,7 +3,7 @@
  * Plugin Name:       OpptiAI Titles – AI SEO Titles and Meta Descriptions
  * Plugin URI:        https://oppti.dev
  * Description:       AI-powered title tag and meta description generation for WordPress. Keeps your site's page SEO coverage climbing in the background.
- * Version:           1.0.31
+ * Version:           1.0.32
  * Author:            OpptiAI
  * Author URI:        https://oppti.dev
  * License:           GPL-2.0-or-later
@@ -42,7 +42,7 @@ if ( version_compare( PHP_VERSION, BEEPTI_MIN_PHP, '<' ) ) {
     return;
 }
 
-define( 'BEEPTI_VERSION', '1.0.31' );
+define( 'BEEPTI_VERSION', '1.0.32' );
 define( 'BEEPTI_FILE',    __FILE__ );
 define( 'BEEPTI_DIR',     plugin_dir_path( __FILE__ ) );
 define( 'BEEPTI_URL',     plugin_dir_url( __FILE__ ) );

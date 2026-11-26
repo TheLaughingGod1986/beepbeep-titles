@@ -4,7 +4,7 @@ Tags: seo, ai seo, meta description, title tag, site audit
 Requires at least: 6.3
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.0.31
+Stable tag: 1.0.32
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -197,6 +197,13 @@ WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, R
 
 == Changelog ==
 
+= 1.0.32 =
+* Improved: after you connect your account, the Library opens with your page and one Optimise button ready.
+* Improved: clicking Optimise before you have an account takes you straight to creating one, then back to that page.
+* New: a first-run card asks whether to share usage stats with OpptiAI. Nothing is shared unless you choose to, and you can change it any time in Settings, Privacy.
+* Improved: works on PHP 7.4 and newer. Sites on an older PHP version see a notice instead of an error.
+* Improved: clearer usage stats wording in Settings.
+
 = 1.0.31 =
 * New: a "More from Oppti" panel after you have a result, pointing to our other plugins.
 * Improved: if you turn on usage analytics later, the plugin can send a one-time snapshot that it was activated.
@@ -317,6 +324,9 @@ WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, R
 * Plugin Check and WordPress.org packaging readiness.
 
 == Upgrade Notice ==
+= 1.0.32 =
+Runs on PHP 7.4 and newer, opens the Library ready to optimise after you connect, and asks before sharing any usage stats.
+
 = 1.0.31 =
 Confirms titles and descriptions are saved before showing success, and adds a More from Oppti panel after your first result.
 

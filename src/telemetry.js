@@ -107,6 +107,11 @@ export function setTelemetryEnabled( on ) {
 	if ( ! cfg.enabled ) queue = [];
 }
 
+/** Keep user_state in step when the account connects or signs out in this tab. */
+export function setTelemetryConnected( on ) {
+	cfg.connected = on === true;
+}
+
 function baseProps() {
 	const props = {
 		session_id: sessionId(),
@@ -180,8 +185,13 @@ export function track( event, properties = {} ) {
 	scheduleFlush();
 }
 
-/** Once per browser session. */
+/**
+ * Once per browser session, and only after consent. The session flag is set
+ * only when the event is actually queued, so a site that opts in later in the
+ * same session still records plugin_opened once.
+ */
 export function trackPluginOpened() {
+	if ( ! enabled() ) return;
 	try {
 		if ( sessionStorage.getItem( OPENED_KEY ) ) return;
 		sessionStorage.setItem( OPENED_KEY, '1' );

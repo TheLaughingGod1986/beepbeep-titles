@@ -77,27 +77,39 @@ class SettingsSanitizer {
     }
 
     /** @return mixed|null Null means skip this key. */
-    public static function sanitize_value( string $key, mixed $value ): mixed {
-        return match ( $key ) {
-            'tone'         => in_array( $value, self::TONES, true ) ? $value : null,
-            'title_length' => in_array( $value, self::TITLE_LENGTHS, true ) ? $value : null,
-            'meta_length'  => in_array( $value, self::META_LENGTHS, true ) ? $value : null,
-            'auto_generate', 'scan_daily', 'weekly_digest', 'notify_new_pages',
-            'notify_quota_warning', 'delete_on_uninstall', 'onboarding_complete'
-                => self::to_bool( $value ),
-            'custom_instructions' => self::truncate_textarea( $value, 2000 ),
-            'brand_name_override' => self::truncate_text( $value, 120 ),
-            'notifications'       => self::sanitize_notifications( $value ),
-            'scan_post_types'     => self::sanitize_post_types( $value ),
-            default               => null,
-        };
+    public static function sanitize_value( string $key, $value ) {
+        if ( 'tone' === $key ) {
+            return in_array( $value, self::TONES, true ) ? $value : null;
+        }
+        if ( 'title_length' === $key ) {
+            return in_array( $value, self::TITLE_LENGTHS, true ) ? $value : null;
+        }
+        if ( 'meta_length' === $key ) {
+            return in_array( $value, self::META_LENGTHS, true ) ? $value : null;
+        }
+        if ( in_array( $key, [ 'auto_generate', 'scan_daily', 'weekly_digest', 'notify_new_pages', 'notify_quota_warning', 'delete_on_uninstall', 'onboarding_complete' ], true ) ) {
+            return self::to_bool( $value );
+        }
+        if ( 'custom_instructions' === $key ) {
+            return self::truncate_textarea( $value, 2000 );
+        }
+        if ( 'brand_name_override' === $key ) {
+            return self::truncate_text( $value, 120 );
+        }
+        if ( 'notifications' === $key ) {
+            return self::sanitize_notifications( $value );
+        }
+        if ( 'scan_post_types' === $key ) {
+            return self::sanitize_post_types( $value );
+        }
+        return null;
     }
 
     /**
      * @return string[]|null Empty array means "scan every public post type"
      *                        (the default) — never null-out to "scan nothing".
      */
-    private static function sanitize_post_types( mixed $value ): ?array {
+    private static function sanitize_post_types( $value ): ?array {
         if ( ! is_array( $value ) ) {
             return null;
         }
@@ -108,20 +120,20 @@ class SettingsSanitizer {
         return array_values( $valid );
     }
 
-    private static function to_bool( mixed $value ): bool {
+    private static function to_bool( $value ): bool {
         return filter_var( $value, FILTER_VALIDATE_BOOLEAN );
     }
 
-    private static function truncate_text( mixed $value, int $max ): string {
+    private static function truncate_text( $value, int $max ): string {
         return substr( sanitize_text_field( (string) $value ), 0, $max );
     }
 
-    private static function truncate_textarea( mixed $value, int $max ): string {
+    private static function truncate_textarea( $value, int $max ): string {
         return substr( sanitize_textarea_field( (string) $value ), 0, $max );
     }
 
     /** @return array<string, bool>|null */
-    private static function sanitize_notifications( mixed $value ): ?array {
+    private static function sanitize_notifications( $value ): ?array {
         if ( ! is_array( $value ) ) {
             return null;
         }

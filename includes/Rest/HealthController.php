@@ -26,7 +26,12 @@ class HealthController {
 
     private const MODULE = 'titles';
 
-    public function __construct( private readonly Client $client ) {}
+    /** @var Client */
+    private $client;
+
+    public function __construct( Client $client ) {
+        $this->client = $client;
+    }
 
     /**
      * Hero Score card data: score, band label, trend, last scan, counts.

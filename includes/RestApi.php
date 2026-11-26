@@ -18,7 +18,12 @@ defined( 'ABSPATH' ) || exit;
 
 class RestApi {
 
-    public function __construct( private readonly Plugin $plugin ) {}
+    /** @var Plugin */
+    private $plugin;
+
+    public function __construct( Plugin $plugin ) {
+        $this->plugin = $plugin;
+    }
 
     public function init(): void {
         ( new Routes() )->register();

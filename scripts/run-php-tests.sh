@@ -110,3 +110,10 @@ php tests/php/autopilot-fill-test.php
 php tests/php/more-from-oppti-test.php
 
 php tests/php/post-presenter-identity-test.php
+
+# 1.0.32
+php tests/php/guest-first-result-test.php
+php tests/php/php74-floor-test.php
+php tests/php/consent-card-test.php
+php tests/php/telemetry-payload-content-test.php
+php tests/php/generation-persistence-test.php

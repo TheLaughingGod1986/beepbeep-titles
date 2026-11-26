@@ -9,14 +9,17 @@ import { SettingsScreen } from './screens/Settings';
 import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal, ConnectModal, BulkConfirm, CheckoutContinue } from './modals/index';
 import { SignOutConfirm } from './auth';
 import { getUsdPriceId } from './billingPlansCatalog';
-import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, normalizeStats, createCheckout, createBillingPortal, clearLicense, saveSettings, fetchSettings, fetchHealth, fetchPriorities, fetchHealthItems, runHealthScan, undoPage, fetchAeo, resetGenerated, recordReviewPrompt, dismissMoreFromOppti } from './api';
+import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, normalizeStats, createCheckout, createBillingPortal, clearLicense, saveSettings, fetchSettings, fetchHealth, fetchPriorities, fetchHealthItems, runHealthScan, undoPage, fetchAeo, resetGenerated, recordReviewPrompt, dismissMoreFromOppti, saveConsent } from './api';
 import { paywallTrigger, errorToast, checkoutErrorToast } from './errors';
 import { createCheckoutFlow } from './checkoutFlow';
 import { hasDailyCap, isPaidPlan, autopilotToggleGate } from './quota';
 import { usePaywallGate } from './hooks/usePaywallGate';
 import { resolveAllowedTab } from './navigation';
 import { recordCheckoutAttempt, recordCheckoutSuccess, recordCheckoutFailure } from './billingTelemetry';
-import { track, trackPluginOpened, trackScreen, trackPaywallShown } from './telemetry';
+import { track, trackPluginOpened, trackScreen, trackPaywallShown, setTelemetryConnected, setTelemetryEnabled } from './telemetry';
+import { shouldShowConsentCard, answerConsent } from './consent';
+import { ConsentCard } from './components/ConsentCard';
+import { quotaFromAuthResponse, CONNECT_LANDING_TAB } from './connectLanding';
 
 // Checkout opens Stripe in a new tab, so the success return is a fresh page
 // load that doesn't know which plan was bought. We stash the intent in
@@ -83,6 +86,21 @@ export default function App() {
     const [signOutOpen, setSignOutOpen] = useState( false );
     const [connectOpen, setConnectOpen] = useState( false );
     const [connectMode, setConnectMode] = useState( 'register' ); // 'register' | 'password'
+    // First action after connect: one Optimise card at the top of the Library.
+    const [firstAction, setFirstAction] = useState( { active: false, page: null } );
+    // First-run usage-stats card: shown until an admin answers it.
+    const [consentCard, setConsentCard] = useState( () => ( { show: shouldShowConsentCard( initial.telemetry ), busy: false } ) );
+    const handleConsentAnswer = async ( optIn ) => {
+        setConsentCard( c => ( { ...c, busy: true } ) );
+        try {
+            const on = await answerConsent( optIn, { save: saveConsent, setTelemetryEnabled, trackPluginOpened } );
+            setSettings( s => ( s ? { ...s, usage_stats_opt_in: on } : s ) );
+            setConsentCard( { show: false, busy: false } );
+        } catch ( e ) {
+            setConsentCard( c => ( { ...c, busy: false } ) );
+            setToast( { message: 'Failed to save preferences', icon: 'alert', tone: 'warn' } );
+        }
+    };
 
     // Open the connect modal on a specific tab ('register' = create account,
     // 'password' = sign in) so each entry point lands on the right form.
@@ -103,6 +121,8 @@ export default function App() {
         try { await clearLicense(); } catch ( e ) {}
         track( 'license_disconnected', { source: 'sign_out' } );
         setConnected( false );
+        setTelemetryConnected( false );
+        setFirstAction( { active: false, page: null } );
         setQuota( normalizeQuota( null ) );
         // Land on the signed-out audit report (Home) rather than Settings —
         // it carries the reconnect CTA and shows what's at stake.
@@ -465,6 +485,29 @@ export default function App() {
         };
     };
 
+    /**
+     * Create account / Sign in succeeded. Apply the register or login payload
+     * now (it already carries the connected quota) instead of waiting for a
+     * second /quota, then land on the Library with one Optimise action.
+     */
+    const handleConnected = ( res ) => {
+        const q = quotaFromAuthResponse( res );
+        if ( q ) {
+            setQuota( q );
+            setConnected( true );
+            setQuotaReady( true );
+            setTelemetryConnected( true );
+        }
+        // Background refresh only; it never flips back to signed out unless
+        // the backend rejects the licence.
+        refreshQuota();
+        const landing = resolveAllowedTab( CONNECT_LANDING_TAB, true, { isAdmin } );
+        setTab( landing );
+        trackScreen( landing );
+        setFirstAction( ( f ) => ( { active: true, page: f.page } ) );
+        setToast( { message: 'Account connected', sub: 'Pick a page below and click Optimise.', icon: 'check', tone: 'ok' } );
+    };
+
     // ── Error → paywall / toast ──
     const handleApiError = ( err ) => {
         if ( err?.name === 'AbortError' ) return;
@@ -501,6 +544,24 @@ export default function App() {
         }
         track( 'generation_started', { generation_mode: 'single', page_count: 1 } );
         setDrawer( { open: true, pages: [ { ...pg, hue: pg.hue ?? 220 } ] } );
+    };
+
+    /**
+     * Guest first result: a signed-out user picks one page on the Library and
+     * clicks Optimise. The page is remembered so that, if an account is
+     * needed first, the Library offers that same page right after connect.
+     */
+    const openGuestGen = ( pg ) => {
+        if ( ! pg ) return;
+        const page = { ...pg, hue: pg.hue ?? 220 };
+        setFirstAction( { active: false, page } );
+        track( 'generation_started', { generation_mode: 'single', page_count: 1, source: 'guest' } );
+        setDrawer( { open: true, pages: [ page ] } );
+    };
+
+    const handleGuestNeedsAccount = () => {
+        openConnect( 'register' );
+        setToast( { message: 'Create an account to optimise this page', sub: 'Or sign in if you already have one. We will bring you back to this page.', icon: 'info', tone: 'warn' } );
     };
 
     const openBulk = ( pages ) => {
@@ -841,6 +902,13 @@ export default function App() {
                 onSignIn={() => openConnect( 'password' )}
                 onUpgrade={() => openCreditsPaywall( exhaustedTrigger )}
             >
+                {consentCard.show && (
+                    <ConsentCard
+                        busy={consentCard.busy}
+                        onAccept={() => handleConsentAnswer( true )}
+                        onDecline={() => handleConsentAnswer( false )}
+                    />
+                )}
                 {body}
                 {/*
                  * Kept mounted (not swapped in/out via the switch above) and
@@ -855,8 +923,11 @@ export default function App() {
                     <PagesLibrary
                         quota={quota}
                         connected={connected}
+                        firstAction={firstAction}
+                        onFirstActionDone={() => setFirstAction( { active: false, page: null } )}
                         onConnect={() => openConnect( 'register' )}
                         onGenerate={openGenSingle}
+                        onGuestGenerate={openGuestGen}
                         onBulkGenerate={openBulk}
                         onUpgrade={() => openCreditsPaywall( exhaustedTrigger )}
                     />
@@ -893,10 +964,7 @@ export default function App() {
                 open={connectOpen}
                 initialMode={connectMode}
                 onClose={() => setConnectOpen( false )}
-                onSuccess={( res ) => {
-                    refreshQuota();
-                    setToast( { message: 'Account connected', sub: `Plan: ${ res?.plan || 'free' } · generations ready.`, icon: 'check', tone: 'ok' } );
-                }}
+                onSuccess={handleConnected}
             />
 
             <SignOutConfirm
@@ -919,6 +987,7 @@ export default function App() {
                 pages={drawer.pages}
                 onClose={() => setDrawer( { open: false, pages: null } )}
                 onComplete={completeGen}
+                onNeedsAccount={handleGuestNeedsAccount}
                 internalLinkingCompanion={initial.internalLinkingCompanion}
                 onPaywall={( trigger, entitlement, err ) => {
                     setPaywall( {

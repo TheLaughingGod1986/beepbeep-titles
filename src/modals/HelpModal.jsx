@@ -11,7 +11,7 @@ const steps = [
         body: 'Scan and review metadata locally. Connect OpptiAI when you want external AI generation.',
         benefits: [
             'No credit card required',
-            'Setup takes less than one minute',
+            'Connect your account to get started',
             'Works with Yoast, Rank Math and AIOSEO',
         ],
     },
@@ -42,7 +42,7 @@ const steps = [
         benefits: [
             'Edit before publishing',
             'Regenerate if needed',
-            'Publish instantly',
+            'Publish to your SEO plugin',
         ],
     },
 ];
@@ -76,7 +76,7 @@ export const HelpModal = ({ open, onClose, onStartScan }) => {
                         }}>
                             <Icon name="sparkles" size={15}/>
                         </span>
-                        <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>60 second tour</span>
+                        <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Take the tour</span>
                     </div>
                     <h2 style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em', margin: '0 0 6px' }}>Quick Setup Guide</h2>
                     <p style={{ fontSize: 14, color: 'var(--text-2)', margin: 0, lineHeight: 1.55 }}>

@@ -46,7 +46,7 @@ export const AuditSignedOutScreen = ({ stats, onConnect, onHelp, onLibrary, onAu
                                 <Icon name="search" size={12}/> AI Metadata Audit
                             </span>
                             <h1 style={{ fontSize: 30, fontWeight: 600, letterSpacing: '-0.025em', lineHeight: 1.15, margin: '0 0 10px' }}>
-                                Find missing SEO titles and meta descriptions in under 60 seconds
+                                Find missing SEO titles and meta descriptions
                             </h1>
                             <p style={{ fontSize: 15, color: 'var(--text-2)', lineHeight: 1.55, margin: '0 0 12px', maxWidth: 460 }}>
                                 Discover metadata issues, improve search appearance and generate optimised SEO titles and descriptions automatically.
@@ -59,7 +59,7 @@ export const AuditSignedOutScreen = ({ stats, onConnect, onHelp, onLibrary, onAu
                                 <Button variant="secondary" size="lg" onClick={openQuickSetup}>Quick Setup Guide</Button>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px 24px', marginTop: 22, flexWrap: 'wrap' }}>
-                                {['No credit card required', 'Setup in under 60 seconds', 'Works with Yoast, Rank Math & AIOSEO', 'Built specifically for WordPress SEO workflows'].map( ( t, i ) => (
+                                {['No credit card required', 'Works with Yoast, Rank Math & AIOSEO', 'Built specifically for WordPress SEO workflows'].map( ( t, i ) => (
                                     <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: 'var(--text)', fontWeight: 600 }}>
                                         <span style={{ width: 20, height: 20, borderRadius: 999, flexShrink: 0, background: 'var(--ok-soft)', border: '1px solid var(--ok-border)', color: 'var(--ok-ink)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
                                             <Icon name="check" size={12} strokeWidth={3}/>
@@ -89,7 +89,7 @@ export const AuditSignedOutScreen = ({ stats, onConnect, onHelp, onLibrary, onAu
                 <WebsiteHealthCards ready={ready} total={total} fixCount={fixCount} missingTitle={missingTitle} missingMeta={missingMeta}/>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '0.9fr 1.1fr', gap: 14, marginBottom: 28 }}>
-                    <TimeSavedCard ready={ready} fixCount={fixCount}/>
+                    <WholeSiteBanner/>
                     <SerpOverviewCard ready={ready} fixCount={fixCount} missingTitle={missingTitle} missingMeta={missingMeta}/>
                 </div>
 
@@ -115,7 +115,7 @@ export const AuditSignedOutScreen = ({ stats, onConnect, onHelp, onLibrary, onAu
                                 Your complete local audit is available now. Connect the external AI service when you want generated suggestions.
                             </p>
                             <p style={{ fontSize: 12.5, color: 'var(--text-3)', margin: 0 }}>
-                                No credit card required. Setup takes under 60 seconds.
+                                No credit card required.
                             </p>
                         </div>
                         <Button variant="primary" size="lg" icon="arrow-right" onClick={connectFromHero}>Connect Account</Button>
@@ -172,8 +172,6 @@ const PreviewMetric = ({ label, value }) => (
 );
 
 const SiteAuditPreviewCard = ({ ready, total, fixCount, missingTitle, missingMeta, onLibrary }) => {
-    const timeSaved = ready ? `${ ( fixCount * 3 ).toLocaleString() } minutes` : '\u2013';
-
     return (
         <Card padding={0} style={{ marginBottom: 28, overflow: 'hidden' }}>
             <div style={{ padding: '18px 20px 0' }}>
@@ -185,7 +183,6 @@ const SiteAuditPreviewCard = ({ ready, total, fixCount, missingTitle, missingMet
                 <PreviewMetric label="Missing SEO titles" value={metricValue( ready, missingTitle )}/>
                 <PreviewMetric label="Missing meta descriptions" value={metricValue( ready, missingMeta )}/>
                 <PreviewMetric label="Pages needing review" value={metricValue( ready, fixCount )}/>
-                <PreviewMetric label="Estimated time saved" value={timeSaved}/>
             </div>
             <div style={{ padding: '0 20px 18px', display: 'flex', justifyContent: 'flex-end' }}>
                 <Button variant="secondary" size="sm" icon="arrow-right" onClick={onLibrary}>Open Full Report</Button>
@@ -441,7 +438,7 @@ const PricingTeaserCard = ({ onPlanSelect }) => {
 
 const PricingTrustRow = () => (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 18px', marginBottom: 14 }}>
-        {['Built for WordPress', 'Works with Yoast & Rank Math', 'Setup in under 60 seconds', 'No credit card required'].map( ( t, i ) => (
+        {['Built for WordPress', 'Works with Yoast & Rank Math', 'No credit card required'].map( ( t, i ) => (
             <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-2)', fontWeight: 600 }}>
                 <Icon name="check" size={12} strokeWidth={2.6} style={{ color: 'var(--ok-ink)' }}/> {t}
             </span>
@@ -591,45 +588,15 @@ const MetricValue = ({ value, tone }) => {
     );
 };
 
-const TimeSavedCard = ({ ready, fixCount }) => (
-    <Card padding={0} style={{ display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '18px 20px 6px' }}>
-            <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>Time saved</div>
-            <h3 style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.015em', margin: 0 }}>Reduce repetitive SEO work</h3>
-            {ready && fixCount > 0 && (
-                <p style={{ fontSize: 12.5, color: 'var(--text-3)', margin: '6px 0 0', lineHeight: 1.45 }}>
-                    Estimated { ( fixCount * 3 ).toLocaleString() } minutes saved on pages needing review.
-                </p>
-            )}
-        </div>
-        <div style={{ padding: '12px 20px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <CompareBar label="Manual SEO" value="3–5 minutes per page" pct={100} tone="danger"/>
-            <CompareBar label="With OpptiAI Titles" value="30 seconds" pct={6} tone="ok"/>
-            <div style={{
-                marginTop: 4, padding: '12px 14px',
-                background: 'var(--ok-soft)', border: '1px solid var(--ok-border)', borderRadius: 'var(--r-md)',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-            }}>
-                <span style={{ fontSize: 12.5, color: 'var(--ok-ink)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 7 }}>
-                    <Icon name="clock" size={14}/> Save hours across larger websites
-                </span>
-                <span className="mono tnum" style={{ fontSize: 16, fontWeight: 600, color: 'var(--ok-ink)', whiteSpace: 'nowrap' }}>Up to 10x faster</span>
-            </div>
-        </div>
-    </Card>
+/** Site-wide reminder, shown on its own beside the SERP overview. */
+const WholeSiteBanner = () => (
+    <div style={{
+        alignSelf: 'start', padding: '12px 14px',
+        background: 'var(--ok-soft)', border: '1px solid var(--ok-border)', borderRadius: 'var(--r-md)',
+        display: 'flex', alignItems: 'center', gap: 12,
+    }}>
+        <span style={{ fontSize: 12.5, color: 'var(--ok-ink)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+            <Icon name="check" size={14}/> Fix titles and meta across your whole site
+        </span>
+    </div>
 );
-
-const CompareBar = ({ label, value, pct, tone }) => {
-    const colors = { ok: 'var(--ok)', danger: 'var(--danger)' };
-    return (
-        <div>
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
-                <span style={{ fontSize: 12.5, color: 'var(--text-2)', fontWeight: 500 }}>{label}</span>
-                <span className="mono tnum" style={{ fontSize: 12.5, color: 'var(--text)', fontWeight: 600 }}>{value}</span>
-            </div>
-            <div style={{ height: 10, borderRadius: 999, background: 'var(--bg-sunken)', border: '1px solid var(--hairline)', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${ pct }%`, background: colors[tone], borderRadius: 999, transition: 'width .5s cubic-bezier(0.16,1,0.3,1)' }}/>
-            </div>
-        </div>
-    );
-};

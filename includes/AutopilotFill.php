@@ -48,7 +48,7 @@ class AutopilotFill {
 	}
 
 	/** True when a field has no copy (whitespace counts as none). */
-	public static function is_empty( mixed $value ): bool {
+	public static function is_empty( $value ): bool {
 		return trim( (string) $value ) === '';
 	}
 }

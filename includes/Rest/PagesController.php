@@ -22,7 +22,12 @@ class PagesController {
     /** Statuses the Library can read/edit: live pages plus pre-publish drafts. */
     private const EDITABLE_STATUSES = [ 'publish', 'draft', 'pending', 'future' ];
 
-    public function __construct( private readonly Client $client ) {}
+    /** @var Client */
+    private $client;
+
+    public function __construct( Client $client ) {
+        $this->client = $client;
+    }
 
     public function get_pages( \WP_REST_Request $req ): \WP_REST_Response {
         $scanner = new Scanner();
@@ -42,7 +47,7 @@ class PagesController {
         ] );
     }
 
-    public function get_page( \WP_REST_Request $req ): \WP_REST_Response|\WP_Error {
+    public function get_page( \WP_REST_Request $req ) {
         $post = get_post( (int) $req['id'] );
         if ( ! $post || ! in_array( $post->post_status, self::EDITABLE_STATUSES, true ) ) {
             return new \WP_Error( 'beepti_not_found', __( 'Page not found.', 'beepbeep-titles' ), [ 'status' => 404 ] );
@@ -50,7 +55,7 @@ class PagesController {
         return new \WP_REST_Response( ( new Scanner() )->format_post( $post ) );
     }
 
-    public function update_page( \WP_REST_Request $req ): \WP_REST_Response|\WP_Error {
+    public function update_page( \WP_REST_Request $req ) {
         $post = get_post( (int) $req['id'] );
         if ( ! $post || ! in_array( $post->post_status, self::EDITABLE_STATUSES, true ) ) {
             return new \WP_Error( 'beepti_not_found', __( 'Page not found.', 'beepbeep-titles' ), [ 'status' => 404 ] );
@@ -159,8 +164,7 @@ class PagesController {
         // Usage-stats consent lives in its own option; stored only when the user saves the toggle.
         if ( array_key_exists( 'usage_stats_opt_in', $incoming ) ) {
             $opt_in = filter_var( $incoming['usage_stats_opt_in'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE );
-            update_option( Telemetry::CONSENT_OPTION, true === $opt_in ? 'yes' : 'no', false );
-            Telemetry::record_opt_in_activation();
+            Telemetry::set_consent( true === $opt_in, 'settings' );
         }
         $current['usage_stats_opt_in'] = 'yes' === get_option( Telemetry::CONSENT_OPTION, '' );
         // Immediately reconcile the scheduled-scan cron if scan_daily changed,

@@ -25,9 +25,14 @@ class SupportController {
     /** Default inbox for contact-form messages (see BEEPTI_SUPPORT_EMAIL). */
     public const DEFAULT_SUPPORT_INBOX = 'support@oppti.dev';
 
-    public function __construct( private readonly Client $client ) {}
+    /** @var Client */
+    private $client;
 
-    public function contact( \WP_REST_Request $req ): \WP_REST_Response|\WP_Error {
+    public function __construct( Client $client ) {
+        $this->client = $client;
+    }
+
+    public function contact( \WP_REST_Request $req ) {
         $message = trim( (string) $req->get_param( 'message' ) );
         if ( $message === '' ) {
             return new \WP_Error(
@@ -177,7 +182,7 @@ class SupportController {
         return (bool) wp_mail( self::support_inbox(), $subject, $body, $headers );
     }
 
-    private function send_backend_contact( string $name, string $email, string $message, array $diagnostics ): array|\WP_Error {
+    private function send_backend_contact( string $name, string $email, string $message, array $diagnostics ) {
         global $wp_version;
 
         $body_message = $message;

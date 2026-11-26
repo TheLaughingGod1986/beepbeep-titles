@@ -3,8 +3,8 @@ Contributors: beepbeepv2
 Tags: seo, ai seo, meta description, title tag, site audit
 Requires at least: 6.3
 Tested up to: 7.1
-Requires PHP: 8.1
-Stable tag: 1.0.31
+Requires PHP: 7.4
+Stable tag: 1.0.32
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -112,7 +112,7 @@ Terms of Use: https://oppti.dev/terms
 Service: PostHog (anonymous usage stats, opt-in only)
 Service URL: https://us.i.posthog.com
 Purpose: Help us understand which features are used so we can improve OpptiAI Titles.
-When data is sent: Only after an administrator turns on "Share anonymous usage stats to help improve OpptiAI Titles" in Settings. It is off by default, and nothing is sent or queued before you opt in. Turning it off stops sending immediately.
+When data is sent: Only after an administrator chooses "Share usage stats" on the first-run card, or turns on "Share usage stats with OpptiAI" in Settings, Privacy. It is off by default, and nothing is sent or queued before you opt in. Turning it off stops sending immediately.
 Data sent: Anonymous feature usage events (for example, which screen was opened or that a generation finished), the plugin, WordPress and PHP versions, and a pseudonymous installation identifier. Never page content, titles, meta descriptions, URLs, post IDs, search terms or personal data.
 Privacy Policy: https://posthog.com/privacy
 Terms of Use: https://posthog.com/terms
@@ -140,7 +140,7 @@ No. The health check, reports and manual editing run in WordPress without an acc
 
 = Does this replace my SEO plugin? =
 
-No. OpptiAI Titles works alongside Yoast SEO, Rank Math or AIOSEO and writes through them. It helps you find and fix SEO title and meta description issues faster.
+No. OpptiAI Titles works alongside Yoast SEO, Rank Math or AIOSEO and writes through them. It helps you find and fix SEO title and meta description issues.
 
 = Can I undo AI changes? =
 
@@ -176,7 +176,7 @@ Plugin options and transients are removed. Data written through Yoast, Rank Math
 
 = What PHP and WordPress versions are supported? =
 
-Requires **WordPress 6.3+** and **PHP 8.1+**, tested up to **WordPress 7.1**.
+Requires **WordPress 6.3+** and **PHP 7.4+**, tested up to **WordPress 7.1**.
 
 = Are there other OpptiAI plugins? =
 
@@ -196,6 +196,13 @@ Non-minified React source files and the npm build configuration are included in 
 WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, REST namespace, and internal admin slug remain `beepbeep-titles` for backwards compatibility with existing installs, options, and translations.
 
 == Changelog ==
+
+= 1.0.32 =
+* Improved: after you connect your account, the Library opens with your page and one Optimise button ready.
+* Improved: clicking Optimise before you have an account takes you straight to creating one, then back to that page.
+* New: a first-run card asks whether to share usage stats with OpptiAI. Usage stats never include your post content. No usage stats are shared unless you choose to, and you can change this any time in Settings, Privacy.
+* Improved: works on PHP 7.4 and newer. Sites on an older PHP version see a notice instead of an error.
+* Improved: clearer usage stats wording in Settings.
 
 = 1.0.31 =
 * New: a "More from Oppti" panel after you have a result, pointing to our other plugins.
@@ -317,6 +324,9 @@ WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, R
 * Plugin Check and WordPress.org packaging readiness.
 
 == Upgrade Notice ==
+= 1.0.32 =
+Runs on PHP 7.4 and newer, opens the Library ready to optimise after you connect, and asks before sharing any usage stats.
+
 = 1.0.31 =
 Confirms titles and descriptions are saved before showing success, and adds a More from Oppti panel after your first result.
 

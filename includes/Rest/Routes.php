@@ -15,12 +15,12 @@ class Routes {
 
     private const NS = 'beepbeep-titles/v1';
 
-    private readonly GenerateController $generate;
-    private readonly BillingController $billing;
-    private readonly PagesController $pages;
-    private readonly SupportController $support;
-    private readonly HealthController $health;
-    private readonly TelemetryController $telemetry;
+    private GenerateController $generate;
+    private BillingController $billing;
+    private PagesController $pages;
+    private SupportController $support;
+    private HealthController $health;
+    private TelemetryController $telemetry;
 
     public function __construct() {
         $client = new Client();
@@ -50,6 +50,13 @@ class Routes {
             'methods'             => 'POST',
             'callback'            => [ $t, 'ingest' ],
             'permission_callback' => [ $this, 'require_editor' ],
+        ] );
+
+        // First-run usage-stats card answer (admin only, like the Settings toggle).
+        register_rest_route( $ns, '/consent', [
+            'methods'             => 'POST',
+            'callback'            => [ $t, 'set_consent' ],
+            'permission_callback' => [ $this, 'require_admin' ],
         ] );
 
         // ── Health (dashboard-first score, priorities, item drill-down) ──

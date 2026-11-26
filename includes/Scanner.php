@@ -138,12 +138,15 @@ class Scanner {
         $seo_title = $seo['title'];
         $meta_desc = $seo['meta'];
 
-        $status = match ( true ) {
-            $seo_title === '' && $meta_desc === '' => 'missing-both',
-            $seo_title === ''                      => 'missing-title',
-            $meta_desc === ''                      => 'missing-meta',
-            default                                => 'ok',
-        };
+        if ( $seo_title === '' && $meta_desc === '' ) {
+            $status = 'missing-both';
+        } elseif ( $seo_title === '' ) {
+            $status = 'missing-title';
+        } elseif ( $meta_desc === '' ) {
+            $status = 'missing-meta';
+        } else {
+            $status = 'ok';
+        }
 
         $hue = ( (int) $post->ID * 47 ) % 360;
 

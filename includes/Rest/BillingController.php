@@ -13,7 +13,12 @@ defined( 'ABSPATH' ) || exit;
 
 class BillingController {
 
-    public function __construct( private readonly Client $client ) {}
+    /** @var Client */
+    private $client;
+
+    public function __construct( Client $client ) {
+        $this->client = $client;
+    }
 
     public function get_quota( \WP_REST_Request $req ): \WP_REST_Response {
         if ( ! $this->client->has_license() ) {

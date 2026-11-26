@@ -20,6 +20,7 @@ namespace {
 	function get_option( $k, $d = false ) { return array_key_exists( $k, $GLOBALS['o'] ) ? $GLOBALS['o'][ $k ] : $d; }
 	function update_option( $k, $v, $a = null ) { $GLOBALS['o'][ $k ] = $v; return true; }
 	function delete_option( $k ) { unset( $GLOBALS['o'][ $k ] ); return true; }
+	function add_option( $k, $v, $dep = '', $a = null ) { if ( array_key_exists( $k, $GLOBALS['o'] ) ) { return false; } $GLOBALS['o'][ $k ] = $v; return true; }
 	function apply_filters( $h, $v ) { return $v; }
 	function sanitize_key( $k ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $k ) ); }
 	function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }

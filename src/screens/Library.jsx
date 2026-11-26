@@ -4,6 +4,8 @@ import { fetchPages, fetchHealthItems, updatePage } from '../api';
 import { contentSubtitle } from '../contentType';
 import { dailyRemainingForLibrary, hasDailyCap, isBulkOverLimit, isGenerationUnavailable, creditsPerPage, pagesAffordable, isInsufficientCredits, insufficientCreditsMessage, isDailyExhausted, QUOTA_DEFAULTS } from '../quota';
 import { PageShell } from '../ui';
+import { FirstActionCard } from '../components/FirstActionCard';
+import { firstActionPage } from '../connectLanding';
 
 const EMPTY_COUNTS = {
     needs: 0,
@@ -15,7 +17,7 @@ const EMPTY_COUNTS = {
     all: 0,
 };
 
-export const PagesLibrary = ({ quota, connected = true, onConnect, onGenerate, onBulkGenerate, onUpgrade }) => {
+export const PagesLibrary = ({ quota, connected = true, firstAction = null, onFirstActionDone, onConnect, onGenerate, onGuestGenerate, onBulkGenerate, onUpgrade }) => {
     const [filter, setFilter]     = useState( 'needs' );
     const [selected, setSelected] = useState( new Set() );
     const [search, setSearch]     = useState( '' );
@@ -171,6 +173,18 @@ export const PagesLibrary = ({ quota, connected = true, onConnect, onGenerate, o
                 </Button>
             </div>
 
+            {connected && firstAction?.active && (
+                <FirstActionCard
+                    page={firstActionPage( firstAction.page, pages )}
+                    onOptimise={() => {
+                        const pg = firstActionPage( firstAction.page, pages );
+                        onFirstActionDone?.();
+                        if ( pg ) onGenerate( pg );
+                    }}
+                    onDismiss={() => onFirstActionDone?.()}
+                />
+            )}
+
             {generationUnavailable && (
                 <ServiceNotice
                     signedOut={signedOut}
@@ -251,10 +265,10 @@ export const PagesLibrary = ({ quota, connected = true, onConnect, onGenerate, o
                             <PageRow key={pg.id} pg={merged}
                                 selected={selected.has( pg.id )}
                                 onToggle={() => toggle( pg.id )}
-                                onGenerate={() => onGenerate( pg )}
+                                onGenerate={() => ( signedOut && onGuestGenerate ? onGuestGenerate( pg ) : onGenerate( pg ) )}
                                 onEdit={() => setEditing( merged )}
                                 justSaved={savedFlash === pg.id}
-                                generationUnavailable={generationUnavailable}
+                                generationUnavailable={generationUnavailable && ! ( signedOut && onGuestGenerate )}
                                 onServiceAction={onServiceAction}
                                 last={i === pages.length - 1}/>
                         );

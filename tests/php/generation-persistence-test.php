@@ -1,6 +1,7 @@
 <?php
 namespace BeepBeep_Titles\Api {
     class Client {
+        public function has_license() { return true; }
         public function generate( ...$args ) { return [ 'title' => 'Generated title', 'meta' => 'Generated description' ]; }
         public function poll_job( $id ) { return [ 'status' => 'completed', 'items' => [ [ 'id' => 1, 'status' => 'completed', 'title' => 'Generated title', 'meta' => 'Generated description' ] ] ]; }
     }

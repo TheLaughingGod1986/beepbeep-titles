@@ -47,12 +47,16 @@ final class AEO_Scoring_Engine {
     }
 
     public static function label_for_score( int $score ): string {
-        return match ( true ) {
-            $score >= 80 => 'Strong',
-            $score >= 55 => 'Good',
-            $score >= 30 => 'Developing',
-            default      => 'Weak',
-        };
+        if ( $score >= 80 ) {
+            return 'Strong';
+        }
+        if ( $score >= 55 ) {
+            return 'Good';
+        }
+        if ( $score >= 30 ) {
+            return 'Developing';
+        }
+        return 'Weak';
     }
 
     /** A clear, non-generic H1/title that isn't just the site name. */

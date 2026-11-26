@@ -4,6 +4,8 @@ import { fetchPages, fetchHealthItems, updatePage } from '../api';
 import { contentSubtitle } from '../contentType';
 import { dailyRemainingForLibrary, hasDailyCap, isBulkOverLimit, isGenerationUnavailable, creditsPerPage, pagesAffordable, isInsufficientCredits, insufficientCreditsMessage, isDailyExhausted, QUOTA_DEFAULTS } from '../quota';
 import { PageShell } from '../ui';
+import { FirstActionCard } from '../components/FirstActionCard';
+import { firstActionPage } from '../connectLanding';
 
 const EMPTY_COUNTS = {
     needs: 0,
@@ -15,7 +17,7 @@ const EMPTY_COUNTS = {
     all: 0,
 };
 
-export const PagesLibrary = ({ quota, connected = true, onConnect, onGenerate, onBulkGenerate, onUpgrade }) => {
+export const PagesLibrary = ({ quota, connected = true, firstAction = null, onFirstActionDone, onConnect, onGenerate, onBulkGenerate, onUpgrade }) => {
     const [filter, setFilter]     = useState( 'needs' );
     const [selected, setSelected] = useState( new Set() );
     const [search, setSearch]     = useState( '' );
@@ -170,6 +172,18 @@ export const PagesLibrary = ({ quota, connected = true, onConnect, onGenerate, o
                     {scanning ? 'Scanning…' : 'Re-crawl'}
                 </Button>
             </div>
+
+            {connected && firstAction?.active && (
+                <FirstActionCard
+                    page={firstActionPage( firstAction.page, pages )}
+                    onOptimise={() => {
+                        const pg = firstActionPage( firstAction.page, pages );
+                        onFirstActionDone?.();
+                        if ( pg ) onGenerate( pg );
+                    }}
+                    onDismiss={() => onFirstActionDone?.()}
+                />
+            )}
 
             {generationUnavailable && (
                 <ServiceNotice

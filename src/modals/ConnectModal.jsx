@@ -134,11 +134,12 @@ export const ConnectModal = ({ open, onClose, onSuccess, initialMode = 'register
 
     const finish = ( res ) => {
         setDone( true );
-        // Brief success pause so the user sees the confirmation.
+        // Apply the connected state straight away; only the modal itself
+        // lingers for a brief success pause so the user sees the confirmation.
+        onSuccess?.( res );
         setTimeout( () => {
             reset();
             onClose();
-            onSuccess?.( res );
         }, 900 );
     };
 

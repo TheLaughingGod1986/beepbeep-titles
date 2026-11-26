@@ -16,7 +16,8 @@ import { hasDailyCap, isPaidPlan, autopilotToggleGate } from './quota';
 import { usePaywallGate } from './hooks/usePaywallGate';
 import { resolveAllowedTab } from './navigation';
 import { recordCheckoutAttempt, recordCheckoutSuccess, recordCheckoutFailure } from './billingTelemetry';
-import { track, trackPluginOpened, trackScreen, trackPaywallShown } from './telemetry';
+import { track, trackPluginOpened, trackScreen, trackPaywallShown, setTelemetryConnected } from './telemetry';
+import { quotaFromAuthResponse, CONNECT_LANDING_TAB } from './connectLanding';
 
 // Checkout opens Stripe in a new tab, so the success return is a fresh page
 // load that doesn't know which plan was bought. We stash the intent in
@@ -83,6 +84,8 @@ export default function App() {
     const [signOutOpen, setSignOutOpen] = useState( false );
     const [connectOpen, setConnectOpen] = useState( false );
     const [connectMode, setConnectMode] = useState( 'register' ); // 'register' | 'password'
+    // First action after connect: one Optimise card at the top of the Library.
+    const [firstAction, setFirstAction] = useState( { active: false, page: null } );
 
     // Open the connect modal on a specific tab ('register' = create account,
     // 'password' = sign in) so each entry point lands on the right form.
@@ -103,6 +106,8 @@ export default function App() {
         try { await clearLicense(); } catch ( e ) {}
         track( 'license_disconnected', { source: 'sign_out' } );
         setConnected( false );
+        setTelemetryConnected( false );
+        setFirstAction( { active: false, page: null } );
         setQuota( normalizeQuota( null ) );
         // Land on the signed-out audit report (Home) rather than Settings —
         // it carries the reconnect CTA and shows what's at stake.
@@ -463,6 +468,29 @@ export default function App() {
             credits_per_page: base.credits_per_page ?? quota?.credits_per_page ?? costPerPage,
             ...( err?.required_credits != null ? { required_credits: err.required_credits } : {} ),
         };
+    };
+
+    /**
+     * Create account / Sign in succeeded. Apply the register or login payload
+     * now (it already carries the connected quota) instead of waiting for a
+     * second /quota, then land on the Library with one Optimise action.
+     */
+    const handleConnected = ( res ) => {
+        const q = quotaFromAuthResponse( res );
+        if ( q ) {
+            setQuota( q );
+            setConnected( true );
+            setQuotaReady( true );
+            setTelemetryConnected( true );
+        }
+        // Background refresh only; it never flips back to signed out unless
+        // the backend rejects the licence.
+        refreshQuota();
+        const landing = resolveAllowedTab( CONNECT_LANDING_TAB, true, { isAdmin } );
+        setTab( landing );
+        trackScreen( landing );
+        setFirstAction( ( f ) => ( { active: true, page: f.page } ) );
+        setToast( { message: 'Account connected', sub: 'Pick a page below and click Optimise.', icon: 'check', tone: 'ok' } );
     };
 
     // ── Error → paywall / toast ──
@@ -855,6 +883,8 @@ export default function App() {
                     <PagesLibrary
                         quota={quota}
                         connected={connected}
+                        firstAction={firstAction}
+                        onFirstActionDone={() => setFirstAction( { active: false, page: null } )}
                         onConnect={() => openConnect( 'register' )}
                         onGenerate={openGenSingle}
                         onBulkGenerate={openBulk}
@@ -893,10 +923,7 @@ export default function App() {
                 open={connectOpen}
                 initialMode={connectMode}
                 onClose={() => setConnectOpen( false )}
-                onSuccess={( res ) => {
-                    refreshQuota();
-                    setToast( { message: 'Account connected', sub: `Plan: ${ res?.plan || 'free' } · generations ready.`, icon: 'check', tone: 'ok' } );
-                }}
+                onSuccess={handleConnected}
             />
 
             <SignOutConfirm

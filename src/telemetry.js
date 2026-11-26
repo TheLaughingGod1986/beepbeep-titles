@@ -107,6 +107,11 @@ export function setTelemetryEnabled( on ) {
 	if ( ! cfg.enabled ) queue = [];
 }
 
+/** Keep user_state in step when the account connects or signs out in this tab. */
+export function setTelemetryConnected( on ) {
+	cfg.connected = on === true;
+}
+
 function baseProps() {
 	const props = {
 		session_id: sessionId(),

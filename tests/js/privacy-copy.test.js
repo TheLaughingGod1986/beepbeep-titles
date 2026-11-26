@@ -34,7 +34,19 @@ describe( 'privacy and paywall copy', () => {
 	} );
 
 	test( 'readme 1.0.32 consent line', () => {
-		expect( read( 'readme.txt' ) ).toContain( '* New: a first-run card asks whether to share usage stats with OpptiAI. No usage stats are shared unless you choose to, and they never include your post content. You can change this any time in Settings, Privacy.' );
+		const readme = read( 'readme.txt' );
+		expect( readme ).toContain( '* New: a first-run card asks whether to share usage stats with OpptiAI. No usage stats are shared unless you choose to, and they never include your post content. You can change this any time in Settings, Privacy.' );
+	} );
+
+	test( 'Audit banner copy has no time-saving claim', () => {
+		const audit = read( 'src/screens/Audit.jsx' );
+		expect( audit ).toContain( '<Icon name="check" size={14}/> Fix titles and meta across your whole site' );
+		expect( audit ).not.toMatch( /Save hours/i );
+		expect( audit ).not.toMatch( /Up to 10x faster/ );
+		// The banner keeps one line of copy and closes straight after it (no empty element).
+		const at = audit.indexOf( 'Fix titles and meta across your whole site' );
+		const after = audit.slice( at, audit.indexOf( '</div>', at ) );
+		expect( after.replace( /\s+/g, '' ) ).toBe( 'Fixtitlesandmetaacrossyourwholesite</span>' );
 	} );
 
 	test( 'Library button stays "Optimise"', () => {

@@ -611,9 +611,8 @@ const TimeSavedCard = ({ ready, fixCount }) => (
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
             }}>
                 <span style={{ fontSize: 12.5, color: 'var(--ok-ink)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 7 }}>
-                    <Icon name="clock" size={14}/> Save hours across larger websites
+                    <Icon name="check" size={14}/> Fix titles and meta across your whole site
                 </span>
-                <span className="mono tnum" style={{ fontSize: 16, fontWeight: 600, color: 'var(--ok-ink)', whiteSpace: 'nowrap' }}>Up to 10x faster</span>
             </div>
         </div>
     </Card>

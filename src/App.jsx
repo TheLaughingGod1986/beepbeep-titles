@@ -531,6 +531,24 @@ export default function App() {
         setDrawer( { open: true, pages: [ { ...pg, hue: pg.hue ?? 220 } ] } );
     };
 
+    /**
+     * Guest first result: a signed-out user picks one page on the Library and
+     * clicks Optimise. The page is remembered so that, if an account is
+     * needed first, the Library offers that same page right after connect.
+     */
+    const openGuestGen = ( pg ) => {
+        if ( ! pg ) return;
+        const page = { ...pg, hue: pg.hue ?? 220 };
+        setFirstAction( { active: false, page } );
+        track( 'generation_started', { generation_mode: 'single', page_count: 1, source: 'guest' } );
+        setDrawer( { open: true, pages: [ page ] } );
+    };
+
+    const handleGuestNeedsAccount = () => {
+        openConnect( 'register' );
+        setToast( { message: 'Create an account to optimise this page', sub: 'Or sign in if you already have one. We will bring you back to this page.', icon: 'info', tone: 'warn' } );
+    };
+
     const openBulk = ( pages ) => {
         if ( ! pages?.length ) {
             setToast( {
@@ -887,6 +905,7 @@ export default function App() {
                         onFirstActionDone={() => setFirstAction( { active: false, page: null } )}
                         onConnect={() => openConnect( 'register' )}
                         onGenerate={openGenSingle}
+                        onGuestGenerate={openGuestGen}
                         onBulkGenerate={openBulk}
                         onUpgrade={() => openCreditsPaywall( exhaustedTrigger )}
                     />
@@ -946,6 +965,7 @@ export default function App() {
                 pages={drawer.pages}
                 onClose={() => setDrawer( { open: false, pages: null } )}
                 onComplete={completeGen}
+                onNeedsAccount={handleGuestNeedsAccount}
                 internalLinkingCompanion={initial.internalLinkingCompanion}
                 onPaywall={( trigger, entitlement, err ) => {
                     setPaywall( {

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Icon, Button, Progress, PageAvatar } from '../components';
 import { generateSingle, submitJob, updatePage } from '../api';
 import { pollUntilComplete } from '../jobs';
-import { isPaywall, errorToast } from '../errors';
+import { isPaywall, needsAccount, errorToast } from '../errors';
 import { contentSubtitle } from '../contentType';
 import { __ } from '@wordpress/i18n';
 import { internalLinkingNextAudit } from '../quota';
@@ -83,7 +83,7 @@ const startBulkJob = ( key, postIds ) => {
     return p;
 };
 
-export const GenerationDrawer = ({ open, pages, onClose, onComplete, onPaywall, onApiError, onEntitlement, onToast, internalLinkingCompanion }) => {
+export const GenerationDrawer = ({ open, pages, onClose, onComplete, onPaywall, onNeedsAccount, onApiError, onEntitlement, onToast, internalLinkingCompanion }) => {
     const [phase, setPhase]     = useState( 'idle' ); // idle | thinking | done
     const [results, setResults] = useState( [] );
     const pagesKey = ( pages || [] ).map( ( p ) => p.id ).join( ',' );
@@ -151,6 +151,13 @@ export const GenerationDrawer = ({ open, pages, onClose, onComplete, onPaywall, 
                 if ( !controller.signal.aborted ) setPhase( 'done' );
             } catch ( err ) {
                 if ( controller.signal.aborted || err?.name === 'AbortError' ) return;
+                if ( needsAccount( err ) && onNeedsAccount ) {
+                    // Guest first result not available (or used up): ask for an
+                    // account and keep the picked page for after connect.
+                    onClose();
+                    onNeedsAccount( pagesSnap[0] || null );
+                    return;
+                }
                 if ( isPaywall( err ) ) {
                     onClose();
                     onPaywall?.(

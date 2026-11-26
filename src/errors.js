@@ -12,6 +12,14 @@ export function paywallTrigger( err ) {
     }
 }
 
+/**
+ * Guest first result refused (no guest allowance, or it is used up): the
+ * next step is Create account / Sign in, not a paywall or an error toast.
+ */
+export function needsAccount( err ) {
+    return err?.code === 'GUEST_SIGNUP_REQUIRED';
+}
+
 export function isPaywall( err ) {
     return paywallTrigger( err ) !== null;
 }

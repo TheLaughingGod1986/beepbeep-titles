@@ -74,6 +74,49 @@ class Client {
     }
 
     /**
+     * Guest first result: one page, no account yet. Sends only the anonymous
+     * trial identity (X-Trial-Mode + X-Trial-Site-Hash, as Alt Text's guest
+     * trial does) and never the licence, site key, install hash or
+     * fingerprint, so a backend with no guest allowance for Titles answers
+     * "sign up required" and cannot fall back to any stored account.
+     *
+     * @param array      $page     Page envelope (same shape as generate()).
+     * @param array      $options  Generation options.
+     * @param array|null $previous Previous { title, meta } on Regenerate.
+     * @return array|\WP_Error Backend body on success.
+     */
+    public function generate_guest( array $page, array $options, $previous = null ) {
+        $trial_hash = $this->site_hash();
+        $body = [
+            'page'            => $page,
+            'options'         => $options,
+            'trial_mode'      => true,
+            'trial_site_hash' => $trial_hash,
+        ];
+        if ( is_array( $previous ) ) {
+            $body['previous'] = $previous;
+        }
+        return $this->do_request( 'POST', '/api/titles/generate', $body, 90, true, self::guest_headers( $this->headers(), $trial_hash ) );
+    }
+
+    /**
+     * Headers for a guest request: account and site-key headers removed,
+     * trial headers added.
+     *
+     * @param array  $headers    Full header set from headers().
+     * @param string $trial_hash Site hash used for the per-site guest allowance.
+     * @return array
+     */
+    public static function guest_headers( array $headers, string $trial_hash ): array {
+        foreach ( [ 'X-License-Key', 'X-Site-Hash', 'X-Site-Key', 'X-Install-Hash', 'X-Site-Fingerprint', 'Authorization', 'X-API-Key' ] as $name ) {
+            unset( $headers[ $name ] );
+        }
+        $headers['X-Trial-Mode']      = 'true';
+        $headers['X-Trial-Site-Hash'] = $trial_hash;
+        return $headers;
+    }
+
+    /**
      * Submit a bulk job.
      *
      * @param array $pages   List of page envelopes (1-100).
@@ -493,14 +536,14 @@ class Client {
     }
 
     /** Same plumbing as request() but without the license guard (auth routes). */
-    private function do_request( string $method, string $path, ?array $body, int $timeout, bool $include_context_headers = true ): array|\WP_Error {
+    private function do_request( string $method, string $path, ?array $body, int $timeout, bool $include_context_headers = true, ?array $headers = null ): array|\WP_Error {
         $url  = BEEPTI_API_BASE . '/' . ltrim( $path, '/' );
         $args = [
             'method'    => $method,
-            'headers'   => $include_context_headers ? $this->headers() : [
+            'headers'   => null !== $headers ? $headers : ( $include_context_headers ? $this->headers() : [
                 'Content-Type' => 'application/json',
                 'Accept'       => 'application/json',
-            ],
+            ] ),
             'timeout'   => $timeout,
             'sslverify' => true,
         ];

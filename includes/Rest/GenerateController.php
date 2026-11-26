@@ -31,11 +31,30 @@ class GenerateController {
         $previous = $req->get_param( 'previous' );
         $previous = $this->sanitize_previous( $previous );
 
-        $result = $this->client->generate(
-            PostPresenter::envelope( $post ),
-            $this->generation_options(),
-            $previous
-        );
+        // Guest first result: no account yet, so try one page on the per-site
+        // guest allowance. Anything the backend refuses becomes a sign-up
+        // prompt, never a dead end.
+        $guest  = ! $this->client->has_license();
+        $result = $guest
+            ? $this->client->generate_guest( PostPresenter::envelope( $post ), $this->generation_options(), $previous )
+            : $this->client->generate(
+                PostPresenter::envelope( $post ),
+                $this->generation_options(),
+                $previous
+            );
+
+        if ( $guest && is_wp_error( $result ) && self::guest_needs_account( $result ) ) {
+            Telemetry::capture( 'generation_failed', [
+                'generation_surface' => 'library',
+                'generation_mode'    => 'single',
+                'error_code'         => 'guest_signup_required',
+            ] );
+            return new \WP_REST_Response( [
+                'success' => false,
+                'code'    => 'GUEST_SIGNUP_REQUIRED',
+                'message' => __( 'Create an account or sign in to optimise this page.', 'beepbeep-titles' ),
+            ], 401 );
+        }
 
         if ( is_wp_error( $result ) ) {
             $code = (string) $result->get_error_code();
@@ -91,7 +110,31 @@ class GenerateController {
         );
 
         $result['wp_post_id'] = $post->ID;
+        if ( $guest ) {
+            $result['guest'] = true;
+        }
         return new \WP_REST_Response( $result, 200 );
+    }
+
+    /**
+     * Whether a guest generate failure means "make an account to continue":
+     * no guest allowance for Titles on the backend, allowance used up, or any
+     * auth / credit refusal. Network and server faults stay ordinary errors.
+     *
+     * @param \WP_Error $error Client error.
+     */
+    public static function guest_needs_account( \WP_Error $error ): bool {
+        $data   = $error->get_error_data();
+        $data   = is_array( $data ) ? $data : [];
+        $status = (int) ( $data['status'] ?? 0 );
+        $code   = strtoupper( (string) ( $data['code'] ?? '' ) );
+        if ( in_array( $status, [ 401, 402, 403 ], true ) ) {
+            return true;
+        }
+        return in_array( $code, [
+            'LICENSE_REQUIRED', 'INVALID_LICENSE', 'SIGN_IN_REQUIRED', 'UNAUTHORIZED', 'AUTH_REQUIRED',
+            'TRIAL_EXHAUSTED', 'TRIAL_LIMIT_REACHED', 'ANONYMOUS_TRIAL_EXHAUSTED', 'QUOTA_EXCEEDED', 'DAILY_QUOTA_EXCEEDED',
+        ], true );
     }
 
     public function submit_job( \WP_REST_Request $req ): \WP_REST_Response {

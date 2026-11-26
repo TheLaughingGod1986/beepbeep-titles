@@ -17,7 +17,7 @@ const EMPTY_COUNTS = {
     all: 0,
 };
 
-export const PagesLibrary = ({ quota, connected = true, firstAction = null, onFirstActionDone, onConnect, onGenerate, onBulkGenerate, onUpgrade }) => {
+export const PagesLibrary = ({ quota, connected = true, firstAction = null, onFirstActionDone, onConnect, onGenerate, onGuestGenerate, onBulkGenerate, onUpgrade }) => {
     const [filter, setFilter]     = useState( 'needs' );
     const [selected, setSelected] = useState( new Set() );
     const [search, setSearch]     = useState( '' );
@@ -265,10 +265,10 @@ export const PagesLibrary = ({ quota, connected = true, firstAction = null, onFi
                             <PageRow key={pg.id} pg={merged}
                                 selected={selected.has( pg.id )}
                                 onToggle={() => toggle( pg.id )}
-                                onGenerate={() => onGenerate( pg )}
+                                onGenerate={() => ( signedOut && onGuestGenerate ? onGuestGenerate( pg ) : onGenerate( pg ) )}
                                 onEdit={() => setEditing( merged )}
                                 justSaved={savedFlash === pg.id}
-                                generationUnavailable={generationUnavailable}
+                                generationUnavailable={generationUnavailable && ! ( signedOut && onGuestGenerate )}
                                 onServiceAction={onServiceAction}
                                 last={i === pages.length - 1}/>
                         );

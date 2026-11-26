@@ -185,8 +185,13 @@ export function track( event, properties = {} ) {
 	scheduleFlush();
 }
 
-/** Once per browser session. */
+/**
+ * Once per browser session, and only after consent. The session flag is set
+ * only when the event is actually queued, so a site that opts in later in the
+ * same session still records plugin_opened once.
+ */
 export function trackPluginOpened() {
+	if ( ! enabled() ) return;
 	try {
 		if ( sessionStorage.getItem( OPENED_KEY ) ) return;
 		sessionStorage.setItem( OPENED_KEY, '1' );

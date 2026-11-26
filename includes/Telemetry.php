@@ -26,6 +26,13 @@ class Telemetry {
 	public const ANON_ID_OPTION          = 'beepti_telemetry_anon_id';
 	/** Set once plugin_activated (with the has_* flags) has been sent or queued for this site. */
 	public const ACTIVATION_SENT_OPTION  = 'beepti_telemetry_activation_sent';
+	/**
+	 * Plugin version a site was first activated on. Written only by the
+	 * activation hook on a site with no earlier plugin state, never on update,
+	 * so a missing value means the site was installed before 1.0.32. Not
+	 * autoloaded. The beepti_ prefix keeps it inside uninstall.php's sweep.
+	 */
+	public const FIRST_VERSION_OPTION    = 'beepti_telemetry_first_version';
 	/** Where the saved usage-stats choice was made: settings or guest_card (first-run card). */
 	public const CONSENT_SOURCE_OPTION   = 'beepti_telemetry_consent_source';
 	/** @var list<string> */
@@ -320,6 +327,10 @@ class Telemetry {
 	 */
 	public static function on_activate(): void {
 		if ( ! get_option( self::ACTIVATION_MARKER ) ) {
+			if ( ! self::has_prior_install_state() && false === get_option( self::FIRST_VERSION_OPTION, false ) ) {
+				// Genuine first activation: remember the version, never overwriting it.
+				update_option( self::FIRST_VERSION_OPTION, BEEPTI_VERSION, false );
+			}
 			update_option( self::ACTIVATION_MARKER, time(), false );
 			// Which OpptiAI plugins are installed at first activation (four booleans, no names or paths).
 			$oppti_plugins = class_exists( MoreFromOppti::class ) ? MoreFromOppti::installed_flags() : [];
@@ -335,6 +346,22 @@ class Telemetry {
 		}
 		self::maybe_record_update();
 		update_option( self::CURRENT_VERSION_OPTION, BEEPTI_VERSION, false );
+	}
+
+	/**
+	 * Whether this site ran an earlier version of the plugin. Checked inside the
+	 * activation hook before it writes anything of its own, against options
+	 * only an earlier run leaves behind (the activation hook's own defaults,
+	 * install hash and SEO plugin detection exist on both fresh and upgraded
+	 * sites, so they are not used).
+	 */
+	private static function has_prior_install_state(): bool {
+		foreach ( [ self::ACTIVATION_MARKER, self::CURRENT_VERSION_OPTION, self::ACTIVATION_SENT_OPTION, 'beepti_activation_oppti_plugins', 'beepti_last_scan', 'beepti_activity', 'beepti_license_key', 'beepti_db_version' ] as $option ) {
+			if ( false !== get_option( $option, false ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -367,8 +394,11 @@ class Telemetry {
 		}
 		$props['transport']          = 'wp_lifecycle_server_bridge';
 		$props['lifecycle_delivery'] = 'opt_in_snapshot';
-		// Sent at opt-in, not at activation. A genuine activation omits this key.
-		$props['backfill']           = true;
+		// Only sites installed before 1.0.32 (no first-version record) are a
+		// backfill. A 1.0.32+ install opting in later omits the key.
+		if ( false === get_option( self::FIRST_VERSION_OPTION, false ) ) {
+			$props['backfill'] = true;
+		}
 		self::capture( 'plugin_activated', $props );
 	}
 

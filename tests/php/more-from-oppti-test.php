@@ -189,7 +189,8 @@ namespace {
 	$sent = $GLOBALS['http'][0]['properties'] ?? [];
 	check( 'activation_hook' === ( $sent['source'] ?? '' ), 'late opt-in: source kept' );
 	check( 'opt_in_snapshot' === ( $sent['lifecycle_delivery'] ?? '' ), 'late opt-in: marked as opt-in snapshot' );
-	check( true === ( $sent['backfill'] ?? null ), 'late opt-in: backfill true' );
+	// Fresh install (activation recorded the first version), so not a backfill.
+	check( ! array_key_exists( 'backfill', $sent ), 'late opt-in on a fresh install: no backfill key' );
 	foreach ( $late as $k => $v ) {
 		check( array_key_exists( $k, $sent ) && $v === $sent[ $k ], "late opt-in: carries $k (false kept)" );
 	}

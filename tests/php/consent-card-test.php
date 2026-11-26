@@ -141,6 +141,55 @@ namespace {
 	Telemetry::record_opt_in_activation();
 	cc_check( [] === $GLOBALS['http'], 'fresh install with consent: no later backfill' );
 
+	// QA P2: fresh vs upgraded install. Plugin::activate writes these before
+	// Telemetry::on_activate on every activation, fresh or not.
+	$activate_defaults = [ 'beepti_settings' => [ 'tone' => 'direct' ], 'beepti_install_hash' => 'h', 'beepti_site_fingerprint' => 'f', 'beepti_seo_plugin' => 'yoast' ];
+
+	// (1) Fresh 1.0.32 install, no consent at activation, opts in on the first-run card.
+	cc_reset( $activate_defaults );
+	Telemetry::on_activate();
+	cc_check( BEEPTI_VERSION === get_option( Telemetry::FIRST_VERSION_OPTION ), 'fresh install records the first version' );
+	cc_check( [] === $GLOBALS['http'], 'fresh install without consent sends nothing at activation' );
+	( new TelemetryController() )->set_consent( new WP_REST_Request( [ 'opt_in' => true, 'source' => 'guest_card' ] ) );
+	cc_check( [ 'consent_granted', 'plugin_activated' ] === cc_events(), 'fresh install card opt-in sends consent_granted and plugin_activated' );
+	cc_check( ! array_key_exists( 'backfill', $GLOBALS['http'][1]['properties'] ), 'fresh install card opt-in: plugin_activated has no backfill key' );
+
+	// (3) Fresh 1.0.32 install, opts in later through Settings.
+	cc_reset( $activate_defaults );
+	Telemetry::on_activate();
+	$GLOBALS['http'] = [];
+	( new PagesController( new BeepBeep_Titles\Api\Client() ) )->update_settings( new WP_REST_Request( [ 'usage_stats_opt_in' => true ] ) );
+	$act = array_values( array_filter( $GLOBALS['http'], function ( $p ) { return 'plugin_activated' === $p['event']; } ) );
+	cc_check( 1 === count( $act ) && ! array_key_exists( 'backfill', $act[0]['properties'] ), 'fresh install Settings opt-in: plugin_activated has no backfill key' );
+
+	// (2) Upgraded from 1.0.31 (marker + version recorded, no first version): update does not run
+	// the activation hook, and a later deactivate/reactivate must not mark it fresh either.
+	cc_reset( $activate_defaults + [ Telemetry::ACTIVATION_MARKER => 1700000000, Telemetry::CURRENT_VERSION_OPTION => '1.0.31', 'beepti_activation_oppti_plugins' => [ 'has_titles' => true ] ] );
+	Telemetry::maybe_record_update();
+	Telemetry::on_activate();
+	cc_check( false === get_option( Telemetry::FIRST_VERSION_OPTION ), 'upgraded install never gets a first version' );
+	( new TelemetryController() )->set_consent( new WP_REST_Request( [ 'opt_in' => true, 'source' => 'guest_card' ] ) );
+	$act = array_values( array_filter( $GLOBALS['http'], function ( $p ) { return 'plugin_activated' === $p['event']; } ) );
+	cc_check( 1 === count( $act ) && true === ( $act[0]['properties']['backfill'] ?? null ), 'upgraded install card opt-in: backfill true' );
+
+	// (2b) Upgraded through Settings: same flag.
+	cc_reset( $activate_defaults + [ Telemetry::ACTIVATION_MARKER => 1700000000, Telemetry::CURRENT_VERSION_OPTION => '1.0.31' ] );
+	( new PagesController( new BeepBeep_Titles\Api\Client() ) )->update_settings( new WP_REST_Request( [ 'usage_stats_opt_in' => true ] ) );
+	$act = array_values( array_filter( $GLOBALS['http'], function ( $p ) { return 'plugin_activated' === $p['event']; } ) );
+	cc_check( 1 === count( $act ) && true === ( $act[0]['properties']['backfill'] ?? null ), 'upgraded install Settings opt-in: backfill true' );
+
+	// (2c) Very old install from before the activation marker, reactivated after upgrading:
+	// earlier state (last scan, activity) means it is not treated as fresh.
+	cc_reset( $activate_defaults + [ 'beepti_last_scan' => '2026-01-01 00:00:00', 'beepti_activity' => [ [ 'id' => 1 ] ] ] );
+	Telemetry::on_activate();
+	cc_check( false === get_option( Telemetry::FIRST_VERSION_OPTION ), 'pre-marker install reactivated: no first version' );
+
+	// First version is never overwritten.
+	cc_reset( [ Telemetry::FIRST_VERSION_OPTION => '1.0.32' ] );
+	Telemetry::on_activate();
+	cc_check( '1.0.32' === get_option( Telemetry::FIRST_VERSION_OPTION ), 'first version is not overwritten' );
+	cc_check( false === strpos( (string) file_get_contents( $root . '/uninstall.php' ), 'FIRST_VERSION' ) && 0 === strpos( Telemetry::FIRST_VERSION_OPTION, 'beepti_' ), 'first version option is covered by the uninstall beepti_ sweep' );
+
 	// Settings toggle goes through the same path.
 	cc_reset( [] );
 	( new PagesController( new BeepBeep_Titles\Api\Client() ) )->update_settings( new WP_REST_Request( [ 'usage_stats_opt_in' => true ] ) );

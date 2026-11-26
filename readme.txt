@@ -112,7 +112,7 @@ Terms of Use: https://oppti.dev/terms
 Service: PostHog (anonymous usage stats, opt-in only)
 Service URL: https://us.i.posthog.com
 Purpose: Help us understand which features are used so we can improve OpptiAI Titles.
-When data is sent: Only after an administrator turns on "Share anonymous usage stats to help improve OpptiAI Titles" in Settings. It is off by default, and nothing is sent or queued before you opt in. Turning it off stops sending immediately.
+When data is sent: Only after an administrator chooses "Share usage stats" on the first-run card, or turns on "Share usage stats with OpptiAI" in Settings, Privacy. It is off by default, and nothing is sent or queued before you opt in. Turning it off stops sending immediately.
 Data sent: Anonymous feature usage events (for example, which screen was opened or that a generation finished), the plugin, WordPress and PHP versions, and a pseudonymous installation identifier. Never page content, titles, meta descriptions, URLs, post IDs, search terms or personal data.
 Privacy Policy: https://posthog.com/privacy
 Terms of Use: https://posthog.com/terms

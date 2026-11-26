@@ -9,7 +9,7 @@ import { creditUsageRows } from '../usage';
 import { QUOTA_DEFAULTS, usageCreditsLabel, USAGE_CREDITS_FOOTNOTE, isPaidPlan, planDisplayName } from '../quota';
 
 // Copy: swap here when Marketing sends new wording.
-const USAGE_STATS_LABEL = () => __( 'Share anonymous usage stats to help improve OpptiAI Titles', 'beepbeep-titles' );
+const USAGE_STATS_LABEL = () => __( 'Share usage stats with OpptiAI', 'beepbeep-titles' );
 
 const formatResetDate = value => {
     if ( ! value ) return 'Not available';
@@ -254,7 +254,7 @@ export const SettingsScreen = ({
             <SettingsSection title={__( 'Privacy', 'beepbeep-titles' )} eyebrow={__( 'Usage stats', 'beepbeep-titles' )}>
                 <SettingsRow
                     label={USAGE_STATS_LABEL()}
-                    desc={__( 'Off by default. Sends anonymous feature usage only, never content or personal data.', 'beepbeep-titles' )}
+                    desc={__( 'Sends which features you use and when a request fails, so we can fix problems. Off until you turn it on.', 'beepbeep-titles' )}
                     right={<Toggle on={usageStats} onChange={handleUsageStats}/>}
                     last
                 />

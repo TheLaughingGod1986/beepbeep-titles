@@ -16,9 +16,25 @@ describe( 'privacy and paywall copy', () => {
 		expect( settings ).not.toMatch( /anonymous usage stats|Sends anonymous feature usage/ );
 	} );
 
-	test( 'paywall has no "in seconds" claim', () => {
+	test( 'paywall has no timing claims', () => {
 		expect( paywall ).toContain( "'Generate SEO titles and descriptions'," );
 		expect( paywall ).not.toMatch( /in seconds/i );
+		expect( paywall ).not.toMatch( /Save hours/i );
+	} );
+
+	test( 'paywall benefit list has no empty items', () => {
+		const list = paywall.match( /: \[\s*('Generate SEO titles and descriptions'[\s\S]*?)\];/ );
+		expect( list ).not.toBeNull();
+		const items = list[ 1 ].split( '\n' ).map( ( l ) => l.trim() ).filter( Boolean );
+		expect( items ).toEqual( [
+			"'Generate SEO titles and descriptions',",
+			"'Improve search visibility',",
+			"'Use credits manually, in bulk, or with Autopilot',",
+		] );
+	} );
+
+	test( 'readme 1.0.32 consent line', () => {
+		expect( read( 'readme.txt' ) ).toContain( '* New: a first-run card asks whether to share usage stats with OpptiAI. No usage stats are shared unless you choose to, and they never include your post content. You can change this any time in Settings, Privacy.' );
 	} );
 
 	test( 'Library button stays "Optimise"', () => {

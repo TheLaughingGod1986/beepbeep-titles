@@ -367,6 +367,8 @@ class Telemetry {
 		}
 		$props['transport']          = 'wp_lifecycle_server_bridge';
 		$props['lifecycle_delivery'] = 'opt_in_snapshot';
+		// Sent at opt-in, not at activation. A genuine activation omits this key.
+		$props['backfill']           = true;
 		self::capture( 'plugin_activated', $props );
 	}
 

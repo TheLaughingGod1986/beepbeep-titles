@@ -174,7 +174,6 @@ export const Paywall = ({ open, onClose, trigger = 'default', entitlement, stats
         ]
         : [
             'Generate SEO titles and descriptions',
-            'Save hours of manual editing',
             'Improve search visibility',
             'Use credits manually, in bulk, or with Autopilot',
         ];

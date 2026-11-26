@@ -95,6 +95,7 @@ namespace {
 	$act = $GLOBALS['http'][1]['properties'];
 	cc_check( 'opt_in_snapshot' === $act['lifecycle_delivery'] && 'guest_card' === $act['consent_source'], 'backfill is marked opt_in_snapshot from the card' );
 	cc_check( false === $act['has_alt_text'] && true === $act['has_il'], 'backfill uses the flags saved at activation' );
+	cc_check( true === ( $act['backfill'] ?? null ), 'backfilled plugin_activated carries backfill: true' );
 
 	// Accept again (already yes): nothing new.
 	$GLOBALS['http'] = [];
@@ -112,11 +113,14 @@ namespace {
 	Telemetry::set_consent( true, 'settings' );
 	cc_check( [ 'consent_granted', 'plugin_activated' ] === cc_events(), '1.0.30 upgrade shape sends the backfill once' );
 	cc_check( true === $GLOBALS['http'][1]['properties']['has_alt_text'] && false === $GLOBALS['http'][1]['properties']['has_auditor'], 'missing flags are taken from the plugins installed now' );
+	cc_check( true === ( $GLOBALS['http'][1]['properties']['backfill'] ?? null ), '1.0.30 upgrade backfill carries backfill: true' );
 
 	// (e) No marker and no flags at all.
 	cc_reset( [] );
 	Telemetry::set_consent( true, 'guest_card' );
 	cc_check( [ 'consent_granted', 'plugin_activated' ] === cc_events(), 'no-marker shape sends the backfill once' );
+	cc_check( true === ( $GLOBALS['http'][1]['properties']['backfill'] ?? null ), 'no-marker backfill carries backfill: true' );
+	cc_check( ! array_key_exists( 'backfill', $GLOBALS['http'][0]['properties'] ), 'consent_granted has no backfill key' );
 	$GLOBALS['http'] = [];
 	Telemetry::record_opt_in_activation();
 	cc_check( [] === $GLOBALS['http'], 'backfill never sent twice' );
@@ -125,6 +129,17 @@ namespace {
 	cc_reset( [ Telemetry::ACTIVATION_SENT_OPTION => 1700000000, Telemetry::CONSENT_OPTION => 'no' ] );
 	Telemetry::set_consent( true, 'settings' );
 	cc_check( [ 'consent_granted' ] === cc_events(), 'no backfill when plugin_activated was already sent' );
+
+	// Genuine fresh install with consent: plugin_activated has no backfill key.
+	cc_reset( [ Telemetry::CONSENT_OPTION => 'yes' ] );
+	Telemetry::on_activate();
+	Telemetry::flush_lifecycle_queue();
+	$fresh = array_values( array_filter( $GLOBALS['http'], function ( $p ) { return 'plugin_activated' === $p['event']; } ) );
+	cc_check( 1 === count( $fresh ) && 'queued_flush' === $fresh[0]['properties']['lifecycle_delivery'], 'fresh install sends one plugin_activated' );
+	cc_check( ! array_key_exists( 'backfill', $fresh[0]['properties'] ), 'fresh-install plugin_activated omits backfill' );
+	$GLOBALS['http'] = [];
+	Telemetry::record_opt_in_activation();
+	cc_check( [] === $GLOBALS['http'], 'fresh install with consent: no later backfill' );
 
 	// Settings toggle goes through the same path.
 	cc_reset( [] );

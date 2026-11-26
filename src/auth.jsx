@@ -247,7 +247,7 @@ export const SignedOutScreen = ({ lastEmail, onConnected, onToast }) => {
                 <p style={{ fontSize: 13.5, color: 'var(--text-2)', margin: '0 0 24px', lineHeight: 1.55 }}>
                     {mode === 'password' && 'Sign in to keep your pages covered.'}
                     {mode === 'license'  && 'Paste your license key to connect this site.'}
-                    {mode === 'signup'   && 'Start covering your pages in under a minute. Free, no credit card.'}
+                    {mode === 'signup'   && 'Start covering your pages. Free, no credit card.'}
                 </p>
 
                 {mode === 'password' && (

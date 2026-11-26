@@ -200,7 +200,7 @@ WordPress.org slug / install folder: `opptiai-titles`. The plugin text domain, R
 = 1.0.32 =
 * Improved: after you connect your account, the Library opens with your page and one Optimise button ready.
 * Improved: clicking Optimise before you have an account takes you straight to creating one, then back to that page.
-* New: a first-run card asks whether to share usage stats with OpptiAI. No usage stats are shared unless you choose to, and they never include your post content. You can change this any time in Settings, Privacy.
+* New: a first-run card asks whether to share usage stats with OpptiAI. Usage stats never include your post content. No usage stats are shared unless you choose to, and you can change this any time in Settings, Privacy.
 * Improved: works on PHP 7.4 and newer. Sites on an older PHP version see a notice instead of an error.
 * Improved: clearer usage stats wording in Settings.
 

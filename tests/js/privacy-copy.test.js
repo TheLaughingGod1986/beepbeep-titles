@@ -35,7 +35,8 @@ describe( 'privacy and paywall copy', () => {
 
 	test( 'readme 1.0.32 consent line', () => {
 		const readme = read( 'readme.txt' );
-		expect( readme ).toContain( '* New: a first-run card asks whether to share usage stats with OpptiAI. No usage stats are shared unless you choose to, and they never include your post content. You can change this any time in Settings, Privacy.' );
+		expect( readme ).toContain( '* New: a first-run card asks whether to share usage stats with OpptiAI. Usage stats never include your post content. No usage stats are shared unless you choose to, and you can change this any time in Settings, Privacy.' );
+		expect( readme.split( 'first-run card asks' ).length ).toBe( 2 );
 	} );
 
 	test( 'Audit banner copy has no time-saving claim', () => {
@@ -64,7 +65,19 @@ describe( 'privacy and paywall copy', () => {
 		}
 		expect( audit ).toContain( '<WholeSiteBanner/>' );
 		expect( audit ).toContain( '<Icon name="check" size={14}/> Fix titles and meta across your whole site' );
+		// Audit: "under 60 seconds" and "30 seconds" cut with no replacement.
+		expect( audit ).not.toMatch( /60 seconds|30 seconds/ );
+		expect( audit ).toContain( 'Find missing SEO titles and meta descriptions\n' );
+		expect( audit ).toContain( 'No credit card required.\n' );
+		expect( audit ).not.toContain( 'Setup in' );
 		// Help modal.
+		expect( help ).not.toMatch( /less than one minute|60 second tour/ );
+		expect( help ).toContain( "'Connect your account to get started'," );
+		expect( help ).toContain( '>Take the tour<' );
+		// Auth screen.
+		const auth = read( 'src/auth.jsx' );
+		expect( auth ).not.toContain( 'under a minute' );
+		expect( auth ).toContain( "'Start covering your pages. Free, no credit card.'" );
 		expect( help ).not.toContain( 'Publish instantly' );
 		expect( help ).toContain( "'Publish to your SEO plugin'," );
 		// Readme FAQ.

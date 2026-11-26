@@ -46,7 +46,7 @@ export const AuditSignedOutScreen = ({ stats, onConnect, onHelp, onLibrary, onAu
                                 <Icon name="search" size={12}/> AI Metadata Audit
                             </span>
                             <h1 style={{ fontSize: 30, fontWeight: 600, letterSpacing: '-0.025em', lineHeight: 1.15, margin: '0 0 10px' }}>
-                                Find missing SEO titles and meta descriptions in under 60 seconds
+                                Find missing SEO titles and meta descriptions
                             </h1>
                             <p style={{ fontSize: 15, color: 'var(--text-2)', lineHeight: 1.55, margin: '0 0 12px', maxWidth: 460 }}>
                                 Discover metadata issues, improve search appearance and generate optimised SEO titles and descriptions automatically.
@@ -59,7 +59,7 @@ export const AuditSignedOutScreen = ({ stats, onConnect, onHelp, onLibrary, onAu
                                 <Button variant="secondary" size="lg" onClick={openQuickSetup}>Quick Setup Guide</Button>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px 24px', marginTop: 22, flexWrap: 'wrap' }}>
-                                {['No credit card required', 'Setup in under 60 seconds', 'Works with Yoast, Rank Math & AIOSEO', 'Built specifically for WordPress SEO workflows'].map( ( t, i ) => (
+                                {['No credit card required', 'Works with Yoast, Rank Math & AIOSEO', 'Built specifically for WordPress SEO workflows'].map( ( t, i ) => (
                                     <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: 'var(--text)', fontWeight: 600 }}>
                                         <span style={{ width: 20, height: 20, borderRadius: 999, flexShrink: 0, background: 'var(--ok-soft)', border: '1px solid var(--ok-border)', color: 'var(--ok-ink)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
                                             <Icon name="check" size={12} strokeWidth={3}/>
@@ -115,7 +115,7 @@ export const AuditSignedOutScreen = ({ stats, onConnect, onHelp, onLibrary, onAu
                                 Your complete local audit is available now. Connect the external AI service when you want generated suggestions.
                             </p>
                             <p style={{ fontSize: 12.5, color: 'var(--text-3)', margin: 0 }}>
-                                No credit card required. Setup takes under 60 seconds.
+                                No credit card required.
                             </p>
                         </div>
                         <Button variant="primary" size="lg" icon="arrow-right" onClick={connectFromHero}>Connect Account</Button>
@@ -438,7 +438,7 @@ const PricingTeaserCard = ({ onPlanSelect }) => {
 
 const PricingTrustRow = () => (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 18px', marginBottom: 14 }}>
-        {['Built for WordPress', 'Works with Yoast & Rank Math', 'Setup in under 60 seconds', 'No credit card required'].map( ( t, i ) => (
+        {['Built for WordPress', 'Works with Yoast & Rank Math', 'No credit card required'].map( ( t, i ) => (
             <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-2)', fontWeight: 600 }}>
                 <Icon name="check" size={12} strokeWidth={2.6} style={{ color: 'var(--ok-ink)' }}/> {t}
             </span>
@@ -588,7 +588,7 @@ const MetricValue = ({ value, tone }) => {
     );
 };
 
-/** Site-wide reminder kept from the old time-saved card (no timing claims). */
+/** Site-wide reminder, shown on its own beside the SERP overview. */
 const WholeSiteBanner = () => (
     <div style={{
         alignSelf: 'start', padding: '12px 14px',

@@ -14,14 +14,10 @@ defined( 'ABSPATH' ) || exit;
 class BillingController {
 
     /** @var Client */
-
     private $client;
 
-
     public function __construct( Client $client ) {
-
         $this->client = $client;
-
     }
 
     public function get_quota( \WP_REST_Request $req ): \WP_REST_Response {

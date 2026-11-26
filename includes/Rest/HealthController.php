@@ -27,14 +27,10 @@ class HealthController {
     private const MODULE = 'titles';
 
     /** @var Client */
-
     private $client;
 
-
     public function __construct( Client $client ) {
-
         $this->client = $client;
-
     }
 
     /**

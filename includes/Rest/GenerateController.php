@@ -21,14 +21,10 @@ defined( 'ABSPATH' ) || exit;
 class GenerateController {
 
     /** @var Client */
-
     private $client;
 
-
     public function __construct( Client $client ) {
-
         $this->client = $client;
-
     }
 
     public function generate( \WP_REST_Request $req ): \WP_REST_Response {

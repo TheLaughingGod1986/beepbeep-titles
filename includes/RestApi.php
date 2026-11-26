@@ -19,14 +19,10 @@ defined( 'ABSPATH' ) || exit;
 class RestApi {
 
     /** @var Plugin */
-
     private $plugin;
 
-
     public function __construct( Plugin $plugin ) {
-
         $this->plugin = $plugin;
-
     }
 
     public function init(): void {

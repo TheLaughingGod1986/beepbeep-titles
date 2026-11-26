@@ -9,14 +9,10 @@ defined( 'ABSPATH' ) || exit;
 class Admin {
 
     /** @var Plugin */
-
     private $plugin;
 
-
     public function __construct( Plugin $plugin ) {
-
         $this->plugin = $plugin;
-
     }
 
     public function init(): void {

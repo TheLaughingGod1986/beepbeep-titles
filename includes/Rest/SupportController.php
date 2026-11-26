@@ -26,14 +26,10 @@ class SupportController {
     public const DEFAULT_SUPPORT_INBOX = 'support@oppti.dev';
 
     /** @var Client */
-
     private $client;
 
-
     public function __construct( Client $client ) {
-
         $this->client = $client;
-
     }
 
     public function contact( \WP_REST_Request $req ) {

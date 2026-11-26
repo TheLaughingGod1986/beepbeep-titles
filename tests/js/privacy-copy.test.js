@@ -49,6 +49,29 @@ describe( 'privacy and paywall copy', () => {
 		expect( after.replace( /\s+/g, '' ) ).toBe( 'Fixtitlesandmetaacrossyourwholesite</span>' );
 	} );
 
+	test( '1.0.32 timing claims removed and replacements present', () => {
+		const audit = read( 'src/screens/Audit.jsx' );
+		const help = read( 'src/modals/HelpModal.jsx' );
+		const readme = read( 'readme.txt' );
+		// Paywall side-by-side comparison gone (both columns and their headings).
+		for ( const s of [ '2–4 hours', 'under 2 minutes', 'Manual optimisation', 'Manual vs OpptiAI' ] ) {
+			expect( paywall ).not.toContain( s );
+		}
+		expect( paywall ).toContain( 'Why upgrade?' );
+		// Audit: time-saved metric, card copy and comparison bars gone; banner kept.
+		for ( const s of [ 'Estimated time saved', 'timeSaved', 'Time saved', 'Reduce repetitive SEO work', 'minutes saved', '3–5 minutes per page', '30 seconds', 'CompareBar', 'TimeSavedCard' ] ) {
+			expect( audit ).not.toContain( s );
+		}
+		expect( audit ).toContain( '<WholeSiteBanner/>' );
+		expect( audit ).toContain( '<Icon name="check" size={14}/> Fix titles and meta across your whole site' );
+		// Help modal.
+		expect( help ).not.toContain( 'Publish instantly' );
+		expect( help ).toContain( "'Publish to your SEO plugin'," );
+		// Readme FAQ.
+		expect( readme ).toContain( 'It helps you find and fix SEO title and meta description issues.\n' );
+		expect( readme ).not.toContain( 'description issues faster' );
+	} );
+
 	test( 'Library button stays "Optimise"', () => {
 		expect( library ).toMatch( />\s*Optimise\s*</ );
 	} );

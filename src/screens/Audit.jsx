@@ -89,7 +89,7 @@ export const AuditSignedOutScreen = ({ stats, onConnect, onHelp, onLibrary, onAu
                 <WebsiteHealthCards ready={ready} total={total} fixCount={fixCount} missingTitle={missingTitle} missingMeta={missingMeta}/>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '0.9fr 1.1fr', gap: 14, marginBottom: 28 }}>
-                    <TimeSavedCard ready={ready} fixCount={fixCount}/>
+                    <WholeSiteBanner/>
                     <SerpOverviewCard ready={ready} fixCount={fixCount} missingTitle={missingTitle} missingMeta={missingMeta}/>
                 </div>
 
@@ -172,8 +172,6 @@ const PreviewMetric = ({ label, value }) => (
 );
 
 const SiteAuditPreviewCard = ({ ready, total, fixCount, missingTitle, missingMeta, onLibrary }) => {
-    const timeSaved = ready ? `${ ( fixCount * 3 ).toLocaleString() } minutes` : '\u2013';
-
     return (
         <Card padding={0} style={{ marginBottom: 28, overflow: 'hidden' }}>
             <div style={{ padding: '18px 20px 0' }}>
@@ -185,7 +183,6 @@ const SiteAuditPreviewCard = ({ ready, total, fixCount, missingTitle, missingMet
                 <PreviewMetric label="Missing SEO titles" value={metricValue( ready, missingTitle )}/>
                 <PreviewMetric label="Missing meta descriptions" value={metricValue( ready, missingMeta )}/>
                 <PreviewMetric label="Pages needing review" value={metricValue( ready, fixCount )}/>
-                <PreviewMetric label="Estimated time saved" value={timeSaved}/>
             </div>
             <div style={{ padding: '0 20px 18px', display: 'flex', justifyContent: 'flex-end' }}>
                 <Button variant="secondary" size="sm" icon="arrow-right" onClick={onLibrary}>Open Full Report</Button>
@@ -591,44 +588,15 @@ const MetricValue = ({ value, tone }) => {
     );
 };
 
-const TimeSavedCard = ({ ready, fixCount }) => (
-    <Card padding={0} style={{ display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '18px 20px 6px' }}>
-            <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>Time saved</div>
-            <h3 style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.015em', margin: 0 }}>Reduce repetitive SEO work</h3>
-            {ready && fixCount > 0 && (
-                <p style={{ fontSize: 12.5, color: 'var(--text-3)', margin: '6px 0 0', lineHeight: 1.45 }}>
-                    Estimated { ( fixCount * 3 ).toLocaleString() } minutes saved on pages needing review.
-                </p>
-            )}
-        </div>
-        <div style={{ padding: '12px 20px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <CompareBar label="Manual SEO" value="3–5 minutes per page" pct={100} tone="danger"/>
-            <CompareBar label="With OpptiAI Titles" value="30 seconds" pct={6} tone="ok"/>
-            <div style={{
-                marginTop: 4, padding: '12px 14px',
-                background: 'var(--ok-soft)', border: '1px solid var(--ok-border)', borderRadius: 'var(--r-md)',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-            }}>
-                <span style={{ fontSize: 12.5, color: 'var(--ok-ink)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 7 }}>
-                    <Icon name="check" size={14}/> Fix titles and meta across your whole site
-                </span>
-            </div>
-        </div>
-    </Card>
+/** Site-wide reminder kept from the old time-saved card (no timing claims). */
+const WholeSiteBanner = () => (
+    <div style={{
+        alignSelf: 'start', padding: '12px 14px',
+        background: 'var(--ok-soft)', border: '1px solid var(--ok-border)', borderRadius: 'var(--r-md)',
+        display: 'flex', alignItems: 'center', gap: 12,
+    }}>
+        <span style={{ fontSize: 12.5, color: 'var(--ok-ink)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+            <Icon name="check" size={14}/> Fix titles and meta across your whole site
+        </span>
+    </div>
 );
-
-const CompareBar = ({ label, value, pct, tone }) => {
-    const colors = { ok: 'var(--ok)', danger: 'var(--danger)' };
-    return (
-        <div>
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
-                <span style={{ fontSize: 12.5, color: 'var(--text-2)', fontWeight: 500 }}>{label}</span>
-                <span className="mono tnum" style={{ fontSize: 12.5, color: 'var(--text)', fontWeight: 600 }}>{value}</span>
-            </div>
-            <div style={{ height: 10, borderRadius: 999, background: 'var(--bg-sunken)', border: '1px solid var(--hairline)', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${ pct }%`, background: colors[tone], borderRadius: 999, transition: 'width .5s cubic-bezier(0.16,1,0.3,1)' }}/>
-            </div>
-        </div>
-    );
-};

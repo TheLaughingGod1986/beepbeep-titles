@@ -140,7 +140,7 @@ No. The health check, reports and manual editing run in WordPress without an acc
 
 = Does this replace my SEO plugin? =
 
-No. OpptiAI Titles works alongside Yoast SEO, Rank Math or AIOSEO and writes through them. It helps you find and fix SEO title and meta description issues faster.
+No. OpptiAI Titles works alongside Yoast SEO, Rank Math or AIOSEO and writes through them. It helps you find and fix SEO title and meta description issues.
 
 = Can I undo AI changes? =
 

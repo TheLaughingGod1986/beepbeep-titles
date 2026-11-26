@@ -42,7 +42,7 @@ const steps = [
         benefits: [
             'Edit before publishing',
             'Regenerate if needed',
-            'Publish instantly',
+            'Publish to your SEO plugin',
         ],
     },
 ];

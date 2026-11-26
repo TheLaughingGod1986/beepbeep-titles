@@ -272,7 +272,7 @@ export const Paywall = ({ open, onClose, trigger = 'default', entitlement, stats
                     </div>
                 </div>
 
-                {/* ── Section 2: Benefits + time-saving comparison ── */}
+                {/* ── Section 2: Benefits ── */}
                 <div className="beepti-pw__section" style={{ padding: '20px 40px 4px' }}>
                     <div style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-3)', margin: '0 0 10px' }}>Why upgrade?</div>
                     <div className="beepti-pw__why" style={{ marginBottom: 14 }}>
@@ -281,18 +281,6 @@ export const Paywall = ({ open, onClose, trigger = 'default', entitlement, stats
                                 <Icon name="check" size={14} strokeWidth={2.6} style={{ color: 'var(--ok-ink)', flexShrink: 0, marginTop: 1 }}/> {t}
                             </span>
                         ) )}
-                    </div>
-
-                    {/* Manual vs OpptiAI — the time-saving punchline */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, borderRadius: R, overflow: 'hidden', border: '1px solid var(--border)' }}>
-                        <div style={{ padding: '12px 16px', background: 'var(--surface-2)', borderRight: '1px solid var(--border)' }}>
-                            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 4 }}>Manual optimisation</div>
-                            <div style={{ fontSize: 14, color: 'var(--text-2)', fontWeight: 600 }}>100 pages &amp; posts = 2–4 hours</div>
-                        </div>
-                        <div style={{ padding: '12px 16px', background: 'var(--ok-soft)' }}>
-                            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--ok-ink)', marginBottom: 4 }}>OpptiAI</div>
-                            <div style={{ fontSize: 14, color: 'var(--ok-ink)', fontWeight: 700 }}>100 pages &amp; posts = under 2 minutes</div>
-                        </div>
                     </div>
                 </div>
 

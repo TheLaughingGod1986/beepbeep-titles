@@ -77,7 +77,8 @@ describe( 'privacy and paywall copy', () => {
 		// Auth screen.
 		const auth = read( 'src/auth.jsx' );
 		expect( auth ).not.toContain( 'under a minute' );
-		expect( auth ).toContain( "'Start covering your pages. Free, no credit card.'" );
+		expect( auth ).toContain( "{mode === 'signup'   && 'Start covering your pages. Free to try, no credit card.'}" );
+		expect( auth ).not.toMatch( /Free, no credit card/ );
 		expect( help ).not.toContain( 'Publish instantly' );
 		expect( help ).toContain( "'Publish to your SEO plugin'," );
 		// Readme FAQ.

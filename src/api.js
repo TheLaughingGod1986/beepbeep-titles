@@ -302,6 +302,11 @@ export async function fetchSettings() {
     return request( 'GET', '/settings' );
 }
 
+/** First-run usage-stats card answer (admin only). */
+export async function saveConsent( optIn ) {
+    return request( 'POST', '/consent', { opt_in: optIn === true, source: 'guest_card' } );
+}
+
 export async function saveSettings( settings ) {
     return request( 'PATCH', '/settings', settings );
 }
@@ -347,6 +352,8 @@ export function getInitialData() {
         moreFromOppti: data.moreFromOppti ?? { eligible: false, dismissed: true, items: [] },
         // US paywall (visitor country=US from PHP CDN headers): USD amounts + Stripe price IDs.
         billing:   data.billing ?? { isUs: false, usdPriceIds: {}, usdAmounts: {} },
+        // Usage-stats config from PHP (opt-in state, first-run consent card).
+        telemetry: data.telemetry ?? {},
         // Seeded from PHP so Home/Audit first paint has real coverage numbers.
         stats:     normalizeStats( data.stats ),
         // Quota is fetched on mount; this is just a neutral placeholder so the

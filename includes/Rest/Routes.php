@@ -52,6 +52,13 @@ class Routes {
             'permission_callback' => [ $this, 'require_editor' ],
         ] );
 
+        // First-run usage-stats card answer (admin only, like the Settings toggle).
+        register_rest_route( $ns, '/consent', [
+            'methods'             => 'POST',
+            'callback'            => [ $t, 'set_consent' ],
+            'permission_callback' => [ $this, 'require_admin' ],
+        ] );
+
         // ── Health (dashboard-first score, priorities, item drill-down) ──
         register_rest_route( $ns, '/health', [
             'methods'             => 'GET',

@@ -208,15 +208,21 @@ namespace {
 	Telemetry::record_opt_in_activation();
 	check( 1 === count( $GLOBALS['http'] ) && 'queued_flush' === ( $GLOBALS['http'][0]['properties']['lifecycle_delivery'] ?? '' ), 'consent at activation: one plugin_activated, no opt-in repeat' );
 
-	// Install from before the flags existed (no saved flags): nothing sent.
-	$GLOBALS['o']    = [ Telemetry::ACTIVATION_MARKER => time(), Telemetry::CONSENT_OPTION => 'yes' ];
+	// Install from before the flags existed (1.0.30: marker, no saved flags): sent once
+	// on opt-in with the flags as they are now (1.0.32 backfill).
+	$GLOBALS['o']    = [ 'active_plugins' => [ 'opptiai-titles/beepbeep-titles.php' ], Telemetry::ACTIVATION_MARKER => time(), Telemetry::CONSENT_OPTION => 'yes' ];
 	$GLOBALS['http'] = [];
 	Telemetry::record_opt_in_activation();
-	check( [] === $GLOBALS['http'], 'no saved flags: nothing sent' );
+	Telemetry::record_opt_in_activation();
+	check( 1 === count( $GLOBALS['http'] ) && 'plugin_activated' === ( $GLOBALS['http'][0]['event'] ?? '' ) && 'opt_in_snapshot' === ( $GLOBALS['http'][0]['properties']['lifecycle_delivery'] ?? '' ), 'no saved flags: backfill sent once' );
+	check( true === ( $GLOBALS['http'][0]['properties']['has_titles'] ?? null ), 'no saved flags: current flags used' );
 
-	// The settings save calls it right after storing the toggle (the only place consent is saved).
+	// Saving consent (Settings toggle or first-run card) goes through Telemetry::set_consent,
+	// which runs the backfill after storing a yes.
 	$pc = (string) file_get_contents( $root . '/includes/Rest/PagesController.php' );
-	check( 1 === preg_match( "/update_option\\( Telemetry::CONSENT_OPTION[^;]+;\\s*Telemetry::record_opt_in_activation\\(\\);/", $pc ), 'settings save calls record_opt_in_activation after storing consent' );
+	check( false !== strpos( $pc, 'Telemetry::set_consent( true === $opt_in, \'settings\' );' ), 'settings save stores consent through set_consent' );
+	$tp = (string) file_get_contents( $root . '/includes/Telemetry.php' );
+	check( 1 === preg_match( "/update_option\\( self::CONSENT_OPTION[^;]+;.*self::record_opt_in_activation\\( \\\$consent_source \\);/s", $tp ), 'set_consent runs the backfill after storing consent' );
 	$GLOBALS['plugins'] = $self;
 
 	if ( $fail ) { exit( 1 ); }

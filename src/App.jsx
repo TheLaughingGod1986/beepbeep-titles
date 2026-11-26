@@ -9,14 +9,16 @@ import { SettingsScreen } from './screens/Settings';
 import { Onboarding, GenerationDrawer, Paywall, Toast, HelpModal, ConnectModal, BulkConfirm, CheckoutContinue } from './modals/index';
 import { SignOutConfirm } from './auth';
 import { getUsdPriceId } from './billingPlansCatalog';
-import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, normalizeStats, createCheckout, createBillingPortal, clearLicense, saveSettings, fetchSettings, fetchHealth, fetchPriorities, fetchHealthItems, runHealthScan, undoPage, fetchAeo, resetGenerated, recordReviewPrompt, dismissMoreFromOppti } from './api';
+import { getInitialData, fetchQuota, fetchPages, fetchActivity, runScan, normalizeQuota, normalizeStats, createCheckout, createBillingPortal, clearLicense, saveSettings, fetchSettings, fetchHealth, fetchPriorities, fetchHealthItems, runHealthScan, undoPage, fetchAeo, resetGenerated, recordReviewPrompt, dismissMoreFromOppti, saveConsent } from './api';
 import { paywallTrigger, errorToast, checkoutErrorToast } from './errors';
 import { createCheckoutFlow } from './checkoutFlow';
 import { hasDailyCap, isPaidPlan, autopilotToggleGate } from './quota';
 import { usePaywallGate } from './hooks/usePaywallGate';
 import { resolveAllowedTab } from './navigation';
 import { recordCheckoutAttempt, recordCheckoutSuccess, recordCheckoutFailure } from './billingTelemetry';
-import { track, trackPluginOpened, trackScreen, trackPaywallShown, setTelemetryConnected } from './telemetry';
+import { track, trackPluginOpened, trackScreen, trackPaywallShown, setTelemetryConnected, setTelemetryEnabled } from './telemetry';
+import { shouldShowConsentCard, answerConsent } from './consent';
+import { ConsentCard } from './components/ConsentCard';
 import { quotaFromAuthResponse, CONNECT_LANDING_TAB } from './connectLanding';
 
 // Checkout opens Stripe in a new tab, so the success return is a fresh page
@@ -86,6 +88,19 @@ export default function App() {
     const [connectMode, setConnectMode] = useState( 'register' ); // 'register' | 'password'
     // First action after connect: one Optimise card at the top of the Library.
     const [firstAction, setFirstAction] = useState( { active: false, page: null } );
+    // First-run usage-stats card: shown until an admin answers it.
+    const [consentCard, setConsentCard] = useState( () => ( { show: shouldShowConsentCard( initial.telemetry ), busy: false } ) );
+    const handleConsentAnswer = async ( optIn ) => {
+        setConsentCard( c => ( { ...c, busy: true } ) );
+        try {
+            const on = await answerConsent( optIn, { save: saveConsent, setTelemetryEnabled, trackPluginOpened } );
+            setSettings( s => ( s ? { ...s, usage_stats_opt_in: on } : s ) );
+            setConsentCard( { show: false, busy: false } );
+        } catch ( e ) {
+            setConsentCard( c => ( { ...c, busy: false } ) );
+            setToast( { message: 'Failed to save preferences', icon: 'alert', tone: 'warn' } );
+        }
+    };
 
     // Open the connect modal on a specific tab ('register' = create account,
     // 'password' = sign in) so each entry point lands on the right form.
@@ -887,6 +902,13 @@ export default function App() {
                 onSignIn={() => openConnect( 'password' )}
                 onUpgrade={() => openCreditsPaywall( exhaustedTrigger )}
             >
+                {consentCard.show && (
+                    <ConsentCard
+                        busy={consentCard.busy}
+                        onAccept={() => handleConsentAnswer( true )}
+                        onDecline={() => handleConsentAnswer( false )}
+                    />
+                )}
                 {body}
                 {/*
                  * Kept mounted (not swapped in/out via the switch above) and

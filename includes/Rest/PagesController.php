@@ -23,14 +23,10 @@ class PagesController {
     private const EDITABLE_STATUSES = [ 'publish', 'draft', 'pending', 'future' ];
 
     /** @var Client */
-
     private $client;
 
-
     public function __construct( Client $client ) {
-
         $this->client = $client;
-
     }
 
     public function get_pages( \WP_REST_Request $req ): \WP_REST_Response {
@@ -168,8 +164,7 @@ class PagesController {
         // Usage-stats consent lives in its own option; stored only when the user saves the toggle.
         if ( array_key_exists( 'usage_stats_opt_in', $incoming ) ) {
             $opt_in = filter_var( $incoming['usage_stats_opt_in'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE );
-            update_option( Telemetry::CONSENT_OPTION, true === $opt_in ? 'yes' : 'no', false );
-            Telemetry::record_opt_in_activation();
+            Telemetry::set_consent( true === $opt_in, 'settings' );
         }
         $current['usage_stats_opt_in'] = 'yes' === get_option( Telemetry::CONSENT_OPTION, '' );
         // Immediately reconcile the scheduled-scan cron if scan_daily changed,

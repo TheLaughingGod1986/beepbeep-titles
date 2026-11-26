@@ -27,6 +27,21 @@ class TelemetryController {
 	];
 
 	/**
+	 * POST /consent: save the first-run card answer (admin only). Accept sends
+	 * consent_granted; "No thanks" stores no and sends nothing.
+	 */
+	public function set_consent( \WP_REST_Request $req ): \WP_REST_Response {
+		if ( defined( 'BEEPTI_TELEMETRY_CONSENT' ) ) {
+			return new \WP_REST_Response( [ 'usage_stats_opt_in' => Telemetry::has_consent(), 'locked' => true ] );
+		}
+		$params = $req->get_json_params();
+		$params = is_array( $params ) ? $params : [];
+		$opt_in = true === filter_var( $params['opt_in'] ?? false, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE );
+		Telemetry::set_consent( $opt_in, Telemetry::normalize_consent_source( $params['source'] ?? 'guest_card' ) );
+		return new \WP_REST_Response( [ 'usage_stats_opt_in' => 'yes' === get_option( Telemetry::CONSENT_OPTION, '' ) ] );
+	}
+
+	/**
 	 * @param array<string,mixed> $props Raw browser properties.
 	 * @return array<string,mixed>
 	 */

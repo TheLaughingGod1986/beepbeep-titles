@@ -26,6 +26,10 @@ class Telemetry {
 	public const ANON_ID_OPTION          = 'beepti_telemetry_anon_id';
 	/** Set once plugin_activated (with the has_* flags) has been sent or queued for this site. */
 	public const ACTIVATION_SENT_OPTION  = 'beepti_telemetry_activation_sent';
+	/** Where the saved usage-stats choice was made: settings or guest_card (first-run card). */
+	public const CONSENT_SOURCE_OPTION   = 'beepti_telemetry_consent_source';
+	/** @var list<string> */
+	public const CONSENT_SOURCES         = [ 'settings', 'guest_card' ];
 
 	private const POSTHOG_API_KEY  = 'phc_6L7JzpjYRC8Gk4Br3YevTmjZnJsJPvoy9GK7RFdo72s';
 	private const POSTHOG_API_HOST = 'https://us.i.posthog.com';
@@ -46,6 +50,7 @@ class Telemetry {
 		'plugin_deactivated',
 		'plugin_updated',
 		'plugin_opened',
+		'consent_granted',
 		'dashboard_viewed',
 		'library_viewed',
 		'autopilot_viewed',
@@ -119,6 +124,56 @@ class Telemetry {
 		$granted = in_array( $stored, [ 'yes', '1', 1, true ], true );
 
 		return (bool) apply_filters( 'beepti_telemetry_consent_granted', $granted );
+	}
+
+	/**
+	 * Save the usage-stats choice. Opt-in only: "no" stores the answer and
+	 * sends nothing (anything queued is dropped). Switching to "yes" sends
+	 * consent_granted once for that change, then the plugin_activated backfill
+	 * if this site never sent it.
+	 */
+	public static function set_consent( bool $opt_in, string $consent_source = 'settings' ): void {
+		$consent_source = self::normalize_consent_source( $consent_source );
+		$was_yes        = in_array( get_option( self::CONSENT_OPTION, false ), [ 'yes', '1', 1, true ], true );
+		update_option( self::CONSENT_OPTION, $opt_in ? 'yes' : 'no', false );
+		update_option( self::CONSENT_SOURCE_OPTION, $consent_source, false );
+		if ( ! $opt_in ) {
+			delete_option( self::LIFECYCLE_QUEUE_OPTION );
+			return;
+		}
+		if ( $was_yes ) {
+			return;
+		}
+		self::capture(
+			'consent_granted',
+			[
+				'consent_source' => $consent_source,
+				'transport'      => 'wp_admin_server_bridge',
+			]
+		);
+		self::record_opt_in_activation( $consent_source );
+	}
+
+	/** @param mixed $consent_source Raw value; unknown values become settings. */
+	public static function normalize_consent_source( $consent_source ): string {
+		$consent_source = is_string( $consent_source ) ? sanitize_key( $consent_source ) : '';
+		return in_array( $consent_source, self::CONSENT_SOURCES, true ) ? $consent_source : 'settings';
+	}
+
+	/** Whether an admin has saved a usage-stats choice (yes or no). */
+	public static function consent_answered(): bool {
+		return in_array( get_option( self::CONSENT_OPTION, false ), [ 'yes', 'no', '1', '0', 1, 0, true ], true );
+	}
+
+	/**
+	 * First-run consent card: only for admins who can save the choice, only
+	 * while no choice is saved, never when wp-config forces the choice.
+	 */
+	public static function should_show_consent_card(): bool {
+		if ( defined( 'BEEPTI_TELEMETRY_CONSENT' ) || ! function_exists( 'current_user_can' ) || ! current_user_can( 'manage_options' ) ) {
+			return false;
+		}
+		return ! self::consent_answered();
 	}
 
 	/** Record value only after callers have verified persistence. */
@@ -284,21 +339,29 @@ class Telemetry {
 
 	/**
 	 * Late opt-in: a site that activated without consent sends plugin_activated
-	 * once, when usage stats are switched on, with the has_* flags saved at
-	 * activation (false kept). Never without consent, never twice per site.
+	 * once, when usage stats are switched on. Uses the has_* flags saved at
+	 * activation (false kept); sites activated before those flags existed (or
+	 * before the activation marker) get the flags as they are now. Never
+	 * without consent, never twice per site.
 	 */
-	public static function record_opt_in_activation(): void {
+	public static function record_opt_in_activation( string $consent_source = 'settings' ): void {
 		if ( ! self::has_consent() ) {
 			return;
 		}
-		$flags = get_option( 'beepti_activation_oppti_plugins', null );
-		if ( ! is_array( $flags ) || ! get_option( self::ACTIVATION_MARKER ) ) {
+		if ( false !== get_option( self::ACTIVATION_SENT_OPTION, false ) ) {
 			return;
+		}
+		$flags = get_option( 'beepti_activation_oppti_plugins', null );
+		if ( ! is_array( $flags ) ) {
+			$flags = class_exists( MoreFromOppti::class ) ? MoreFromOppti::installed_flags() : [];
 		}
 		if ( ! add_option( self::ACTIVATION_SENT_OPTION, time(), '', false ) ) {
 			return;
 		}
-		$props = [ 'source' => 'activation_hook' ];
+		$props = [
+			'source'         => 'activation_hook',
+			'consent_source' => self::normalize_consent_source( $consent_source ),
+		];
 		foreach ( [ 'has_alt_text', 'has_titles', 'has_il', 'has_auditor' ] as $key ) {
 			$props[ $key ] = ! empty( $flags[ $key ] );
 		}
@@ -356,6 +419,8 @@ class Telemetry {
 			'product'        => self::PRODUCT,
 			'pluginVersion'  => BEEPTI_VERSION,
 			'connected'      => $client->has_license(),
+			'consentAnswered' => self::consent_answered(),
+			'showConsentCard' => self::should_show_consent_card(),
 			'environment'    => self::environment(),
 		];
 	}

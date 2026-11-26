@@ -22,7 +22,16 @@ class PagesController {
     /** Statuses the Library can read/edit: live pages plus pre-publish drafts. */
     private const EDITABLE_STATUSES = [ 'publish', 'draft', 'pending', 'future' ];
 
-    public function __construct( private readonly Client $client ) {}
+    /** @var Client */
+
+    private $client;
+
+
+    public function __construct( Client $client ) {
+
+        $this->client = $client;
+
+    }
 
     public function get_pages( \WP_REST_Request $req ): \WP_REST_Response {
         $scanner = new Scanner();
@@ -42,7 +51,7 @@ class PagesController {
         ] );
     }
 
-    public function get_page( \WP_REST_Request $req ): \WP_REST_Response|\WP_Error {
+    public function get_page( \WP_REST_Request $req ) {
         $post = get_post( (int) $req['id'] );
         if ( ! $post || ! in_array( $post->post_status, self::EDITABLE_STATUSES, true ) ) {
             return new \WP_Error( 'beepti_not_found', __( 'Page not found.', 'beepbeep-titles' ), [ 'status' => 404 ] );
@@ -50,7 +59,7 @@ class PagesController {
         return new \WP_REST_Response( ( new Scanner() )->format_post( $post ) );
     }
 
-    public function update_page( \WP_REST_Request $req ): \WP_REST_Response|\WP_Error {
+    public function update_page( \WP_REST_Request $req ) {
         $post = get_post( (int) $req['id'] );
         if ( ! $post || ! in_array( $post->post_status, self::EDITABLE_STATUSES, true ) ) {
             return new \WP_Error( 'beepti_not_found', __( 'Page not found.', 'beepbeep-titles' ), [ 'status' => 404 ] );

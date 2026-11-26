@@ -15,12 +15,12 @@ class Routes {
 
     private const NS = 'beepbeep-titles/v1';
 
-    private readonly GenerateController $generate;
-    private readonly BillingController $billing;
-    private readonly PagesController $pages;
-    private readonly SupportController $support;
-    private readonly HealthController $health;
-    private readonly TelemetryController $telemetry;
+    private GenerateController $generate;
+    private BillingController $billing;
+    private PagesController $pages;
+    private SupportController $support;
+    private HealthController $health;
+    private TelemetryController $telemetry;
 
     public function __construct() {
         $client = new Client();

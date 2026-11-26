@@ -3,7 +3,7 @@ Contributors: beepbeepv2
 Tags: seo, ai seo, meta description, title tag, site audit
 Requires at least: 6.3
 Tested up to: 7.1
-Requires PHP: 8.1
+Requires PHP: 7.4
 Stable tag: 1.0.31
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -176,7 +176,7 @@ Plugin options and transients are removed. Data written through Yoast, Rank Math
 
 = What PHP and WordPress versions are supported? =
 
-Requires **WordPress 6.3+** and **PHP 8.1+**, tested up to **WordPress 7.1**.
+Requires **WordPress 6.3+** and **PHP 7.4+**, tested up to **WordPress 7.1**.
 
 = Are there other OpptiAI plugins? =
 

@@ -8,7 +8,16 @@ defined( 'ABSPATH' ) || exit;
 
 class Admin {
 
-    public function __construct( private readonly Plugin $plugin ) {}
+    /** @var Plugin */
+
+    private $plugin;
+
+
+    public function __construct( Plugin $plugin ) {
+
+        $this->plugin = $plugin;
+
+    }
 
     public function init(): void {
         add_action( 'admin_menu',             [ $this, 'register_menus' ] );

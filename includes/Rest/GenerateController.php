@@ -20,7 +20,16 @@ defined( 'ABSPATH' ) || exit;
 
 class GenerateController {
 
-    public function __construct( private readonly Client $client ) {}
+    /** @var Client */
+
+    private $client;
+
+
+    public function __construct( Client $client ) {
+
+        $this->client = $client;
+
+    }
 
     public function generate( \WP_REST_Request $req ): \WP_REST_Response {
         $post = get_post( (int) $req->get_param( 'post_id' ) );
@@ -308,7 +317,7 @@ class GenerateController {
      * most recent optimisation, per the shared history log. Undoing does not
      * refund the credit that was spent — it only reverts the content.
      */
-    public function undo( \WP_REST_Request $req ): \WP_REST_Response|\WP_Error {
+    public function undo( \WP_REST_Request $req ) {
         $post_id = (int) $req->get_param( 'post_id' );
         $post    = get_post( $post_id );
         if ( ! $post ) {

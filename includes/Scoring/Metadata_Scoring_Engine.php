@@ -20,9 +20,9 @@ final class Metadata_Scoring_Engine {
 
     private const MODULE = 'titles';
 
-    private readonly Scan_Repository $repository;
-    private readonly Score_Service $title_scorer;
-    private readonly Score_Service $description_scorer;
+    private Scan_Repository $repository;
+    private Score_Service $title_scorer;
+    private Score_Service $description_scorer;
 
     public function __construct() {
         $this->repository          = new Scan_Repository( self::MODULE );
@@ -85,14 +85,14 @@ final class Metadata_Scoring_Engine {
             $desc_key  = '' !== $seo['meta'] ? Text_Utils::normalise( $seo['meta'] ) : null;
 
             $context = new Metadata_Context(
-                post_id: $post_id,
-                post_type: $post->post_type,
-                seo_title: $seo['title'],
-                meta_description: $seo['meta'],
-                native_title: $post->post_title,
-                content_excerpt: wp_trim_words( wp_strip_all_tags( $post->post_content ), 40, '' ),
-                title_duplicate_count: $title_key && isset( $title_counts[ $title_key ] ) ? max( 0, $title_counts[ $title_key ] - 1 ) : 0,
-                description_duplicate_count: $desc_key && isset( $desc_counts[ $desc_key ] ) ? max( 0, $desc_counts[ $desc_key ] - 1 ) : 0,
+                /* post_id */ $post_id,
+                /* post_type */ $post->post_type,
+                /* seo_title */ $seo['title'],
+                /* meta_description */ $seo['meta'],
+                /* native_title */ $post->post_title,
+                /* content_excerpt */ wp_trim_words( wp_strip_all_tags( $post->post_content ), 40, '' ),
+                /* title_duplicate_count */ $title_key && isset( $title_counts[ $title_key ] ) ? max( 0, $title_counts[ $title_key ] - 1 ) : 0,
+                /* description_duplicate_count */ $desc_key && isset( $desc_counts[ $desc_key ] ) ? max( 0, $desc_counts[ $desc_key ] - 1 ) : 0
             );
 
             $title_result = $this->title_scorer->evaluate_item( $context );
@@ -103,12 +103,12 @@ final class Metadata_Scoring_Engine {
             $all_issues    = array_merge( $title_result['issues'], $desc_result['issues'] );
 
             $this->repository->upsert_item(
-                site_item_id: (string) $post_id,
-                item_type: $post->post_type,
-                score: $overall_score,
-                status: Score_Service::status_for_score( $overall_score ),
-                issues: $all_issues,
-                current_value: wp_json_encode( [
+                /* site_item_id */ (string) $post_id,
+                /* item_type */ $post->post_type,
+                /* score */ $overall_score,
+                /* status */ Score_Service::status_for_score( $overall_score ),
+                /* issues */ $all_issues,
+                /* current_value */ wp_json_encode( [
                     'title'          => $seo['title'],
                     'meta'           => $seo['meta'],
                     'title_score'    => $title_result['score'],

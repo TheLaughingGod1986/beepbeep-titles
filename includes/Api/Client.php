@@ -62,7 +62,7 @@ class Client {
      *                             publish-time Autopilot, default otherwise.
      * @return array|\WP_Error Backend body on success.
      */
-    public function generate( array $page, array $options, ?array $previous = null, string $source = self::SOURCE_DEFAULT ): array|\WP_Error {
+    public function generate( array $page, array $options, ?array $previous = null, string $source = self::SOURCE_DEFAULT ) {
         $body = [
             'page'    => $page,
             'options' => $options,
@@ -124,7 +124,7 @@ class Client {
      * @param array $context Optional { scope }.
      * @return array|\WP_Error Job envelope { jobId, pollUrl, total, status }.
      */
-    public function submit_job( array $pages, array $options, array $context = [] ): array|\WP_Error {
+    public function submit_job( array $pages, array $options, array $context = [] ) {
         $body = [
             'pages'    => array_values( $pages ),
             'options'  => $options,
@@ -142,7 +142,7 @@ class Client {
      * @param string $job_id Job identifier.
      * @return array|\WP_Error Job payload with per-item status.
      */
-    public function poll_job( string $job_id ): array|\WP_Error {
+    public function poll_job( string $job_id ) {
         $job_id = trim( $job_id );
         if ( $job_id === '' ) {
             return new \WP_Error( 'beepti_invalid_job', __( 'Invalid job id.', 'beepbeep-titles' ), [ 'status' => 400 ] );
@@ -155,7 +155,7 @@ class Client {
      *
      * @return array|\WP_Error entitlement_state body.
      */
-    public function quota(): array|\WP_Error {
+    public function quota() {
         return $this->request( 'GET', '/api/titles/quota', null, 30 );
     }
 
@@ -166,17 +166,17 @@ class Client {
     // ----------------------------------------------------------------
 
     /** Available plans + Stripe price ids ({ starter, pro, agency, credits }). */
-    public function billing_plans(): array|\WP_Error {
+    public function billing_plans() {
         return $this->request( 'GET', '/billing/plans', null, 30 );
     }
 
     /** Current billing/subscription info for this account. */
-    public function billing_info(): array|\WP_Error {
+    public function billing_info() {
         return $this->request( 'GET', '/billing/info', null, 30 );
     }
 
     /** Backend "can checkout work right now?" probe (booleans only). */
-    public function billing_health(): array|\WP_Error {
+    public function billing_health() {
         return $this->request( 'GET', '/billing/health', null, 15 );
     }
 
@@ -208,7 +208,7 @@ class Client {
     }
 
     /** Create a Stripe Checkout session; returns { url } to redirect to. */
-    public function create_checkout( string $price_id, string $success_url, string $cancel_url, string $plan = '' ): array|\WP_Error {
+    public function create_checkout( string $price_id, string $success_url, string $cancel_url, string $plan = '' ) {
         return $this->request( 'POST', '/billing/checkout', [
             'priceId'     => $price_id,
             'successUrl'  => $success_url,
@@ -224,21 +224,21 @@ class Client {
      * Email the account's own open checkout link. The backend always sends to
      * the email on file; no recipient is ever passed from here.
      */
-    public function email_checkout_link( string $session_id ): array|\WP_Error {
+    public function email_checkout_link( string $session_id ) {
         return $this->request( 'POST', '/billing/checkout/email-link', [
             'session_id' => $session_id,
         ], 30 );
     }
 
     /** Create a Stripe billing-portal session for managing an existing plan. */
-    public function billing_portal( string $return_url ): array|\WP_Error {
+    public function billing_portal( string $return_url ) {
         return $this->request( 'POST', '/billing/portal', [
             'returnUrl' => $return_url,
         ], 45 );
     }
 
     /** Send a support/contact request through the OpptiAI backend mailer. */
-    public function support_contact( array $payload ): array|\WP_Error {
+    public function support_contact( array $payload ) {
         return $this->do_request( 'POST', '/api/contact', $payload, 30 );
     }
 
@@ -326,7 +326,7 @@ class Client {
     /**
      * @return array|\WP_Error Backend user payload on success (license stored).
      */
-    public function login( string $email, string $password ): array|\WP_Error {
+    public function login( string $email, string $password ) {
         $result = $this->do_request( 'POST', '/auth/login', [
             'email'        => $email,
             'password'     => $password,
@@ -379,7 +379,7 @@ class Client {
      *
      * @return array|\WP_Error Backend user payload on success (license stored).
      */
-    public function register( string $email, string $password, array $signup = [] ): array|\WP_Error {
+    public function register( string $email, string $password, array $signup = [] ) {
         $signup = self::sanitize_signup_source( $signup['signup_source'] ?? '', $signup['signup_source_other'] ?? '' );
         // Website Auditor deep-link attribution (account data, not telemetry:
         // sent regardless of usage-stats consent, never to PostHog).
@@ -519,7 +519,7 @@ class Client {
      * @return array|\WP_Error Decoded body on 2xx; WP_Error otherwise with
      *                         error_data { status, code, entitlement_state, body }.
      */
-    private function request( string $method, string $path, ?array $body, int $timeout, string $source = self::SOURCE_DEFAULT ): array|\WP_Error {
+    private function request( string $method, string $path, ?array $body, int $timeout, string $source = self::SOURCE_DEFAULT ) {
         if ( ! $this->has_license() ) {
             return new \WP_Error(
                 'beepti_no_license',
@@ -536,7 +536,7 @@ class Client {
     }
 
     /** Same plumbing as request() but without the license guard (auth routes). */
-    private function do_request( string $method, string $path, ?array $body, int $timeout, bool $include_context_headers = true, ?array $headers = null ): array|\WP_Error {
+    private function do_request( string $method, string $path, ?array $body, int $timeout, bool $include_context_headers = true, ?array $headers = null ) {
         $url  = BEEPTI_API_BASE . '/' . ltrim( $path, '/' );
         $args = [
             'method'    => $method,
@@ -591,15 +591,20 @@ class Client {
             ?? ( is_string( $data['error'] ?? null ) ? $data['error'] : '' );
         $code = strtoupper( (string) $code );
 
-        return match ( $code ) {
-            'USER_EXISTS', 'SITE_HAS_LICENSE' => 409,
-            'INVALID_CREDENTIALS', 'INVALID_LICENSE', 'NO_PASSWORD' => 401,
-            'ACCOUNT_INACTIVE', 'DEVELOPMENT_SITE_NOT_ALLOWED' => 403,
-            'QUOTA_EXCEEDED' => 402,
-            'SERVICE_UNAVAILABLE' => 503,
-            'SERVER_ERROR', 'REGISTRATION_FAILED' => 500,
-            default => 400,
-        };
+        $map = [
+            'USER_EXISTS'                  => 409,
+            'SITE_HAS_LICENSE'             => 409,
+            'INVALID_CREDENTIALS'          => 401,
+            'INVALID_LICENSE'              => 401,
+            'NO_PASSWORD'                  => 401,
+            'ACCOUNT_INACTIVE'             => 403,
+            'DEVELOPMENT_SITE_NOT_ALLOWED' => 403,
+            'QUOTA_EXCEEDED'               => 402,
+            'SERVICE_UNAVAILABLE'          => 503,
+            'SERVER_ERROR'                 => 500,
+            'REGISTRATION_FAILED'          => 500,
+        ];
+        return isset( $map[ $code ] ) ? $map[ $code ] : 400;
     }
 
     /**
@@ -656,7 +661,7 @@ class Client {
         return new \WP_Error( 'beepti_api_error', $message, $error_data );
     }
 
-    private function store_account_license_from_auth_result( array $result, string $email, string $action ): array|\WP_Error {
+    private function store_account_license_from_auth_result( array $result, string $email, string $action ) {
         // Backend wraps the payload as { success, data: { token, user } } but
         // older deployments return { token, user } at the top level.
         $user = $result['data']['user'] ?? $result['user'] ?? null;
@@ -685,14 +690,14 @@ class Client {
     }
 
     private function code_for_status( int $status ): string {
-        return match ( $status ) {
-            400     => 'INVALID_REQUEST',
-            401     => 'INVALID_LICENSE',
-            402     => 'QUOTA_EXCEEDED',
-            429     => 'RATE_LIMIT_EXCEEDED',
-            502     => 'UPSTREAM_GENERATION_ERROR',
-            default => 'API_ERROR',
-        };
+        $map = [
+            400 => 'INVALID_REQUEST',
+            401 => 'INVALID_LICENSE',
+            402 => 'QUOTA_EXCEEDED',
+            429 => 'RATE_LIMIT_EXCEEDED',
+            502 => 'UPSTREAM_GENERATION_ERROR',
+        ];
+        return isset( $map[ $status ] ) ? $map[ $status ] : 'API_ERROR';
     }
 
     // ----------------------------------------------------------------

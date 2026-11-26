@@ -9,10 +9,38 @@
  * License:           GPL-2.0-or-later
  * Text Domain:       beepbeep-titles
  * Requires at least: 6.3
- * Requires PHP:      8.1
+ * Requires PHP:      7.4
  */
 
 defined( 'ABSPATH' ) || exit;
+
+// Minimum PHP version. This file only uses syntax every PHP version
+// WordPress supports can parse, so an older server gets a notice instead of
+// a fatal error. The plugin code itself loads only when the floor is met.
+define( 'BEEPTI_MIN_PHP', '7.4' );
+
+if ( version_compare( PHP_VERSION, BEEPTI_MIN_PHP, '<' ) ) {
+    if ( ! function_exists( 'beepti_php_version_notice' ) ) {
+        /**
+         * Admin notice shown when the server PHP version is below the floor.
+         */
+        function beepti_php_version_notice() {
+            if ( ! current_user_can( 'activate_plugins' ) ) {
+                return;
+            }
+            echo '<div class="notice notice-error"><p>' . esc_html(
+                sprintf(
+                    /* translators: 1: required PHP version, 2: current PHP version. */
+                    __( 'OpptiAI Titles needs PHP %1$s or newer. This site runs PHP %2$s, so the plugin is paused. Ask your host to update PHP.', 'beepbeep-titles' ),
+                    BEEPTI_MIN_PHP,
+                    PHP_VERSION
+                )
+            ) . '</p></div>';
+        }
+    }
+    add_action( 'admin_notices', 'beepti_php_version_notice' );
+    return;
+}
 
 define( 'BEEPTI_VERSION', '1.0.31' );
 define( 'BEEPTI_FILE',    __FILE__ );
@@ -42,43 +70,5 @@ define( 'BEEPTI_PLUGIN_ENV',
     ( defined( 'WP_DEBUG' ) && WP_DEBUG ) ? 'development' : 'production'
 );
 
-// PSR-4-style autoloader for BeepBeep_Titles\ namespace.
-spl_autoload_register( static function ( string $class ): void {
-    if ( ! str_starts_with( $class, 'BeepBeep_Titles\\' ) ) {
-        return;
-    }
-    $rel  = str_replace( 'BeepBeep_Titles\\', '', $class );
-    $file = BEEPTI_DIR . 'includes/' . str_replace( '\\', DIRECTORY_SEPARATOR, $rel ) . '.php';
-    if ( is_readable( $file ) ) {
-        require_once $file;
-    }
-} );
-
-// Shared OptiAI\Core\ package — vendored copy, no cross-plugin dependency.
-// See includes/OptiAICore/ for the shared scoring engine + scan storage this
-// plugin's health dashboard is built on.
-require_once BEEPTI_DIR . 'includes/OptiAICore/autoload.php';
-
-// Tell Plugin Check to skip dev-only paths (mirrors .distignore / release zip).
-add_filter( 'wp_plugin_check_ignore_directories', static function ( array $directories ): array {
-    return array_merge( $directories, [ 'tests', 'scripts', '.github', '.claude', 'node_modules', 'dist' ] );
-} );
-add_filter( 'wp_plugin_check_ignore_files', static function ( array $files ): array {
-    return array_merge( $files, [
-        '.wp-env.json',
-        '.eslintrc.json',
-        '.gitignore',
-        '.distignore',
-        '.plugin-check.json',
-        'docker-compose.yml',
-        'README.md',
-    ] );
-} );
-
-// Bootstrap on plugins_loaded so all WP APIs are available.
-add_action( 'plugins_loaded', static function (): void {
-    ( new BeepBeep_Titles\Plugin() )->init();
-} );
-
-register_activation_hook( __FILE__,   [ BeepBeep_Titles\Plugin::class, 'activate' ] );
-register_deactivation_hook( __FILE__, [ BeepBeep_Titles\Plugin::class, 'deactivate' ] );
+// Everything below needs PHP 7.4+, so it lives in its own file.
+require_once BEEPTI_DIR . 'includes/bootstrap.php';
